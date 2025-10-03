@@ -1,7 +1,6 @@
-<!doctype html>
-<html lang="ru">
-<head><meta charset="utf-8"><title>Список объектов</title></head>
-<body>
+{% extends "base.html" %}
+{% block title %}Объекты — Мини-CRM{% endblock %}
+{% block content %}
   <h1>Объекты</h1>
 
   <form method="get" action="/panel/">
@@ -9,36 +8,41 @@
     <button type="submit">Искать</button>
   </form>
 
-  <p><a href="/panel/new/">+ Создать объект</a></p>
+  <article>
+    <header class="grid-3">
+      <div><span class="muted">Всего</span><h3 style="margin:0">{{ props|length }}</h3></div>
+      <div><span class="muted">Фиды</span>
+        <form method="post" action="/panel/generate-feeds/" style="display:inline">
+          {% csrf_token %}
+          <button>Сгенерировать</button>
+        </form>
+      </div>
+      <div style="text-align:right"><a role="button" href="/panel/new/">+ Создать объект</a></div>
+    </header>
 
-  <table border="1" cellpadding="6">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Заголовок</th>
-        <th>Город</th>
-        <th>Обновлён</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for p in props %}
-      <tr>
-        <td>{{ p.pk }}</td>
-        <td>{{ p.title }}</td>
-        <td>{{ p.city }}</td>
-        <td>{{ p.updated_at }}</td>
-        <td><a href="/panel/edit/{{ p.pk }}/">Открыть</a></td>
-      </tr>
-    {% empty %}
-      <tr><td colspan="5">Пока нет объектов</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-
-  <form method="post" action="/panel/generate-feeds/">
-    {% csrf_token %}
-    <button type="submit">Сгенерировать фиды</button>
-  </form>
-</body>
-</html>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Заголовок</th>
+          <th>Город</th>
+          <th>Обновлён</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for p in props %}
+        <tr>
+          <td>{{ p.pk }}</td>
+          <td>{{ p.title }}</td>
+          <td>{{ p.city }}</td>
+          <td><span class="muted">{{ p.updated_at }}</span></td>
+          <td><a href="/panel/edit/{{ p.pk }}/">Открыть</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5">Пока нет объектов</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </article>
+{% endblock %}
