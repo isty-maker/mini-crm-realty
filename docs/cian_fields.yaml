@@ -1,0 +1,246 @@
+version: 2
+notes:
+  - "Исключены поля Метро (Undergrounds) и ЖК (JKSchema) по требованию."
+  - "Названия в model_field соответствуют текущей модели Property в проекте (если поля уже есть)."
+  - "status: required | recommended | optional | skip"
+
+common:  # Поля, общие для всех категорий / сделок
+  - tag: Category             # Категория объекта
+    model_field: category
+    status: required
+    values_hint: [flat, room, house, commercial]
+  - tag: ExternalId           # Внешний ID
+    model_field: external_id
+    status: required
+  - tag: Description          # 15..3000 символов (ориентир)
+    model_field: description
+    status: required
+  - tag: Address
+    model_field: address
+    status: required
+  - tag: Coordinates.Lat
+    model_field: lat
+    status: recommended
+  - tag: Coordinates.Lng
+    model_field: lng
+    status: recommended
+  - tag: CadastralNumber
+    model_field: cadastral_number
+    status: optional
+  - tag: Phones[0].CountryCode
+    model_field: phone_country
+    status: optional
+  - tag: Phones[0].Number
+    model_field: phone_number
+    status: optional
+  - tag: Phones[1].CountryCode
+    model_field: phone_country
+    status: optional
+  - tag: Phones[1].Number
+    model_field: phone_number2
+    status: optional
+  - tag: LayoutPhoto.FullUrl
+    model_field: layout_photo_url
+    status: optional
+  - tag: LayoutPhoto.IsDefault
+    model_field: (derive_true_for_layout)
+    status: optional
+  - tag: ObjectTour.FullUrl
+    model_field: object_tour_url
+    status: optional
+  - tag: Photos[].FullUrl
+    model_field: Photo.full_url
+    status: recommended
+  - tag: Photos[].IsDefault
+    model_field: Photo.is_default
+    status: optional
+
+deal_terms:   # Условия сделки (BargainTerms)
+  - tag: BargainTerms.Price
+    model_field: price
+    status: required
+  - tag: BargainTerms.Currency
+    model_field: currency
+    status: required        # 'rur'|'usd'|'eur'
+  - tag: BargainTerms.MortgageAllowed
+    model_field: mortgage_allowed
+    status: optional        # для продажи
+  - tag: BargainTerms.AgentBonus.Value
+    model_field: agent_bonus_value
+    status: optional
+  - tag: BargainTerms.AgentBonus.PaymentType
+    model_field: agent_bonus_is_percent   # percent|fixed -> bool derive
+    status: optional
+  - tag: BargainTerms.AgentBonus.Currency
+    model_field: currency
+    status: optional        # если fixed
+  - tag: BargainTerms.SecurityDeposit
+    model_field: security_deposit
+    status: optional        # для аренды
+  - tag: BargainTerms.MinRentTerm
+    model_field: min_rent_term_months
+    status: optional        # для аренды
+
+category:
+  flat:  # Квартира
+    sale:
+      - tag: FlatRoomsCount
+        model_field: flat_rooms_count
+        status: required
+      - tag: RoomType
+        model_field: room_type
+        status: optional   # both|combined|separate
+      - tag: IsEuroFlat
+        model_field: is_euro_flat
+        status: optional
+      - tag: IsApartments
+        model_field: is_apartments
+        status: optional
+      - tag: IsPenthouse
+        model_field: is_penthouse
+        status: optional
+      - tag: TotalArea
+        model_field: total_area
+        status: required
+      - tag: LivingArea
+        model_field: living_area
+        status: recommended
+      - tag: KitchenArea
+        model_field: kitchen_area
+        status: recommended
+      - tag: FloorNumber
+        model_field: floor_number
+        status: required
+      - tag: BalconiesCount
+        model_field: balconies_count
+        status: optional
+      - tag: LoggiasCount
+        model_field: loggias_count
+        status: optional
+      - tag: WindowsViewType
+        model_field: windows_view_type
+        status: optional
+      - tag: SeparateWcsCount
+        model_field: separate_wcs_count
+        status: optional
+      - tag: CombinedWcsCount
+        model_field: combined_wcs_count
+        status: optional
+      - tag: RepairType
+        model_field: repair_type
+        status: optional
+      - tag: HasInternet
+        model_field: has_internet
+        status: optional
+      - tag: HasFurniture
+        model_field: has_furniture
+        status: optional
+      - tag: HasKitchenFurniture
+        model_field: has_kitchen_furniture
+        status: optional
+      - tag: HasTv
+        model_field: has_tv
+        status: optional
+      - tag: HasWasher
+        model_field: has_washer
+        status: optional
+      - tag: HasConditioner
+        model_field: has_conditioner
+        status: optional
+      - tag: HasPhone
+        model_field: has_phone
+        status: optional
+      - tag: HasBathtub
+        model_field: has_bathtub
+        status: optional
+    rent:
+      - tag: FlatRoomsCount
+        model_field: flat_rooms_count
+        status: required
+      - tag: TotalArea
+        model_field: total_area
+        status: required
+      - tag: FloorNumber
+        model_field: floor_number
+        status: required
+
+  room:  # Комната
+    sale:
+      - tag: FlatRoomsCount
+        model_field: flat_rooms_count
+        status: recommended
+      - tag: TotalArea
+        model_field: total_area
+        status: required
+      - tag: FloorNumber
+        model_field: floor_number
+        status: required
+    rent:
+      - tag: TotalArea
+        model_field: total_area
+        status: required
+
+  house:  # Дом/коттедж
+    sale:
+      - tag: TotalArea
+        model_field: total_area
+        status: required
+      - tag: Land.Area
+        model_field: land_area
+        status: recommended
+      - tag: Land.AreaUnitType
+        model_field: land_area_unit
+        status: optional
+      - tag: Land.PermittedLandUseType
+        model_field: permitted_land_use
+        status: optional
+      - tag: Land.IsLandWithContract
+        model_field: is_land_with_contract
+        status: optional
+      - tag: LandCategory
+        model_field: land_category
+        status: optional
+      - tag: HeatingType
+        model_field: heating_type
+        status: optional
+      - tag: HasTerrace
+        model_field: has_terrace
+        status: optional
+      - tag: HasCellar
+        model_field: has_cellar
+        status: optional
+      - tag: CeilingHeight
+        model_field: ceiling_height
+        status: optional
+    rent:
+      - tag: TotalArea
+        model_field: total_area
+        status: required
+      - tag: HeatingType
+        model_field: heating_type
+        status: optional
+
+  commercial:  # Коммерческая
+    sale:
+      - tag: TotalArea
+        model_field: total_area
+        status: required
+      - tag: ElectricityPower
+        model_field: power
+        status: optional
+      - tag: HasParking
+        model_field: has_parking
+        status: optional
+      - tag: ParkingPlaces
+        model_field: parking_places
+        status: optional
+      - tag: HasRamp
+        model_field: has_ramp
+        status: optional
+    rent:
+      - tag: TotalArea
+        model_field: total_area
+        status: required
+      - tag: ElectricityPower
+        model_field: power
+        status: optional
