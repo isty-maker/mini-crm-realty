@@ -36,17 +36,20 @@ def panel_new(request):
     return render(request, "core/panel_edit.html", {"form": form, "prop": None, "photos": []})
 
 def panel_edit(request, pk):
+    """
+    Редактирование существующего объекта (без фото-логики).
+    """
     prop = get_object_or_404(Property, pk=pk)
     if request.method == "POST":
         form = PropertyForm(request.POST, instance=prop)
         if form.is_valid():
-            obj = form.save()
-            return redirect(f"/panel/edit/{obj.pk}/")
+            form.save()
+            # остаёмся на этой же странице
+            return redirect(f"/panel/edit/{prop.pk}/")
     else:
         form = PropertyForm(instance=prop)
-    photos = prop.photos.all()
-    photo_form = PhotoForm()
-    return render(request, "core/panel_edit.html", {"form": form, "prop": prop, "photos": photos, "photo_form": photo_form})
+    # пока без фактических фото — отдадим пустой список для шаблона
+    return render(request, "core/panel_edit.html", {"form": form, "prop": prop, "photos": []})
 
 def panel_add_photo(request, pk):
     if request.method != "POST":
