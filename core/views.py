@@ -1,4 +1,5 @@
 # core/views.py
+from django.db.models import Q
 from django.http import HttpResponse, HttpResponseNotAllowed
 from django.shortcuts import render, get_object_or_404, redirect
 from xml.etree.ElementTree import Element, SubElement, tostring
@@ -6,12 +7,19 @@ from django.utils.encoding import smart_str
 
 from .models import Property, Photo
 from .forms import PropertyForm, PhotoForm
+from .guards import shared_key_required
 
+@shared_key_required
 def panel_list(request):
     q = request.GET.get("q", "").strip()
-    props = Property.objects.all().order_by("-updated_at")
+    props = Property.objects.all()
     if q:
-        props = props.filter(address__icontains=q) | props.filter(external_id__icontains=q)
+        props = props.filter(
+            Q(title__icontains=q) |
+            Q(city__icontains=q) |
+            Q(external_id__icontains=q)
+        )
+    props = props.order_by("-updated_at", "-id")
     return render(request, "core/panel_list.html", {"props": props, "q": q})
 
 def panel_edit(request, pk=None):
