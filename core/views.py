@@ -22,6 +22,22 @@ def panel_list(request):
     props = props.order_by("-updated_at", "-id")
     return render(request, "core/panel_list.html", {"props": props, "q": q})
 
+@shared_key_required
+def panel_new(request):
+    """
+    Создание объекта:
+    GET  -> пустая форма
+    POST -> сохранить и перейти на редактирование созданного объекта
+    """
+    if request.method == "POST":
+        form = PropertyForm(request.POST)
+        if form.is_valid():
+            prop = form.save()
+            return redirect(f"/panel/edit/{prop.pk}/")
+    else:
+        form = PropertyForm()
+    return render(request, "core/panel_edit.html", {"form": form, "prop": None, "photos": []})
+
 def panel_edit(request, pk=None):
     prop = get_object_or_404(Property, pk=pk) if pk else None
     if request.method == "POST":
