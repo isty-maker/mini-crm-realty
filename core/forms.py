@@ -43,10 +43,19 @@ class PropertyForm(forms.ModelForm):
 
             "is_rent_by_parts","rent_by_parts_desc","ceiling_height","power","parking_places","has_parking",
 
-            "has_internet","has_furniture","has_kitchen_furniture","has_tv","has_washer","has_conditioner","has_phone","has_ramp","has_bathtub",
-
+            "furnishing_details","has_internet","has_furniture","has_kitchen_furniture","has_tv","has_washer","has_conditioner",
+            "has_refrigerator","has_dishwasher","has_shower","has_phone","has_ramp","has_bathtub",
+        
             "price","currency","mortgage_allowed","agent_bonus_value","agent_bonus_is_percent","security_deposit","min_rent_term_months",
         ]
+
+        labels = {
+            "furnishing_details": "Комплектация",
+        }
+
+        widgets = {
+            "furnishing_details": forms.TextInput(attrs={"placeholder": "Напр. шкаф, кровать"}),
+        }
 
 class PhotoForm(forms.ModelForm):
     class Meta:
