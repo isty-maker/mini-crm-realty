@@ -2,6 +2,8 @@
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseRedirect
 from django.shortcuts import render, redirect, get_object_or_404
+from django.conf import settings
+import os
 from xml.etree.ElementTree import Element, SubElement, tostring
 from django.utils.encoding import smart_str
 
@@ -213,6 +215,24 @@ def export_cian(request):
 
     xml_bytes = tostring(root, encoding="utf-8", xml_declaration=True)
     return HttpResponse(xml_bytes, content_type="application/xml; charset=utf-8")
+
+
+def panel_generate_feeds(request):
+    # получить xml-байты из существующей функции export_cian
+    resp = export_cian(request)
+    xml_bytes = resp.content
+
+    # гарантировать/media/feeds
+    feeds_dir = os.path.join(settings.MEDIA_ROOT, "feeds")
+    os.makedirs(feeds_dir, exist_ok=True)
+
+    # записать файл
+    out_path = os.path.join(feeds_dir, "cian.xml")
+    with open(out_path, "wb") as f:
+        f.write(xml_bytes)
+
+    # вернуться на список
+    return redirect("/panel/")
 
 
 def panel_new(request):
