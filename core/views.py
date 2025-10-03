@@ -1,6 +1,6 @@
 # core/views.py
 from django.db.models import Q
-from django.http import HttpResponse, HttpResponseNotAllowed
+from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseRedirect
 from django.shortcuts import render, redirect, get_object_or_404
 from xml.etree.ElementTree import Element, SubElement, tostring
 from django.utils.encoding import smart_str
@@ -52,33 +52,16 @@ def panel_edit(request, pk):
     return render(request, "core/panel_edit.html", {"form": form, "prop": prop, "photos": []})
 
 def panel_add_photo(request, pk):
-    if request.method != "POST":
-        return HttpResponseNotAllowed(["POST"])
-    prop = get_object_or_404(Property, pk=pk)
-    form = PhotoForm(request.POST)
-    if form.is_valid():
-        photo = form.save(commit=False)
-        photo.prop = prop
-        if photo.is_default:
-            prop.photos.update(is_default=False)
-        photo.save()
-    return redirect(f"/panel/edit/{pk}/")
+    # TODO: заменить на реальную загрузку (URL или FileField)
+    return HttpResponseRedirect(f"/panel/edit/{pk}/")
 
 
 def panel_delete_photo(request, photo_id):
-    photo = get_object_or_404(Photo, pk=photo_id)
-    prop_id = photo.prop_id
-    photo.delete()
-    return redirect(f"/panel/edit/{prop_id}/")
+    return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/panel/"))
 
 
 def panel_toggle_main(request, photo_id):
-    photo = get_object_or_404(Photo, pk=photo_id)
-    prop = photo.prop
-    prop.photos.update(is_default=False)
-    photo.is_default = True
-    photo.save()
-    return redirect(f"/panel/edit/{prop.pk}/")
+    return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/panel/"))
 
 # -------- Экспорт ЦИАН (Feed_Version=2) --------
 def _add_text(parent, tag, value, always=False):
