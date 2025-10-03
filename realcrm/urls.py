@@ -1,13 +1,15 @@
-# realcrm/urls.py
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
+from core import views as core_views
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
-    path("panel/", include("core.urls")),  # НИКАКИХ импортов core.views здесь
-]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    path("panel/", core_views.panel_list, name="panel_list"),
+    path("panel/new/", core_views.panel_new, name="panel_new"),
+    path("panel/edit/<int:pk>/", core_views.panel_edit, name="panel_edit"),
+    path("panel/edit/<int:pk>/add-photo/", core_views.panel_add_photo, name="panel_add_photo"),
+    path("panel/photo/<int:photo_id>/delete/", core_views.panel_delete_photo, name="panel_delete_photo"),
+    path("panel/photo/<int:photo_id>/make-main/", core_views.panel_toggle_main, name="panel_toggle_main"),
+    path("panel/generate-feeds/", core_views.panel_generate_feeds, name="panel_generate_feeds"),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
