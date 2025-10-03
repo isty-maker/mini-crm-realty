@@ -51,26 +51,34 @@ def panel_edit(request, pk):
     photo_form = PhotoForm()
     return render(request, "core/panel_edit.html", {"form": form, "prop": prop, "photos": photos, "photo_form": photo_form})
 
-def photo_add(request, pk):
+def panel_add_photo(request, pk):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
     prop = get_object_or_404(Property, pk=pk)
-    f = PhotoForm(request.POST)
-    if f.is_valid():
-        p = f.save(commit=False)
-        p.prop = prop
-        if p.is_default:
+    form = PhotoForm(request.POST)
+    if form.is_valid():
+        photo = form.save(commit=False)
+        photo.prop = prop
+        if photo.is_default:
             prop.photos.update(is_default=False)
-        p.save()
-    return redirect("core:panel_edit", pk=pk)
+        photo.save()
+    return redirect(f"/panel/edit/{pk}/")
 
-def photo_delete(request, pk, photo_id):
-    if request.method not in ("POST","GET"):
-        return HttpResponseNotAllowed(["POST","GET"])
-    prop = get_object_or_404(Property, pk=pk)
-    photo = get_object_or_404(Photo, pk=photo_id, prop=prop)
+
+def panel_delete_photo(request, photo_id):
+    photo = get_object_or_404(Photo, pk=photo_id)
+    prop_id = photo.prop_id
     photo.delete()
-    return redirect("core:panel_edit", pk=pk)
+    return redirect(f"/panel/edit/{prop_id}/")
+
+
+def panel_toggle_main(request, photo_id):
+    photo = get_object_or_404(Photo, pk=photo_id)
+    prop = photo.prop
+    prop.photos.update(is_default=False)
+    photo.is_default = True
+    photo.save()
+    return redirect(f"/panel/edit/{prop.pk}/")
 
 # -------- Экспорт ЦИАН (Feed_Version=2) --------
 def _add_text(parent, tag, value, always=False):
