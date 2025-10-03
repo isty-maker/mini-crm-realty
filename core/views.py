@@ -10,6 +10,18 @@ from django.utils.encoding import smart_str
 from .models import Property, Photo
 from .forms import PropertyForm, PhotoForm, NewObjectStep1Form
 
+
+def _enable_choice_fields(form, field_names):
+    for name in field_names:
+        field = form.fields.get(name)
+        if not field:
+            continue
+        field.disabled = False
+        if "disabled" in field.widget.attrs:
+            field.widget.attrs = {
+                key: value for key, value in field.widget.attrs.items() if key != "disabled"
+            }
+
 def panel_list(request):
     q = request.GET.get("q", "").strip()
     props = Property.objects.all()
@@ -42,12 +54,14 @@ def panel_edit(request, pk):
     prop = get_object_or_404(Property, pk=pk)
     if request.method == "POST":
         form = PropertyForm(request.POST, instance=prop)
+        _enable_choice_fields(form, ["category", "operation"])
         if form.is_valid():
             form.save()
             # остаёмся на этой же странице
             return redirect(f"/panel/edit/{prop.pk}/")
     else:
         form = PropertyForm(instance=prop)
+        _enable_choice_fields(form, ["category", "operation"])
     # пока без фактических фото — отдадим пустой список для шаблона
     return render(request, "core/panel_edit.html", {"form": form, "prop": prop, "photos": []})
 

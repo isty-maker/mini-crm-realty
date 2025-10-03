@@ -17,6 +17,9 @@
     .form-row { display:grid; grid-template-columns: 1fr; gap:.6rem; margin:.4rem 0; }
     .form-row.row-2 { grid-template-columns: 1fr 1fr; }
     .form-row.row-2 .form-row { margin: 0; }
+    .group { margin: 2rem 0; padding: 1rem 0; border-top: 1px solid #dde; }
+    .group:first-of-type { border-top: none; padding-top: 0; }
+    .group > h3 { margin-bottom: .6rem; }
     label { margin-bottom:.2rem; font-weight:600; font-size:.9em; }
     button,
     .button,
@@ -52,5 +55,74 @@
     </nav>
     {% block content %}{% endblock %}
   </main>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const categorySelect = document.querySelector('select[name="category"]');
+      const operationSelect = document.querySelector('select[name="operation"]');
+
+      const normalizeCategory = (value) => {
+        if (!value) return null;
+        const low = value.toLowerCase();
+        if (low.includes('flat') || low.includes('apartment')) return 'flat';
+        if (low.includes('room') || low.includes('bed')) return 'room';
+        if (low.includes('house') || low.includes('cottage') || low.includes('townhouse')) return 'house';
+        if (low.includes('land')) return 'land';
+        if (low.includes('office') || low.includes('industry') || low.includes('warehouse') ||
+            low.includes('shopping') || low.includes('commercial') || low.includes('business') ||
+            low.includes('building') || low.includes('garage') || low.includes('freeappointment')) {
+          return 'commercial';
+        }
+        return value;
+      };
+
+      const resolveOperation = () => {
+        if (operationSelect && operationSelect.value) {
+          return operationSelect.value.toLowerCase();
+        }
+        if (!categorySelect || !categorySelect.value) {
+          return null;
+        }
+        const low = categorySelect.value.toLowerCase();
+        if (low.includes('rent')) return 'rent';
+        if (low.includes('sale')) return 'sale';
+        return null;
+      };
+
+      const splitAttr = (value) => {
+        if (!value) return null;
+        return value.split(',').map((item) => item.trim().toLowerCase()).filter(Boolean);
+      };
+
+      const updateGroups = () => {
+        const rawCategory = categorySelect ? categorySelect.value : null;
+        const normalizedCategory = normalizeCategory(rawCategory);
+        const categoryCandidates = [];
+        if (normalizedCategory) categoryCandidates.push(normalizedCategory.toLowerCase());
+        if (rawCategory) categoryCandidates.push(rawCategory.toLowerCase());
+
+        const operationValue = resolveOperation();
+
+        document.querySelectorAll('section.group').forEach((section) => {
+          const catAttr = splitAttr(section.dataset.cat);
+          const opAttr = splitAttr(section.dataset.op);
+
+          const categoryMatches = !catAttr || categoryCandidates.length === 0 ||
+            categoryCandidates.some((candidate) => catAttr.includes(candidate));
+          const operationMatches = !opAttr || !operationValue || opAttr.includes(operationValue);
+
+          section.style.display = categoryMatches && operationMatches ? '' : 'none';
+        });
+      };
+
+      if (categorySelect) {
+        categorySelect.addEventListener('change', updateGroups);
+      }
+      if (operationSelect) {
+        operationSelect.addEventListener('change', updateGroups);
+      }
+
+      updateGroups();
+    });
+  </script>
 </body>
 </html>
