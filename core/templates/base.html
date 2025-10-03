@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Мини-CRM{% endblock %}</title>
+  <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2.0.6/css/pico.min.css">
+  <style>
+    main.container { max-width: 1100px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .muted { color: #667; font-size: .9rem; }
+    .photos { display: grid; grid-template-columns: repeat(5, 1fr); gap: .5rem; }
+    .photos img { width: 100%; height: 120px; object-fit: cover; border-radius: 6px; }
+    .tag { padding: .15rem .5rem; border-radius: .5rem; background: #eef; font-size: .8rem; }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <main class="container">
+    <nav>
+      <ul><li><strong>Мини-CRM</strong></li></ul>
+      <ul>
+        <li><a href="/panel/">Список</a></li>
+        <li><a href="/panel/new/">+ Создать объект</a></li>
+      </ul>
+    </nav>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
