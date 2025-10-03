@@ -55,6 +55,9 @@ class PropertyForm(forms.ModelForm):
 
         widgets = {
             "furnishing_details": forms.TextInput(attrs={"placeholder": "Напр. шкаф, кровать"}),
+            "power": forms.NumberInput(attrs={"placeholder": "кВт"}),
+            "parking_places": forms.NumberInput(attrs={"placeholder": "Количество мест"}),
+            "total_area": forms.NumberInput(attrs={"placeholder": "м²"}),
         }
 
 class PhotoForm(forms.ModelForm):
