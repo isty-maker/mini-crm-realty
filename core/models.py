@@ -120,10 +120,10 @@ class Property(models.Model):
     has_terrace = models.BooleanField("Есть терраса", default=False)
     has_cellar = models.BooleanField("Есть погреб", default=False)
 
-    # Коммерция (частые)
+    # Коммерция / дом (частые)
     is_rent_by_parts = models.BooleanField("Сдаётся по частям", default=False)
     rent_by_parts_desc = models.CharField("Описание сдачи части", max_length=255, blank=True)
-    ceiling_height = models.DecimalField("Высота потолка (комм.), м", max_digits=4, decimal_places=2, null=True, blank=True)
+    ceiling_height = models.DecimalField("Высота потолков, м", max_digits=4, decimal_places=2, null=True, blank=True)
     power = models.PositiveIntegerField("Выделенная мощность, кВт", null=True, blank=True)
     parking_places = models.PositiveIntegerField("Паркомест", null=True, blank=True)
     has_parking = models.BooleanField("Есть парковка", default=False)
