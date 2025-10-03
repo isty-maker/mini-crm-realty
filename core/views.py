@@ -8,7 +8,7 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 from django.utils.encoding import smart_str
 
 from .models import Property, Photo
-from .forms import PropertyForm, PhotoForm
+from .forms import PropertyForm, PhotoForm, NewObjectStep1Form
 
 def panel_list(request):
     q = request.GET.get("q", "").strip()
@@ -23,19 +23,17 @@ def panel_list(request):
     return render(request, "core/panel_list.html", {"props": props, "q": q})
 
 def panel_new(request):
-    """
-    Создание объекта:
-    GET  -> пустая форма
-    POST -> сохранить и перейти на редактирование созданного объекта
-    """
     if request.method == "POST":
-        form = PropertyForm(request.POST)
+        form = NewObjectStep1Form(request.POST)
         if form.is_valid():
-            prop = form.save()
+            prop = Property.objects.create(
+                category=form.cleaned_data["category"],
+                operation=form.cleaned_data["operation"],
+            )
             return redirect(f"/panel/edit/{prop.pk}/")
     else:
-        form = PropertyForm()
-    return render(request, "core/panel_edit.html", {"form": form, "prop": None, "photos": []})
+        form = NewObjectStep1Form()
+    return render(request, "core/panel_new_step1.html", {"form": form})
 
 def panel_edit(request, pk):
     """
