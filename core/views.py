@@ -22,18 +22,21 @@ def panel_list(request):
     props = props.order_by("-updated_at", "-id")
     return render(request, "core/panel_list.html", {"props": props, "q": q})
 
-def panel_edit(request, pk=None):
-    prop = get_object_or_404(Property, pk=pk) if pk else None
+def panel_edit(request, pk):
+    """
+    Редактирование существующего объекта (без фото-логики).
+    """
+    prop = get_object_or_404(Property, pk=pk)
     if request.method == "POST":
         form = PropertyForm(request.POST, instance=prop)
         if form.is_valid():
-            obj = form.save()
-            return redirect("core:panel_edit", pk=obj.pk)
+            form.save()
+            # остаёмся на этой же странице
+            return redirect(f"/panel/edit/{prop.pk}/")
     else:
         form = PropertyForm(instance=prop)
-    photos = prop.photos.all() if prop else []
-    photo_form = PhotoForm()
-    return render(request, "core/panel_edit.html", {"form": form, "prop": prop, "photos": photos, "photo_form": photo_form})
+    # пока без фактических фото — отдадим пустой список для шаблона
+    return render(request, "core/panel_edit.html", {"form": form, "prop": prop, "photos": []})
 
 def photo_add(request, pk):
     if request.method != "POST":
