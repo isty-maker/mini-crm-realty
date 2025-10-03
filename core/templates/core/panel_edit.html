@@ -1,183 +1,105 @@
-<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8" />
-  <title>CRM — объект</title>
-  <style>
-    :root{--bg:#f7f8fa;--card:#fff;--txt:#1b1f23;--muted:#6a737d;--brand:#2b7cff;--line:#e6e8eb}
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-    .wrap{max-width:1100px;margin:32px auto;padding:0 16px}
-    h1{margin:0 0 12px 0;font-size:22px}
-    .btn{display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;color:#fff;background:var(--brand);border:0;cursor:pointer}
-    .btn.gray{background:#889096}.btn.danger{background:#d43c3c}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    label{font-size:13px;color:#111;display:block;margin-bottom:6px}
-    input[type=text],input[type=number],input[type=url],textarea,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff}
-    textarea{min-height:90px}
-    .section-title{margin:0 0 10px 0;font-weight:600}
-    .photo-card{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
-    .actions{display:flex;gap:10px;flex-wrap:wrap}
-    .muted{color:var(--muted)}
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="actions" style="margin-bottom:12px">
-      <a class="btn gray" href="{% url 'core:panel_list' %}">← К списку</a>
-      <a class="btn gray" href="{% url 'core:export_cian' %}" target="_blank">Фид ЦИАН (XML)</a>
+{% extends "base.html" %}
+{% block title %}{{ prop|default:"Новый объект" }} — Мини-CRM{% endblock %}
+{% block content %}
+  <a href="/panel/">&larr; к списку</a>
+  <h1>{{ prop|default:"Новый объект" }}</h1>
+
+  <form method="post">
+    {% csrf_token %}
+
+    <h3>Основное</h3>
+    <div class="grid-2">
+      {{ form.title.label_tag }} {{ form.title }}
+      {{ form.external_id.label_tag }} {{ form.external_id }}
+      {{ form.category.label_tag }} {{ form.category }}
+      {{ form.operation.label_tag }} {{ form.operation }}
+      {{ form.price.label_tag }} {{ form.price }}
+      {{ form.currency.label_tag }} {{ form.currency }}
     </div>
 
-    <h1>{{ prop.external_id|default:"Новый объект" }}</h1>
+    <h3>Адрес</h3>
+    <div class="grid-2">
+      {{ form.city.label_tag }} {{ form.city }}
+      {{ form.address.label_tag }} {{ form.address }}
+      {{ form.lat.label_tag }} {{ form.lat }}
+      {{ form.lng.label_tag }} {{ form.lng }}
+      {{ form.cadastral_number.label_tag }} {{ form.cadastral_number }}
+    </div>
 
-    <form method="post" class="card">
+    <h3>Площади и этаж</h3>
+    <div class="grid-3">
+      {{ form.rooms.label_tag }} {{ form.rooms }}
+      {{ form.area_total.label_tag }} {{ form.area_total }}
+      {{ form.area_living.label_tag }} {{ form.area_living }}
+      {{ form.area_kitchen.label_tag }} {{ form.area_kitchen }}
+      {{ form.floor.label_tag }} {{ form.floor }}
+      {{ form.floors_total.label_tag }} {{ form.floors_total }}
+    </div>
+
+    <h3>Характеристики</h3>
+    <div class="grid-3">
+      <label>{{ form.is_euro_flat }} Европланировка</label>
+      <label>{{ form.is_apartments }} Апартаменты</label>
+      <label>{{ form.is_penthouse }} Пентхаус</label>
+      {{ form.balconies_count.label_tag }} {{ form.balconies_count }}
+      {{ form.loggias_count.label_tag }} {{ form.loggias_count }}
+      {{ form.separate_wcs_count.label_tag }} {{ form.separate_wcs_count }}
+      {{ form.combined_wcs_count.label_tag }} {{ form.combined_wcs_count }}
+      {{ form.repair_type.label_tag }} {{ form.repair_type }}
+      {{ form.windows_view_type.label_tag }} {{ form.windows_view_type }}
+      <label>{{ form.has_internet }} Интернет</label>
+      <label>{{ form.has_furniture }} Есть мебель</label>
+      <label>{{ form.has_phone }} Телефонная линия</label>
+      <label>{{ form.has_kitchen_furniture }} Мебель на кухне</label>
+    </div>
+
+    <h3>Метро (до 3 станций)</h3>
+    <div class="grid-3">
+      {{ form.metro1_id.label_tag }} {{ form.metro1_id }}
+      {{ form.metro1_time.label_tag }} {{ form.metro1_time }}
+      {{ form.metro1_transport_type.label_tag }} {{ form.metro1_transport_type }}
+      {{ form.metro2_id.label_tag }} {{ form.metro2_id }}
+      {{ form.metro2_time.label_tag }} {{ form.metro2_time }}
+      {{ form.metro2_transport_type.label_tag }} {{ form.metro2_transport_type }}
+      {{ form.metro3_id.label_tag }} {{ form.metro3_id }}
+      {{ form.metro3_time.label_tag }} {{ form.metro3_time }}
+      {{ form.metro3_transport_type.label_tag }} {{ form.metro3_transport_type }}
+    </div>
+
+    {{ form.description.label_tag }} {{ form.description }}
+
+    <button type="submit">Сохранить</button>
+  </form>
+
+  {% if prop %}
+    <h3>Фотографии</h3>
+    <form method="post" action="/panel/edit/{{ prop.pk }}/add-photo/" enctype="multipart/form-data">
       {% csrf_token %}
-
-      <p class="section-title">Основное</p>
-      <div class="grid">
-        <div><label>{{ form.external_id.label }}{{ form.external_id }}</label></div>
-        <div><label>{{ form.category.label }}{{ form.category }}</label></div>
-        <div style="grid-column:1/-1"><label>{{ form.title.label }}{{ form.title }}</label></div>
-        <div style="grid-column:1/-1"><label>{{ form.description.label }}{{ form.description }}</label></div>
-      </div>
-
-      <p class="section-title">Адрес и координаты</p>
-      <div class="grid">
-        <div style="grid-column:1/-1"><label>{{ form.address.label }}{{ form.address }}</label></div>
-        <div><label>{{ form.lat.label }}{{ form.lat }}</label></div>
-        <div><label>{{ form.lng.label }}{{ form.lng }}</label></div>
-        <div style="grid-column:1/-1"><label>{{ form.cadastral_number.label }}{{ form.cadastral_number }}</label></div>
-      </div>
-
-      <p class="section-title">Контакты</p>
-      <div class="grid">
-        <div><label>{{ form.phone_country.label }}{{ form.phone_country }}</label></div>
-        <div><label>{{ form.phone_number.label }}{{ form.phone_number }}</label></div>
-        <div style="grid-column:1/-1"><label>{{ form.phone_number2.label }}{{ form.phone_number2 }}</label></div>
-      </div>
-
-      <p class="section-title">Здание</p>
-      <div class="grid">
-        <div style="grid-column:1/-1"><label>{{ form.building_name.label }}{{ form.building_name }}</label></div>
-        <div><label>{{ form.building_floors.label }}{{ form.building_floors }}</label></div>
-        <div><label>{{ form.building_build_year.label }}{{ form.building_build_year }}</label></div>
-        <div><label>{{ form.building_material.label }}{{ form.building_material }}</label></div>
-        <div><label>{{ form.building_ceiling_height.label }}{{ form.building_ceiling_height }}</label></div>
-        <div><label>{{ form.building_passenger_lifts.label }}{{ form.building_passenger_lifts }}</label></div>
-        <div><label>{{ form.building_cargo_lifts.label }}{{ form.building_cargo_lifts }}</label></div>
-      </div>
-
-      <p class="section-title">Параметры квартиры</p>
-      <div class="grid">
-        <div><label>{{ form.room_type.label }}{{ form.room_type }}</label></div>
-        <div><label>{{ form.flat_rooms_count.label }}{{ form.flat_rooms_count }}</label></div>
-        <div><label>{{ form.is_euro_flat.label }}{{ form.is_euro_flat }}</label></div>
-        <div><label>{{ form.is_apartments.label }}{{ form.is_apartments }}</label></div>
-        <div><label>{{ form.is_penthouse.label }}{{ form.is_penthouse }}</label></div>
-        <div><label>{{ form.total_area.label }}{{ form.total_area }}</label></div>
-        <div><label>{{ form.living_area.label }}{{ form.living_area }}</label></div>
-        <div style="grid-column:1/-1"><label>{{ form.kitchen_area.label }}{{ form.kitchen_area }}</label></div>
-        <div><label>{{ form.floor_number.label }}{{ form.floor_number }}</label></div>
-        <div><label>{{ form.repair_type.label }}{{ form.repair_type }}</label></div>
-        <div><label>{{ form.loggias_count.label }}{{ form.loggias_count }}</label></div>
-        <div><label>{{ form.balconies_count.label }}{{ form.balconies_count }}</label></div>
-        <div style="grid-column:1/-1"><label>{{ form.windows_view_type.label }}{{ form.windows_view_type }}</label></div>
-        <div><label>{{ form.separate_wcs_count.label }}{{ form.separate_wcs_count }}</label></div>
-        <div><label>{{ form.combined_wcs_count.label }}{{ form.combined_wcs_count }}</label></div>
-      </div>
-
-      <p class="section-title">ЖК / корпус</p>
-      <div class="grid">
-        <div><label>{{ form.jk_id.label }}{{ form.jk_id }}</label></div>
-        <div><label>{{ form.jk_name.label }}{{ form.jk_name }}</label></div>
-        <div><label>{{ form.house_id.label }}{{ form.house_id }}</label></div>
-        <div><label>{{ form.house_name.label }}{{ form.house_name }}</label></div>
-        <div><label>{{ form.flat_number.label }}{{ form.flat_number }}</label></div>
-        <div><label>{{ form.section_number.label }}{{ form.section_number }}</label></div>
-      </div>
-
-      <p class="section-title">Загород / участок</p>
-      <div class="grid">
-        <div><label>{{ form.heating_type.label }}{{ form.heating_type }}</label></div>
-        <div><label>{{ form.land_area.label }}{{ form.land_area }}</label></div>
-        <div><label>{{ form.land_area_unit.label }}{{ form.land_area_unit }}</label></div>
-        <div><label>{{ form.permitted_land_use.label }}{{ form.permitted_land_use }}</label></div>
-        <div><label>{{ form.land_category.label }}{{ form.land_category }}</label></div>
-        <div><label>{{ form.is_land_with_contract.label }}{{ form.is_land_with_contract }}</label></div>
-        <div><label>{{ form.has_terrace.label }}{{ form.has_terrace }}</label></div>
-        <div><label>{{ form.has_cellar.label }}{{ form.has_cellar }}</label></div>
-      </div>
-
-      <p class="section-title">Коммерческие параметры</p>
-      <div class="grid">
-        <div><label>{{ form.is_rent_by_parts.label }}{{ form.is_rent_by_parts }}</label></div>
-        <div><label>{{ form.rent_by_parts_desc.label }}{{ form.rent_by_parts_desc }}</label></div>
-        <div><label>{{ form.ceiling_height.label }}{{ form.ceiling_height }}</label></div>
-        <div><label>{{ form.power.label }}{{ form.power }}</label></div>
-        <div><label>{{ form.has_parking.label }}{{ form.has_parking }}</label></div>
-        <div><label>{{ form.parking_places.label }}{{ form.parking_places }}</label></div>
-      </div>
-
-      <p class="section-title">Удобства</p>
-      <div class="grid">
-        <div><label>{{ form.has_internet.label }}{{ form.has_internet }}</label></div>
-        <div><label>{{ form.has_furniture.label }}{{ form.has_furniture }}</label></div>
-        <div><label>{{ form.has_kitchen_furniture.label }}{{ form.has_kitchen_furniture }}</label></div>
-        <div><label>{{ form.has_tv.label }}{{ form.has_tv }}</label></div>
-        <div><label>{{ form.has_washer.label }}{{ form.has_washer }}</label></div>
-        <div><label>{{ form.has_conditioner.label }}{{ form.has_conditioner }}</label></div>
-        <div><label>{{ form.has_phone.label }}{{ form.has_phone }}</label></div>
-        <div><label>{{ form.has_ramp.label }}{{ form.has_ramp }}</label></div>
-        <div style="grid-column:1/-1"><label>{{ form.has_bathtub.label }}{{ form.has_bathtub }}</label></div>
-      </div>
-
-      <p class="section-title">Условия сделки</p>
-      <div class="grid">
-        <div><label>{{ form.price.label }}{{ form.price }}</label></div>
-        <div><label>{{ form.currency.label }}{{ form.currency }}</label></div>
-        <div><label>{{ form.mortgage_allowed.label }}{{ form.mortgage_allowed }}</label></div>
-        <div><label>{{ form.agent_bonus_value.label }}{{ form.agent_bonus_value }}</label></div>
-        <div><label>{{ form.agent_bonus_is_percent.label }}{{ form.agent_bonus_is_percent }}</label></div>
-        <div><label>{{ form.security_deposit.label }}{{ form.security_deposit }}</label></div>
-        <div><label>{{ form.min_rent_term_months.label }}{{ form.min_rent_term_months }}</label></div>
-      </div>
-
-      <div class="actions">
-        <button class="btn" type="submit">Сохранить</button>
-        <a class="btn gray" href="{% url 'core:panel_list' %}">Отменить</a>
-      </div>
+      <input type="file" name="image" required>
+      <label><input type="checkbox" name="is_main"> Сделать главной</label>
+      <button>Загрузить</button>
     </form>
 
-    <div class="card">
-      <p class="section-title">Фотографии</p>
-      {% if not prop %}
-        <p class="muted">Сначала сохраните объект, затем добавляйте фото.</p>
-      {% else %}
-        <form method="post" action="{% url 'core:photo_add' prop.pk %}" style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
-          {% csrf_token %}
-          <label style="margin:0">{{ photo_form.full_url.label }} {{ photo_form.full_url }}</label>
-          <label style="margin:0">{{ photo_form.is_default.label }} {{ photo_form.is_default }}</label>
-          <button class="btn" type="submit">Добавить фото</button>
-        </form>
-        <div class="grid">
-          {% for ph in photos %}
-            <div class="photo-card">
-              <div style="font-size:12px;margin-bottom:6px">
-                {% if ph.is_default %}<b>Главное фото</b> · {% endif %}ID: {{ ph.id }}
-              </div>
-              <div style="word-break:break-all;margin-bottom:8px">{{ ph.full_url }}</div>
-              <form method="post" action="{% url 'core:photo_delete' prop.pk ph.id %}">
-                {% csrf_token %}
-                <button class="btn danger" type="submit">Удалить</button>
+    <div class="photos" style="margin-top:1rem">
+      {% for ph in photos %}
+        <figure>
+          <img src="{{ ph.image_url }}" alt="photo {{ forloop.counter }}">
+          <figcaption>
+            {% if ph.is_main %}
+              <span class="tag">главное</span>
+            {% else %}
+              <form method="post" action="/panel/photo/{{ ph.pk }}/make-main/" style="display:inline">
+                {% csrf_token %}<button class="secondary">Сделать главным</button>
               </form>
-            </div>
-          {% empty %}
-            <p class="muted">Пока нет фото.</p>
-          {% endfor %}
-        </div>
-      {% endif %}
+            {% endif %}
+            <form method="post" action="/panel/photo/{{ ph.pk }}/delete/" style="display:inline">
+              {% csrf_token %}<button class="contrast">Удалить</button>
+            </form>
+          </figcaption>
+        </figure>
+      {% empty %}
+        <p class="muted">Фото пока нет</p>
+      {% endfor %}
     </div>
-  </div>
-</body>
-</html>
+  {% endif %}
+{% endblock %}
