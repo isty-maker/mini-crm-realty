@@ -38,16 +38,16 @@ def panel_new(request):
         form = PropertyForm()
     return render(request, "core/panel_edit.html", {"form": form, "prop": None, "photos": []})
 
-def panel_edit(request, pk=None):
-    prop = get_object_or_404(Property, pk=pk) if pk else None
+def panel_edit(request, pk):
+    prop = get_object_or_404(Property, pk=pk)
     if request.method == "POST":
         form = PropertyForm(request.POST, instance=prop)
         if form.is_valid():
             obj = form.save()
-            return redirect("core:panel_edit", pk=obj.pk)
+            return redirect(f"/panel/edit/{obj.pk}/")
     else:
         form = PropertyForm(instance=prop)
-    photos = prop.photos.all() if prop else []
+    photos = prop.photos.all()
     photo_form = PhotoForm()
     return render(request, "core/panel_edit.html", {"form": form, "prop": prop, "photos": photos, "photo_form": photo_form})
 
@@ -226,8 +226,15 @@ def export_cian(request):
 
 def panel_new(request):
     """
-    Страница создания нового объекта (временная заглушка).
-    Пока просто рендерим форму без сохранения, чтобы убрать  AttributeError.
+    Создание объекта:
+    GET  -> пустая форма
+    POST -> сохранить и перейти на редактирование созданного объекта
     """
-    form = PropertyForm()
+    if request.method == "POST":
+        form = PropertyForm(request.POST)
+        if form.is_valid():
+            prop = form.save()
+            return redirect(f"/panel/edit/{prop.pk}/")
+    else:
+        form = PropertyForm()
     return render(request, "core/panel_edit.html", {"form": form, "prop": None, "photos": []})
