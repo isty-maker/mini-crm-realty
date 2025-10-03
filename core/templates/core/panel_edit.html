@@ -302,6 +302,10 @@
         {{ form.rent_by_parts_desc }}
       </div>
       <div class="form-row">
+        {{ form.total_area.label_tag }}
+        {{ form.total_area }}
+      </div>
+      <div class="form-row">
         {{ form.ceiling_height.label_tag }}
         {{ form.ceiling_height }}
       </div>
@@ -315,6 +319,9 @@
       </div>
       <div class="form-row">
         <label>{{ form.has_parking }} {{ form.has_parking.label }}</label>
+      </div>
+      <div class="form-row">
+        <label>{{ form.has_ramp }} {{ form.has_ramp.label }}</label>
       </div>
     </section>
 

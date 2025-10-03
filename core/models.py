@@ -124,8 +124,18 @@ class Property(models.Model):
     is_rent_by_parts = models.BooleanField("Сдаётся по частям", default=False)
     rent_by_parts_desc = models.CharField("Описание сдачи части", max_length=255, blank=True)
     ceiling_height = models.DecimalField("Высота потолков, м", max_digits=4, decimal_places=2, null=True, blank=True)
-    power = models.PositiveIntegerField("Выделенная мощность, кВт", null=True, blank=True)
-    parking_places = models.PositiveIntegerField("Паркомест", null=True, blank=True)
+    power = models.PositiveIntegerField(
+        "Выделенная мощность, кВт",
+        null=True,
+        blank=True,
+        help_text="Для коммерческих объектов ЦИАН",
+    )
+    parking_places = models.PositiveIntegerField(
+        "Паркомест",
+        null=True,
+        blank=True,
+        help_text="Количество мест для коммерческих объявлений",
+    )
     has_parking = models.BooleanField("Есть парковка", default=False)
 
     # Удобства (жилые)
@@ -140,7 +150,11 @@ class Property(models.Model):
     has_dishwasher = models.BooleanField("Посудомойка", default=False)
     has_shower = models.BooleanField("Душ", default=False)
     has_phone = models.BooleanField("Телефон (городской)", default=False)
-    has_ramp = models.BooleanField("Пандус", default=False)
+    has_ramp = models.BooleanField(
+        "Пандус",
+        default=False,
+        help_text="Наличие пандуса для коммерческого объекта",
+    )
     has_bathtub = models.BooleanField("Ванна", default=False)
 
     # Сделка
