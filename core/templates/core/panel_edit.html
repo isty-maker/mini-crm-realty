@@ -8,65 +8,180 @@
     {% csrf_token %}
 
     <h3>Основное</h3>
-    <div class="grid-2">
-      {{ form.title.label_tag }} {{ form.title }}
-      {{ form.external_id.label_tag }} {{ form.external_id }}
-      {{ form.category.label_tag }} {{ form.category }}
-      {{ form.operation.label_tag }} {{ form.operation }}
-      {{ form.price.label_tag }} {{ form.price }}
-      {{ form.currency.label_tag }} {{ form.currency }}
+    <div class="form-row">
+      {{ form.title.label_tag }}
+      {{ form.title }}
+    </div>
+    <div class="form-row">
+      {{ form.external_id.label_tag }}
+      {{ form.external_id }}
+    </div>
+    <div class="form-row">
+      {{ form.category.label_tag }}
+      {{ form.category }}
+    </div>
+    <div class="form-row">
+      {{ form.operation.label_tag }}
+      {{ form.operation }}
+    </div>
+    <div class="form-row row-2">
+      <div class="form-row">
+        {{ form.price.label_tag }}
+        {{ form.price }}
+      </div>
+      <div class="form-row">
+        {{ form.currency.label_tag }}
+        {{ form.currency }}
+      </div>
     </div>
 
     <h3>Адрес</h3>
-    <div class="grid-2">
-      {{ form.city.label_tag }} {{ form.city }}
-      {{ form.address.label_tag }} {{ form.address }}
-      {{ form.lat.label_tag }} {{ form.lat }}
-      {{ form.lng.label_tag }} {{ form.lng }}
-      {{ form.cadastral_number.label_tag }} {{ form.cadastral_number }}
+    <div class="form-row">
+      {{ form.city.label_tag }}
+      {{ form.city }}
+    </div>
+    <div class="form-row">
+      {{ form.address.label_tag }}
+      {{ form.address }}
+    </div>
+    <div class="form-row row-2">
+      <div class="form-row">
+        {{ form.lat.label_tag }}
+        {{ form.lat }}
+      </div>
+      <div class="form-row">
+        {{ form.lng.label_tag }}
+        {{ form.lng }}
+      </div>
+    </div>
+    <div class="form-row">
+      {{ form.cadastral_number.label_tag }}
+      {{ form.cadastral_number }}
     </div>
 
     <h3>Площади и этаж</h3>
-    <div class="grid-3">
-      {{ form.rooms.label_tag }} {{ form.rooms }}
-      {{ form.area_total.label_tag }} {{ form.area_total }}
-      {{ form.area_living.label_tag }} {{ form.area_living }}
-      {{ form.area_kitchen.label_tag }} {{ form.area_kitchen }}
-      {{ form.floor.label_tag }} {{ form.floor }}
-      {{ form.floors_total.label_tag }} {{ form.floors_total }}
+    <div class="form-row">
+      {{ form.rooms.label_tag }}
+      {{ form.rooms }}
+    </div>
+    <div class="form-row">
+      {{ form.area_total.label_tag }}
+      {{ form.area_total }}
+    </div>
+    <div class="form-row">
+      {{ form.area_living.label_tag }}
+      {{ form.area_living }}
+    </div>
+    <div class="form-row">
+      {{ form.area_kitchen.label_tag }}
+      {{ form.area_kitchen }}
+    </div>
+    <div class="form-row row-2">
+      <div class="form-row">
+        {{ form.floor.label_tag }}
+        {{ form.floor }}
+      </div>
+      <div class="form-row">
+        {{ form.floors_total.label_tag }}
+        {{ form.floors_total }}
+      </div>
     </div>
 
     <h3>Характеристики</h3>
-    <div class="grid-3">
+    <div class="form-row">
       <label>{{ form.is_euro_flat }} Европланировка</label>
+    </div>
+    <div class="form-row">
       <label>{{ form.is_apartments }} Апартаменты</label>
+    </div>
+    <div class="form-row">
       <label>{{ form.is_penthouse }} Пентхаус</label>
-      {{ form.balconies_count.label_tag }} {{ form.balconies_count }}
-      {{ form.loggias_count.label_tag }} {{ form.loggias_count }}
-      {{ form.separate_wcs_count.label_tag }} {{ form.separate_wcs_count }}
-      {{ form.combined_wcs_count.label_tag }} {{ form.combined_wcs_count }}
-      {{ form.repair_type.label_tag }} {{ form.repair_type }}
-      {{ form.windows_view_type.label_tag }} {{ form.windows_view_type }}
+    </div>
+    <div class="form-row">
+      {{ form.balconies_count.label_tag }}
+      {{ form.balconies_count }}
+    </div>
+    <div class="form-row">
+      {{ form.loggias_count.label_tag }}
+      {{ form.loggias_count }}
+    </div>
+    <div class="form-row">
+      {{ form.separate_wcs_count.label_tag }}
+      {{ form.separate_wcs_count }}
+    </div>
+    <div class="form-row">
+      {{ form.combined_wcs_count.label_tag }}
+      {{ form.combined_wcs_count }}
+    </div>
+    <div class="form-row">
+      {{ form.repair_type.label_tag }}
+      {{ form.repair_type }}
+    </div>
+    <div class="form-row">
+      {{ form.windows_view_type.label_tag }}
+      {{ form.windows_view_type }}
+    </div>
+    <div class="form-row">
       <label>{{ form.has_internet }} Интернет</label>
+    </div>
+    <div class="form-row">
       <label>{{ form.has_furniture }} Есть мебель</label>
+    </div>
+    <div class="form-row">
       <label>{{ form.has_phone }} Телефонная линия</label>
+    </div>
+    <div class="form-row">
       <label>{{ form.has_kitchen_furniture }} Мебель на кухне</label>
     </div>
 
     <h3>Метро (до 3 станций)</h3>
-    <div class="grid-3">
-      {{ form.metro1_id.label_tag }} {{ form.metro1_id }}
-      {{ form.metro1_time.label_tag }} {{ form.metro1_time }}
-      {{ form.metro1_transport_type.label_tag }} {{ form.metro1_transport_type }}
-      {{ form.metro2_id.label_tag }} {{ form.metro2_id }}
-      {{ form.metro2_time.label_tag }} {{ form.metro2_time }}
-      {{ form.metro2_transport_type.label_tag }} {{ form.metro2_transport_type }}
-      {{ form.metro3_id.label_tag }} {{ form.metro3_id }}
-      {{ form.metro3_time.label_tag }} {{ form.metro3_time }}
-      {{ form.metro3_transport_type.label_tag }} {{ form.metro3_transport_type }}
+    <div class="form-row">
+      {{ form.metro1_id.label_tag }}
+      {{ form.metro1_id }}
+    </div>
+    <div class="form-row row-2">
+      <div class="form-row">
+        {{ form.metro1_time.label_tag }}
+        {{ form.metro1_time }}
+      </div>
+      <div class="form-row">
+        {{ form.metro1_transport_type.label_tag }}
+        {{ form.metro1_transport_type }}
+      </div>
+    </div>
+    <div class="form-row">
+      {{ form.metro2_id.label_tag }}
+      {{ form.metro2_id }}
+    </div>
+    <div class="form-row row-2">
+      <div class="form-row">
+        {{ form.metro2_time.label_tag }}
+        {{ form.metro2_time }}
+      </div>
+      <div class="form-row">
+        {{ form.metro2_transport_type.label_tag }}
+        {{ form.metro2_transport_type }}
+      </div>
+    </div>
+    <div class="form-row">
+      {{ form.metro3_id.label_tag }}
+      {{ form.metro3_id }}
+    </div>
+    <div class="form-row row-2">
+      <div class="form-row">
+        {{ form.metro3_time.label_tag }}
+        {{ form.metro3_time }}
+      </div>
+      <div class="form-row">
+        {{ form.metro3_transport_type.label_tag }}
+        {{ form.metro3_transport_type }}
+      </div>
     </div>
 
-    {{ form.description.label_tag }} {{ form.description }}
+    <div class="form-row">
+      {{ form.description.label_tag }}
+      {{ form.description }}
+    </div>
 
     <button type="submit">Сохранить</button>
   </form>
