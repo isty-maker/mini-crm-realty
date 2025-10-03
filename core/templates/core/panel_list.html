@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>CRM — объекты</title>
+  <style>
+    :root{--bg:#f7f8fa;--card:#fff;--txt:#1b1f23;--muted:#6a737d;--brand:#2b7cff;--line:#e6e8eb}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .wrap{max-width:1100px;margin:32px auto;padding:0 16px}
+    h1{margin:0 0 12px 0;font-size:22px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+    .bar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+    input[type=text]{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;width:320px}
+    .btn{display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;color:#fff;background:var(--brand);border:0;cursor:pointer}
+    .btn.secondary{background:#889096}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:12px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+    tr:hover td{background:#fafbfc}
+    .muted{color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Объекты</h1>
+    <div class="card">
+      <form class="bar" method="get">
+        <input type="text" name="q" placeholder="Поиск по адресу или внешнему ID" value="{{ q|default:'' }}">
+        <button class="btn" type="submit">Искать</button>
+        <a class="btn" href="{% url 'core:panel_new' %}">+ Создать объект</a>
+        <a class="btn secondary" href="{% url 'core:export_cian' %}" target="_blank">Фид ЦИАН (XML)</a>
+      </form>
+
+      <table>
+        <tr>
+          <th>Внешний ID</th><th>Категория</th><th>Адрес</th><th>Площадь</th><th>Цена</th><th></th>
+        </tr>
+        {% for p in props %}
+        <tr>
+          <td>{{ p.external_id }}</td>
+          <td>{{ p.get_category_display }}</td>
+          <td>{{ p.address }}</td>
+          <td>{% if p.total_area %}{{ p.total_area }} м²{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td>{% if p.price %}{{ p.price }} {{ p.currency|upper }}{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td><a class="btn" href="{% url 'core:panel_edit' p.pk %}">Открыть</a></td>
+        </tr>
+        {% empty %}
+        <tr><td class="muted" colspan="6">Пока нет объектов — нажмите «Создать объект».</td></tr>
+        {% endempty %}
+      </table>
+    </div>
+  </div>
+</body>
+</html>
