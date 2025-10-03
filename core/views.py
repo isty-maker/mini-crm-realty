@@ -196,6 +196,7 @@ def export_cian(request):
         _add_text(obj, "ElectricityPower", prop.power)
         _add_text(obj, "HasParking", prop.has_parking)
         _add_text(obj, "ParkingPlaces", prop.parking_places)
+        _add_text(obj, "FurnishingDetails", prop.furnishing_details)
 
         for tag, flag in [
             ("HasInternet", prop.has_internet),
@@ -204,6 +205,9 @@ def export_cian(request):
             ("HasTv", prop.has_tv),
             ("HasWasher", prop.has_washer),
             ("HasConditioner", prop.has_conditioner),
+            ("HasRefrigerator", prop.has_refrigerator),
+            ("HasDishwasher", prop.has_dishwasher),
+            ("HasShower", prop.has_shower),
             ("HasPhone", prop.has_phone),
             ("HasRamp", prop.has_ramp),
             ("HasBathtub", prop.has_bathtub),
