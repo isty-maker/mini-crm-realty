@@ -7,9 +7,7 @@ from django.utils.encoding import smart_str
 
 from .models import Property, Photo
 from .forms import PropertyForm, PhotoForm
-from .guards import shared_key_required
 
-@shared_key_required
 def panel_list(request):
     q = request.GET.get("q", "").strip()
     props = Property.objects.all()
@@ -22,7 +20,6 @@ def panel_list(request):
     props = props.order_by("-updated_at", "-id")
     return render(request, "core/panel_list.html", {"props": props, "q": q})
 
-@shared_key_required
 def panel_new(request):
     """
     Создание объекта:
