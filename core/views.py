@@ -3,12 +3,191 @@ from django.db.models import Q
 from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseRedirect
 from django.shortcuts import render, redirect, get_object_or_404
 from django.conf import settings
+from django.core.exceptions import FieldDoesNotExist
 import os
+from functools import lru_cache
 from xml.etree.ElementTree import Element, SubElement, tostring
 from django.utils.encoding import smart_str
 
 from .models import Property, Photo
 from .forms import PropertyForm, PhotoForm, NewObjectStep1Form
+
+
+def _normalize_category(value):
+    if not value:
+        return None
+    low = value.lower()
+    if "flat" in low or "apartment" in low:
+        return "flat"
+    if "room" in low or "bed" in low:
+        return "room"
+    if "house" in low or "cottage" in low or "townhouse" in low:
+        return "house"
+    if "land" in low:
+        return "land"
+    if (
+        "office" in low
+        or "industry" in low
+        or "warehouse" in low
+        or "shopping" in low
+        or "commercial" in low
+        or "business" in low
+        or "building" in low
+        or "garage" in low
+        or "freeappointment" in low
+    ):
+        return "commercial"
+    return low
+
+
+def _resolve_operation(prop):
+    op = getattr(prop, "operation", None)
+    if op:
+        return op.lower()
+    category = getattr(prop, "category", "") or ""
+    low = category.lower()
+    if "rent" in low:
+        return "rent"
+    if "sale" in low:
+        return "sale"
+    return None
+
+
+def _has_value(prop, field_name):
+    value = getattr(prop, field_name, None)
+    if isinstance(value, str):
+        return value.strip() != ""
+    return value is not None
+
+
+def _field_verbose_name(field_name):
+    try:
+        return Property._meta.get_field(field_name).verbose_name
+    except FieldDoesNotExist:
+        return field_name
+
+
+def _split_key_value(text):
+    if ":" not in text:
+        return text.strip(), ""
+    key, value = text.split(":", 1)
+    value = value.split("#")[0].strip()
+    if (value.startswith("\"") and value.endswith("\"")) or (
+        value.startswith("'") and value.endswith("'")
+    ):
+        value = value[1:-1]
+    return key.strip(), value
+
+
+@lru_cache(maxsize=1)
+def _load_required_fields():
+    required = {"common": [], "deal_terms": [], "by_category": {}}
+    path = os.path.join(settings.BASE_DIR, "docs", "cian_fields.yaml")
+    if not os.path.exists(path):
+        return required
+
+    section = None
+    current_category = None
+    current_operation = None
+    current_model_field = None
+
+    with open(path, "r", encoding="utf-8") as fh:
+        for raw_line in fh:
+            line = raw_line.rstrip("\n")
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+
+            indent = len(line) - len(line.lstrip(" "))
+
+            if indent == 0:
+                key_part = stripped.split("#", 1)[0].strip()
+                if key_part.endswith(":"):
+                    key_part = key_part[:-1].strip()
+                if key_part in ("common", "deal_terms", "category"):
+                    section = key_part
+                else:
+                    section = None
+                current_category = None
+                current_operation = None
+                current_model_field = None
+                continue
+
+            if section == "category":
+                if indent == 2:
+                    key_part = stripped.split("#", 1)[0].strip()
+                    if key_part.endswith(":"):
+                        current_category = key_part[:-1].strip()
+                        current_operation = None
+                        continue
+                if indent == 4:
+                    key_part = stripped.split("#", 1)[0].strip()
+                    if key_part.endswith(":"):
+                        current_operation = key_part[:-1].strip()
+                        continue
+                if indent >= 6:
+                    if stripped.startswith("- "):
+                        current_model_field = None
+                        continue
+                    key, value = _split_key_value(stripped)
+                    if key == "model_field":
+                        current_model_field = value
+                    elif (
+                        key == "status"
+                        and value == "required"
+                        and current_model_field
+                        and current_category
+                        and current_operation
+                    ):
+                        category_map = required["by_category"].setdefault(
+                            current_category, {}
+                        )
+                        fields = category_map.setdefault(current_operation, [])
+                        if current_model_field not in fields:
+                            fields.append(current_model_field)
+                    continue
+
+            if section in ("common", "deal_terms") and indent >= 2:
+                if stripped.startswith("- "):
+                    current_model_field = None
+                    continue
+                key, value = _split_key_value(stripped)
+                if key == "model_field":
+                    current_model_field = value
+                elif key == "status" and value == "required" and current_model_field:
+                    fields = required[section]
+                    if current_model_field not in fields:
+                        fields.append(current_model_field)
+
+    return required
+
+
+def _collect_missing_fields(prop):
+    required = _load_required_fields()
+    missing = []
+
+    for field_name in required.get("common", []):
+        if not _has_value(prop, field_name):
+            missing.append(field_name)
+
+    for field_name in required.get("deal_terms", []):
+        if not _has_value(prop, field_name):
+            missing.append(field_name)
+
+    category_key = _normalize_category(getattr(prop, "category", None))
+    operation_key = _resolve_operation(prop)
+
+    if hasattr(prop, "operation") and not operation_key:
+        if "operation" not in missing:
+            missing.append("operation")
+
+    if category_key:
+        category_map = required.get("by_category", {}).get(category_key, {})
+        for field_name in category_map.get(operation_key, []):
+            if not _has_value(prop, field_name):
+                missing.append(field_name)
+
+    return missing, category_key, operation_key
 
 
 def _enable_choice_fields(form, field_names):
@@ -94,10 +273,37 @@ def _add_decimal(parent, tag, value):
     return el
 
 def export_cian(request):
+    props = list(Property.objects.all().order_by("id"))
+    problems = []
+
+    for prop in props:
+        missing, category_key, operation_key = _collect_missing_fields(prop)
+        if missing:
+            problems.append(
+                {
+                    "prop": prop,
+                    "missing_fields": missing,
+                    "missing_verbose": [
+                        _field_verbose_name(field_name) for field_name in missing
+                    ],
+                    "category": category_key,
+                    "operation": operation_key,
+                }
+            )
+
+    if problems:
+        return render(
+            request,
+            "core/export_precheck.html",
+            {
+                "problems": problems,
+            },
+        )
+
     root = Element("Feed")
     SubElement(root, "Feed_Version").text = "2"
 
-    for prop in Property.objects.all().order_by("id"):
+    for prop in props:
         obj = SubElement(root, "Object")
         _add_text(obj, "Category", prop.category, always=True)
         _add_text(obj, "ExternalId", prop.external_id, always=True)
@@ -236,6 +442,9 @@ def export_cian(request):
 def panel_generate_feeds(request):
     # получить xml-байты из существующей функции export_cian
     resp = export_cian(request)
+    content_type = resp.get("Content-Type", "")
+    if not content_type.startswith("application/xml"):
+        return resp
     xml_bytes = resp.content
 
     # гарантировать/media/feeds
