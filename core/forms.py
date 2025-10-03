@@ -1,6 +1,22 @@
 # core/forms.py
 from django import forms
+from django.core.exceptions import FieldDoesNotExist
+
 from .models import Property, Photo
+
+
+def _build_choices(model_attr_name, fallback_values, field_name=None):
+    choices = getattr(Property, model_attr_name, None)
+    if choices:
+        return choices
+    if field_name:
+        try:
+            model_field = Property._meta.get_field(field_name)
+            if model_field.choices:
+                return model_field.choices
+        except FieldDoesNotExist:
+            pass
+    return [(value, value) for value in fallback_values]
 
 class PropertyForm(forms.ModelForm):
     class Meta:
@@ -36,3 +52,20 @@ class PhotoForm(forms.ModelForm):
     class Meta:
         model = Photo
         fields = ["full_url","is_default"]
+
+
+class NewObjectStep1Form(forms.Form):
+    category = forms.ChoiceField(
+        choices=_build_choices(
+            "CATEGORY_CHOICES",
+            ["flat", "house", "room", "land", "commercial"],
+            field_name="category",
+        )
+    )
+    operation = forms.ChoiceField(
+        choices=_build_choices(
+            "OPERATION_CHOICES",
+            ["sale", "rent"],
+            field_name="operation",
+        )
+    )
