@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Проверка перед экспортом{% endblock %}
+{% block content %}
+  <h1>Проверка перед экспортом</h1>
+  {% if problems %}
+    <p>Найдены объекты с незаполненными обязательными полями. Исправьте данные и повторите экспорт.</p>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Объект</th>
+          <th>Категория</th>
+          <th>Операция</th>
+          <th>Отсутствующие поля</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for problem in problems %}
+          <tr>
+            <td>{{ problem.prop.pk }}</td>
+            <td>
+              <a href="/panel/edit/{{ problem.prop.pk }}/">{{ problem.prop }}</a>
+            </td>
+            <td>{{ problem.category|default:"—" }}</td>
+            <td>{{ problem.operation|default:"—" }}</td>
+            <td>
+              <ul>
+                {% for field in problem.missing_verbose %}
+                  <li>{{ field }}</li>
+                {% endfor %}
+              </ul>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>Все объекты готовы к экспорту.</p>
+  {% endif %}
+  <p><a href="/panel/" class="btn">Назад в список</a></p>
+{% endblock %}
