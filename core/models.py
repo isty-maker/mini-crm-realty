@@ -91,10 +91,29 @@ class Property(models.Model):
     is_euro_flat = models.BooleanField("Европланировка", default=False)
     is_apartments = models.BooleanField("Апартаменты (юрид.)", default=False)
     is_penthouse = models.BooleanField("Пентхаус", default=False)
-    total_area = models.DecimalField("Общая площадь, м²", max_digits=7, decimal_places=2, null=True, blank=True)
-    living_area = models.DecimalField("Жилая площадь, м²", max_digits=7, decimal_places=2, null=True, blank=True)
-    kitchen_area = models.DecimalField("Площадь кухни, м²", max_digits=7, decimal_places=2, null=True, blank=True)
-    floor_number = models.IntegerField("Этаж", null=True, blank=True)
+    total_area = models.DecimalField(
+        "Общая площадь, м²",
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    living_area = models.DecimalField(
+        "Жилая площадь, м²",
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    kitchen_area = models.DecimalField(
+        "Площадь кухни, м²",
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    rooms = models.PositiveSmallIntegerField("Количество комнат", null=True, blank=True)
+    floor_number = models.PositiveSmallIntegerField("Этаж", null=True, blank=True)
     loggias_count = models.PositiveSmallIntegerField("Лоджии", null=True, blank=True)
     balconies_count = models.PositiveSmallIntegerField("Балконы", null=True, blank=True)
     windows_view_type = models.CharField("Куда окна", max_length=20, choices=WINDOWS_VIEW_CHOICES, blank=True)
