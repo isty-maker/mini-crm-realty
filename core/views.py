@@ -225,32 +225,39 @@ def panel_new(request):
     if request.method == "POST":
         form = NewObjectStep1Form(request.POST)
         if form.is_valid():
-            create_kwargs = {}
-            # category точно сохраняем (поле есть в модели)
-            if hasattr(Property, "category"):
-                create_kwargs["category"] = form.cleaned_data.get("category") or None
-            # operation сохраняем ТОЛЬКО если такое поле существует в модели
-            if hasattr(Property, "operation"):
-                create_kwargs["operation"] = form.cleaned_data.get("operation") or None
-
-            # title пустой — чтобы форма редактирования не ругалась
-            if hasattr(Property, "title"):
-                create_kwargs["title"] = ""
-
-            # НОВОЕ — всегда проставляем уникальный external_id
-            if hasattr(Property, "external_id"):
-                eid = _gen_external_id()
-                # на всякий случай проверим уникальность (редко, но вдруг)
-                while Property.objects.filter(external_id=eid).exists():
-                    eid = _gen_external_id()
-                create_kwargs["external_id"] = eid
-
-            prop = Property.objects.create(**create_kwargs)
-            return redirect(f"/panel/edit/{prop.pk}/")
+            cat = form.cleaned_data.get("category") or ""
+            op = form.cleaned_data.get("operation") or ""
+            return redirect(f"/panel/create/?category={cat}&operation={op}")
     else:
         form = NewObjectStep1Form()
 
     return render(request, "core/panel_new_step1.html", {"form": form})
+
+
+def panel_create(request):
+    initial = {
+        "category": request.GET.get("category", ""),
+        "operation": request.GET.get("operation", ""),
+    }
+    if request.method == "POST":
+        form = PropertyForm(request.POST)
+        _enable_choice_fields(form, ["category", "operation"])
+        if form.is_valid():
+            prop = form.save()
+            return redirect(f"/panel/edit/{prop.pk}/")
+    else:
+        form = PropertyForm(initial=initial)
+        _enable_choice_fields(form, ["category", "operation"])
+
+    return render(
+        request,
+        "core/panel_edit.html",
+        {
+            "form": form,
+            "prop": None,
+            "photos": [],
+        },
+    )
 
 def panel_edit(request, pk):
     """
