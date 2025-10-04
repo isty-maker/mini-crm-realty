@@ -4,17 +4,29 @@
   <a href="/panel/">&larr; к списку</a>
   <h1>{{ prop|default:"Новый объект" }}</h1>
 
-  <form method="post">
+  <form method="post"
+        data-cat="{{ form.instance.category|default_if_none:'' }}"
+        data-op="{{ form.instance.operation|default_if_none:'' }}">
     {% csrf_token %}
 
-    <div class="form-row">
-      {{ form.category.label_tag }} {{ form.category }}
+    <div class="chips" style="display:flex; gap:.5rem; align-items:center; margin:.5rem 0;">
+      <span class="chip" style="border:1px solid #ccc; padding:.2rem .5rem; border-radius:.5rem;">
+        {{ form.instance.category|default:form.category.value }}
+      </span>
+      {% if form.fields.operation %}
+      <span class="chip" style="border:1px solid #ccc; padding:.2rem .5rem; border-radius:.5rem;">
+        {{ form.instance.operation|default:form.operation.value }}
+      </span>
+      {% endif %}
+      <a href="#" id="toggle-type">Изменить</a>
     </div>
-    {% if form.fields.operation %}
-      <div class="form-row">
-        {{ form.operation.label_tag }} {{ form.operation }}
-      </div>
-    {% endif %}
+
+    <div id="type-selects" style="display:none; margin-bottom:.5rem;">
+      <div class="form-row">{{ form.category.label_tag }} {{ form.category }}</div>
+      {% if form.fields.operation %}
+      <div class="form-row">{{ form.operation.label_tag }} {{ form.operation }}</div>
+      {% endif %}
+    </div>
 
     <section class="group">
       <h3>Основное</h3>
@@ -363,4 +375,13 @@
       {% endfor %}
     </div>
   {% endif %}
+  <script>
+  document.addEventListener('DOMContentLoaded',function(){
+    var a=document.getElementById('toggle-type');
+    var box=document.getElementById('type-selects');
+    if(a&&box){
+      a.addEventListener('click',function(e){e.preventDefault(); box.style.display = box.style.display ? '' : 'none';});
+    }
+  });
+  </script>
 {% endblock %}

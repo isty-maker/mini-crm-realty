@@ -56,29 +56,35 @@
     {% block content %}{% endblock %}
   </main>
   <script>
-document.addEventListener('DOMContentLoaded', function(){
-  function g(id){ return document.getElementById(id); }
-  function val(id){ const el = g(id); return el ? (el.value||'').trim() : ''; }
-
-  function updateGroups(){
-    const cat = val('id_category');
-    const op  = val('id_operation');
-    document.querySelectorAll('.group').forEach(sec => {
-      const cats = (sec.dataset.cat||'').split(',').map(s=>s.trim()).filter(Boolean);
-      const ops  = (sec.dataset.op ||'').split(',').map(s=>s.trim()).filter(Boolean);
-      const catOK = !cats.length || (cat && cats.includes(cat));
-      const opOK  = !ops.length  || (op  && ops.includes(op));
-      sec.style.display = (catOK && opOK) ? '' : 'none';
+  document.addEventListener('DOMContentLoaded', function(){
+    function byId(id){ return document.getElementById(id); }
+    function getCatOp(){
+      var form = document.querySelector('form[data-cat]');
+      var catData = form ? (form.getAttribute('data-cat') || '').trim() : '';
+      var opData  = form ? (form.getAttribute('data-op')  || '').trim() : '';
+      var catSel = byId('id_category');
+      var opSel  = byId('id_operation');
+      return {
+        cat: catSel ? (catSel.value||'').trim() : catData,
+        op:  opSel  ? (opSel.value||'').trim()  : opData
+      };
+    }
+    function updateGroups(){
+      var cur = getCatOp();
+      document.querySelectorAll('.group').forEach(function(sec){
+        var cats = (sec.dataset.cat||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
+        var ops  = (sec.dataset.op ||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
+        var catOK = !cats.length || (cur.cat && cats.includes(cur.cat));
+        var opOK  = !ops.length  || (cur.op  && ops.includes(cur.op));
+        sec.style.display = (catOK && opOK) ? '' : 'none';
+      });
+    }
+    ['id_category','id_operation'].forEach(function(id){
+      var el = byId(id);
+      if (el) el.addEventListener('change', updateGroups);
     });
-  }
-
-  ['id_category','id_operation'].forEach(id=>{
-    const el = g(id);
-    if (el) el.addEventListener('change', updateGroups);
+    updateGroups();
   });
-
-  updateGroups();
-});
   </script>
 </body>
 </html>
