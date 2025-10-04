@@ -49,16 +49,19 @@ class PropertyForm(forms.ModelForm):
                             return True
             return False
 
-        for name, field in list(self.fields.items()):
+        to_delete = []
+        for name, field in self.fields.items():
+            if name in ("category", "operation"):
+                continue
             if isinstance(field, forms.ChoiceField) and has_paren(field.choices):
-                self.fields.pop(name, None)
+                to_delete.append(name)
+        for name in to_delete:
+            self.fields.pop(name, None)
 
     def clean(self):
         cleaned_data = super().clean()
 
-        phone_country = (cleaned_data.get("phone_country") or "").strip()
-        if not phone_country:
-            phone_country = "7"
+        phone_country = (cleaned_data.get("phone_country") or "").strip() or "7"
         cleaned_data["phone_country"] = phone_country
 
         for field_name in ("phone_number", "phone_number2"):
@@ -68,32 +71,23 @@ class PropertyForm(forms.ModelForm):
                 digits_only = digits_only[1:]
             cleaned_data[field_name] = digits_only
 
-        category = cleaned_data.get("category")
-        if not category:
-            self.add_error("category", "Выберите категорию объекта.")
+        if "category" in self.fields:
+            category = cleaned_data.get("category")
+            if not category:
+                self.add_error("category", "Выберите тип объекта.")
+        else:
+            raise forms.ValidationError(
+                "Поле 'category' отсутствует в форме — проверьте шаблон/форму."
+            )
 
         if "operation" in self.fields:
             operation = cleaned_data.get("operation")
             if not operation:
                 self.add_error("operation", "Выберите тип сделки.")
 
-        category_value = (category or "").lower()
-        housing_keywords = (
-            "flat",
-            "room",
-            "house",
-            "cottage",
-            "townhouse",
-            "bed",
-        )
-        needs_total_area = any(keyword in category_value for keyword in housing_keywords)
-
-        total_area = cleaned_data.get("total_area")
-        if needs_total_area and not total_area:
-            self.add_error(
-                "total_area",
-                "Для объектов жилья укажите общую площадь.",
-            )
+        category_value = cleaned_data.get("category")
+        if category_value in {"flat", "room", "house"} and not cleaned_data.get("total_area"):
+            self.add_error("total_area", "Укажите общую площадь (TotalArea).")
 
         return cleaned_data
 
