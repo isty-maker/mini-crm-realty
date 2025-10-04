@@ -31,17 +31,17 @@ class PropertyForm(forms.ModelForm):
             "building_name","building_floors","building_build_year","building_material",
             "building_ceiling_height","building_passenger_lifts","building_cargo_lifts",
 
-            "room_type","flat_rooms_count","is_euro_flat","is_apartments","is_penthouse",
+            "flat_type","room_type","flat_rooms_count","room_type_ext","is_euro_flat","is_apartments","is_penthouse",
             "total_area","living_area","kitchen_area","rooms","floor_number",
             "loggias_count","balconies_count","windows_view_type",
             "separate_wcs_count","combined_wcs_count","repair_type",
 
             "jk_id","jk_name","house_id","house_name","flat_number","section_number",
 
-            "heating_type","land_area","land_area_unit","permitted_land_use","is_land_with_contract","land_category",
+            "house_type","heating_type","land_area","land_area_unit","permitted_land_use","is_land_with_contract","land_category","land_type",
             "has_terrace","has_cellar",
 
-            "is_rent_by_parts","rent_by_parts_desc","ceiling_height","power","parking_places","has_parking",
+            "commercial_type","is_rent_by_parts","rent_by_parts_desc","ceiling_height","power","parking_places","has_parking",
 
             "furnishing_details","has_internet","has_furniture","has_kitchen_furniture","has_tv","has_washer","has_conditioner",
             "has_refrigerator","has_dishwasher","has_shower","has_phone","has_ramp","has_bathtub",
@@ -56,6 +56,11 @@ class PropertyForm(forms.ModelForm):
             "kitchen_area": "Площадь кухни, м²",
             "rooms": "Количество комнат",
             "floor_number": "Этаж",
+            "flat_type": "Подтип квартиры",
+            "room_type_ext": "Подтип комнаты",
+            "house_type": "Подтип дома",
+            "commercial_type": "Подтип коммерции",
+            "land_type": "Подтип земельного участка",
         }
 
         widgets = {
