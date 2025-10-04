@@ -261,11 +261,14 @@ def panel_new(request):
 
 def panel_create(request):
     initial = {
-        "category": request.GET.get("category",""),
-        "operation": request.GET.get("operation",""),
+        "category": request.GET.get("category", ""),
+        "operation": request.GET.get("operation", ""),
     }
     if request.method == "POST":
-        form = PropertyForm(request.POST)
+        data = request.POST.copy()
+        data.setdefault("category", initial["category"])
+        data.setdefault("operation", initial["operation"])
+        form = PropertyForm(data)
         if form.is_valid():
             prop = form.save()
             return redirect(f"/panel/edit/{prop.pk}/")
