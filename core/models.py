@@ -4,6 +4,16 @@ import random
 from django.db import models
 from django.utils import timezone
 
+
+def gen_external_id():
+    """
+    Stable default used by historical migrations.
+    Keep this function available permanently so that
+    'default=core.models.gen_external_id' imports resolve during migrate.
+    """
+    ts = timezone.now().strftime("%Y%m%d%H%M%S")
+    return f"AG{ts}{random.randint(100, 999)}"
+
 CATEGORY_CHOICES = [
     ("house", "Дом"),
     ("flat", "Квартира"),
@@ -254,19 +264,15 @@ class Property(models.Model):
         base = f"{self.get_category_display()} | {self.address or ''}".strip()
         return f"{base} [{self.external_id}]"
 
-    @classmethod
-    def _generate_external_id(cls):
-        for _ in range(10):
-            stamp = timezone.now().strftime("%Y%m%d%H%M%S")
-            suffix = f"{random.randint(0, 999):03d}"
-            candidate = f"AG{stamp}{suffix}"
-            if not cls.objects.filter(external_id=candidate).exists():
-                return candidate
-        raise ValueError("Не удалось сгенерировать уникальный external_id")
-
     def save(self, *args, **kwargs):
-        if not self.external_id:
-            self.external_id = self.__class__._generate_external_id()
+        if not getattr(self, "external_id", None):
+            for _ in range(6):
+                candidate = gen_external_id()
+                if not type(self).objects.filter(external_id=candidate).exists():
+                    self.external_id = candidate
+                    break
+            else:
+                raise ValueError("Не удалось сгенерировать уникальный external_id")
         super().save(*args, **kwargs)
 
 class Photo(models.Model):
