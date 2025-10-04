@@ -353,13 +353,4 @@
       {% endfor %}
     </div>
   {% endif %}
-  <script>
-  document.addEventListener('DOMContentLoaded',function(){
-    var a=document.getElementById('toggle-type');
-    var box=document.getElementById('type-selects');
-    if(a&&box){
-      a.addEventListener('click',function(e){e.preventDefault(); box.style.display = box.style.display ? '' : 'none';});
-    }
-  });
-  </script>
 {% endblock %}
