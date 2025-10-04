@@ -1,6 +1,5 @@
 # core/views.py
 import os
-import uuid
 from functools import lru_cache
 from xml.etree.ElementTree import Element, SubElement, tostring
 
@@ -13,7 +12,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.encoding import smart_str
 
 from .models import Property, Photo
-from .cian import resolve_cian_category
+from .cian import build_cian_category
 from .forms import PropertyForm, PhotoForm, NewObjectStep1Form
 
 
@@ -69,11 +68,6 @@ def _field_verbose_name(field_name):
         return Property._meta.get_field(field_name).verbose_name
     except FieldDoesNotExist:
         return field_name
-
-
-def _gen_external_id():
-    # короткий стабильный id для черновика, шанс коллизии мизерный
-    return f"OBJ-{uuid.uuid4().hex[:8]}"
 
 
 def _split_key_value(text):
@@ -213,12 +207,15 @@ def _enable_choice_fields(form, field_names):
 def panel_list(request):
     q = request.GET.get("q", "").strip()
     show = request.GET.get("show")
+    include_archived = request.GET.get("include_archived") == "1"
 
     props = Property.objects.all()
     if show == "archived":
-        props = props.filter(status="archived")
-    elif show != "all":
-        props = props.filter(status="active")
+        props = props.filter(is_archived=True)
+    elif show == "all" or include_archived:
+        pass
+    else:
+        props = props.filter(is_archived=False)
 
     if q:
         props = props.filter(
@@ -227,24 +224,32 @@ def panel_list(request):
             Q(external_id__icontains=q)
         )
     props = props.order_by("-updated_at", "-id")
+    show_archived_flag = include_archived or show == "all"
     return render(
         request,
         "core/panel_list.html",
-        {"props": props, "q": q, "show": show},
+        {
+            "props": props,
+            "q": q,
+            "show": show,
+            "include_archived": show_archived_flag,
+        },
     )
 
 
 def panel_archive(request, pk):
     prop = get_object_or_404(Property, pk=pk)
     prop.status = "archived"
-    prop.save(update_fields=["status"])
+    prop.is_archived = True
+    prop.save(update_fields=["status", "is_archived"])
     return redirect("/panel/")
 
 
 def panel_restore(request, pk):
     prop = get_object_or_404(Property, pk=pk)
     prop.status = "active"
-    prop.save(update_fields=["status"])
+    prop.is_archived = False
+    prop.save(update_fields=["status", "is_archived"])
     return redirect("/panel/?show=archived")
 
 def panel_new(request):
@@ -265,17 +270,18 @@ def panel_create(request):
         "operation": request.GET.get("operation", ""),
     }
     if request.method == "POST":
-        data = request.POST.copy()
-        data.setdefault("category", initial["category"])
-        data.setdefault("operation", initial["operation"])
-        form = PropertyForm(data)
+        form = PropertyForm(request.POST)
         if form.is_valid():
             prop = form.save()
             return redirect(f"/panel/edit/{prop.pk}/")
     else:
         form = PropertyForm(initial=initial)
-    # ВАЖНО: пробрасываем initial_vals в шаблон, чтобы секции включались сразу
-    return render(request, "core/panel_edit.html", {"form": form, "prop": None, "photos": [], "initial_vals": initial})
+
+    return render(
+        request,
+        "core/panel_edit.html",
+        {"form": form, "prop": None, "photos": []},
+    )
 
 def panel_edit(request, pk):
     """
@@ -296,7 +302,7 @@ def panel_edit(request, pk):
     return render(
         request,
         "core/panel_edit.html",
-        {"form": form, "prop": prop, "photos": [], "initial_vals": {"category": "", "operation": ""}},
+        {"form": form, "prop": prop, "photos": []},
     )
 
 def panel_add_photo(request, pk):
@@ -344,10 +350,19 @@ def export_cian(request):
     SubElement(root, "Feed_Version").text = "2"  # Спецификация ЦИАН, версия 2  (см. doc)  # noqa
 
     # В фид попадают только отмеченные для выгрузки
-    qs = Property.objects.filter(export_to_cian=True).order_by("id")
+    qs = (
+        Property.objects.filter(export_to_cian=True, is_archived=False)
+        .order_by("id")
+    )
 
     for prop in qs:
-        category_str = resolve_cian_category(prop)
+        subtype_value = (
+            getattr(prop, "subtype", None)
+            or getattr(prop, "house_type", None)
+            or getattr(prop, "commercial_type", None)
+            or getattr(prop, "land_type", None)
+        )
+        category_str = build_cian_category(prop.category, prop.operation, subtype_value)
         if not category_str:
             # пропускаем объект без валидной категории
             continue

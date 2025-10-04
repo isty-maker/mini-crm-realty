@@ -8,12 +8,23 @@
     |
     <a href="/panel/?show=archived">Архив</a>
     |
-    <a href="/panel/?show=all">Все</a>
+    <a href="/panel/?include_archived=1">Все</a>
   </p>
 
-  <form method="get" action="/panel/">
-    <input type="text" name="q" value="{{ q }}" placeholder="Поиск: заголовок / город / ExternalId">
-    <button type="submit">Искать</button>
+  <form method="get" action="/panel/" class="grid-2" style="align-items:end; gap:1rem;">
+    <div>
+      <input type="text" name="q" value="{{ q }}" placeholder="Поиск: заголовок / город / ExternalId">
+      {% if show == "archived" %}
+        <input type="hidden" name="show" value="archived">
+      {% endif %}
+    </div>
+    <div style="display:flex; gap:1rem; align-items:center;">
+      <label style="display:flex; gap:.4rem; align-items:center; margin:0;">
+        <input type="checkbox" name="include_archived" value="1" {% if include_archived %}checked{% endif %}>
+        Показывать архив
+      </label>
+      <button type="submit">Искать</button>
+    </div>
   </form>
 
   <article>
@@ -42,15 +53,22 @@
       {% for p in props %}
         <tr>
           <td>{{ p.pk }}</td>
-          <td>{{ p.title }}</td>
+          <td>
+            <div>{{ p.title }}</div>
+            <div class="badges">
+              {% if p.export_to_cian %}<span class="badge badge-cian">CIAN</span>{% endif %}
+              {% if p.export_to_domklik %}<span class="badge badge-domklik">DomClick</span>{% endif %}
+              {% if p.is_archived %}<span class="badge badge-archived">Архив</span>{% endif %}
+            </div>
+          </td>
           <td>{{ p.city }}</td>
           <td><span class="muted">{{ p.updated_at }}</span></td>
           <td style="display:flex; gap:.5rem;">
             <a href="/panel/edit/{{ p.pk }}/">Открыть</a>
-            {% if p.status == "active" %}
-              <a href="/panel/archive/{{ p.pk }}/">В архив</a>
-            {% elif p.status == "archived" %}
+            {% if p.is_archived %}
               <a href="/panel/restore/{{ p.pk }}/">Вернуть</a>
+            {% else %}
+              <a href="/panel/archive/{{ p.pk }}/">В архив</a>
             {% endif %}
           </td>
         </tr>

@@ -21,6 +21,11 @@
     .group:first-of-type { border-top: none; padding-top: 0; }
     .group > h3 { margin-bottom: .6rem; }
     label { margin-bottom:.2rem; font-weight:600; font-size:.9em; }
+    .badges { display:flex; gap:.35rem; flex-wrap:wrap; margin-top:.35rem; }
+    .badge { display:inline-flex; align-items:center; padding:.15rem .5rem; border-radius:.45rem; font-size:.75rem; font-weight:600; }
+    .badge-cian { background:#dff4df; color:#1c6724; }
+    .badge-domklik { background:#dce8ff; color:#1f4f93; }
+    .badge-archived { background:#ececec; color:#555; }
     button,
     .button,
     input[type="button"],
@@ -58,37 +63,6 @@
     </nav>
     {% block content %}{% endblock %}
   </main>
-  <script>
-document.addEventListener('DOMContentLoaded', function(){
-  function byId(id){ return document.getElementById(id); }
-  function getCatOp(){
-    var form = document.querySelector('form[data-cat]');
-    var catData = form ? (form.getAttribute('data-cat')||'').trim() : '';
-    var opData  = form ? (form.getAttribute('data-op') ||'').trim() : '';
-    var catSel  = byId('id_category');
-    var opSel   = byId('id_operation');
-    var catInit = byId('initial_category');
-    var opInit  = byId('initial_operation');
-    var cat = (catSel && catSel.value) ? catSel.value.trim() : (catData || (catInit ? catInit.value.trim() : ''));
-    var op  = (opSel  && opSel.value)  ? opSel.value.trim()  : (opData  || (opInit  ? opInit.value.trim()  : ''));
-    return {cat:cat, op:op};
-  }
-  function updateGroups(){
-    var cur = getCatOp();
-    document.querySelectorAll('.group').forEach(function(sec){
-      var cats = (sec.dataset.cat||'').split(',').map(s=>s.trim()).filter(Boolean);
-      var ops  = (sec.dataset.op ||'').split(',').map(s=>s.trim()).filter(Boolean);
-      var catOK = !cats.length || (cur.cat && cats.includes(cur.cat));
-      var opOK  = !ops.length  || (cur.op  && ops.includes(cur.op));
-      sec.style.display = (catOK && opOK) ? '' : 'none';
-    });
-  }
-  ['id_category','id_operation'].forEach(function(id){
-    var el = byId(id);
-    if (el) el.addEventListener('change', updateGroups);
-  });
-  updateGroups();
-});
-  </script>
+  {% block extra_scripts %}{% endblock %}
 </body>
 </html>
