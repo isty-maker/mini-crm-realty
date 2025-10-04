@@ -13,6 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.encoding import smart_str
 
 from .models import Property, Photo
+from .cian import resolve_cian_category
 from .forms import PropertyForm, PhotoForm, NewObjectStep1Form
 
 
@@ -308,183 +309,143 @@ def panel_toggle_main(request, photo_id):
     return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/panel/"))
 
 # -------- Экспорт ЦИАН (Feed_Version=2) --------
-def _add_text(parent, tag, value, always=False):
+def _t(parent, tag, value, always=False):
     if value in (None, "", False) and not always:
         return None
     el = SubElement(parent, tag)
-    if value is True: el.text = "true"
-    elif value is False: el.text = "false"
-    else: el.text = smart_str(value)
+    if value is True:
+        el.text = "true"
+    elif value is False:
+        el.text = "false"
+    else:
+        el.text = smart_str(value)
     return el
 
-def _add_decimal(parent, tag, value):
-    if value is None: return None
+
+def _dec(parent, tag, value):
+    if value is None:
+        return None
     el = SubElement(parent, tag)
     el.text = str(value).replace(",", ".")
     return el
 
+
+def _digits_only(s):
+    if not s:
+        return ""
+    return "".join(ch for ch in str(s) if ch.isdigit())
+
+
 def export_cian(request):
-    props = list(Property.objects.all().order_by("id"))
-    problems = []
-
-    for prop in props:
-        missing, category_key, operation_key = _collect_missing_fields(prop)
-        if missing:
-            problems.append(
-                {
-                    "prop": prop,
-                    "missing_fields": missing,
-                    "missing_verbose": [
-                        _field_verbose_name(field_name) for field_name in missing
-                    ],
-                    "category": category_key,
-                    "operation": operation_key,
-                }
-            )
-
-    if problems:
-        return render(
-            request,
-            "core/export_precheck.html",
-            {
-                "problems": problems,
-            },
-        )
-
     root = Element("Feed")
-    SubElement(root, "Feed_Version").text = "2"
+    SubElement(root, "Feed_Version").text = "2"  # Спецификация ЦИАН, версия 2  (см. doc)  # noqa
 
-    for prop in props:
+    # В фид попадают только отмеченные для выгрузки
+    qs = Property.objects.filter(export_to_cian=True).order_by("id")
+
+    for prop in qs:
+        category_str = resolve_cian_category(prop)
+        if not category_str:
+            # пропускаем объект без валидной категории
+            continue
+
         obj = SubElement(root, "Object")
-        _add_text(obj, "Category", prop.category, always=True)
-        _add_text(obj, "ExternalId", prop.external_id, always=True)
+        _t(obj, "Category", category_str, always=True)  # например flatSale/houseRent ...
+        _t(obj, "ExternalId", getattr(prop, "external_id", "") or "", always=True)
 
-        _add_text(obj, "Description", prop.description)
-        _add_text(obj, "Address", prop.address)
-        if prop.lat is not None and prop.lng is not None:
+        # Базовые поля
+        _t(obj, "Description", getattr(prop, "description", ""))
+        _t(obj, "Address", getattr(prop, "address", ""))
+        lat = getattr(prop, "lat", None)
+        lng = getattr(prop, "lng", None)
+        if lat is not None and lng is not None:
             coords = SubElement(obj, "Coordinates")
-            _add_decimal(coords, "Lat", prop.lat)
-            _add_decimal(coords, "Lng", prop.lng)
-        _add_text(obj, "CadastralNumber", prop.cadastral_number)
+            _dec(coords, "Lat", lat)
+            _dec(coords, "Lng", lng)
+        _t(obj, "CadastralNumber", getattr(prop, "cadastral_number", ""))
 
-        if prop.phone_number or prop.phone_number2:
-            phones = SubElement(obj, "Phones")
-            if prop.phone_number:
-                ph = SubElement(phones, "PhoneSchema")
-                _add_text(ph, "CountryCode", prop.phone_country or "7")
-                _add_text(ph, "Number", prop.phone_number)
-            if prop.phone_number2:
-                ph = SubElement(phones, "PhoneSchema")
-                _add_text(ph, "CountryCode", prop.phone_country or "7")
-                _add_text(ph, "Number", prop.phone_number2)
+        # Телефоны (Phones → PhoneSchema → CountryCode/Number)
+        phones_added = False
+        phones = SubElement(obj, "Phones")
+        phone_country = getattr(prop, "phone_country", None) or "7"
+        num1 = _digits_only(getattr(prop, "phone_number", ""))
+        num2 = _digits_only(getattr(prop, "phone_number2", ""))
+        if num1:
+            ph = SubElement(phones, "PhoneSchema")
+            _t(ph, "CountryCode", phone_country, always=True)
+            _t(ph, "Number", num1, always=True)
+            phones_added = True
+        if num2:
+            ph = SubElement(phones, "PhoneSchema")
+            _t(ph, "CountryCode", phone_country, always=True)
+            _t(ph, "Number", num2, always=True)
+            phones_added = True
+        if not phones_added:
+            obj.remove(phones)  # не шумим пустым контейнером
 
-        if any([prop.building_name, prop.building_floors, prop.building_build_year,
-                prop.building_material, prop.building_ceiling_height,
-                prop.building_passenger_lifts, prop.building_cargo_lifts]):
-            b = SubElement(obj, "Building")
-            _add_text(b, "Name", prop.building_name)
-            _add_text(b, "FloorsCount", prop.building_floors)
-            _add_text(b, "BuildYear", prop.building_build_year)
-            _add_text(b, "MaterialType", prop.building_material)
-            _add_decimal(b, "CeilingHeight", prop.building_ceiling_height)
-            _add_text(b, "PassengerLiftsCount", prop.building_passenger_lifts)
-            _add_text(b, "CargoLiftsCount", prop.building_cargo_lifts)
+        # Общие площади
+        total_area = getattr(prop, "total_area", None)
+        _dec(obj, "TotalArea", total_area)
 
-        if prop.layout_photo_url:
-            lp = SubElement(obj, "LayoutPhoto")
-            _add_text(lp, "FullUrl", prop.layout_photo_url, always=True)
-            _add_text(lp, "IsDefault", True, always=True)
-        if prop.object_tour_url:
-            t = SubElement(obj, "ObjectTour")
-            _add_text(t, "FullUrl", prop.object_tour_url, always=True)
+        # Загородное — домовские поля
+        if getattr(prop, "category", "") == "house":
+            # Отметка дачи — если подтип dacha
+            if getattr(prop, "house_type", "") == "dacha":
+                _t(obj, "IsDacha", True, always=True)
 
-        if prop.photos.exists():
-            photos = SubElement(obj, "Photos")
-            for p in prop.photos.all():
-                ph = SubElement(photos, "PhotoSchema")
-                _add_text(ph, "FullUrl", p.full_url, always=True)
-                if p.is_default:
-                    _add_text(ph, "IsDefault", True, always=True)
+            land_area = getattr(prop, "land_area", None)
+            land_area_unit = getattr(prop, "land_area_unit", "")
+            permitted_land_use = getattr(prop, "permitted_land_use", "")
+            is_land_with_contract = getattr(prop, "is_land_with_contract", None)
+            land_category = getattr(prop, "land_category", "")
+            if any([land_area, land_area_unit, permitted_land_use, is_land_with_contract]):
+                land = SubElement(obj, "Land")
+                _dec(land, "Area", land_area)
+                _t(land, "AreaUnitType", land_area_unit)
+                _t(land, "PermittedLandUseType", permitted_land_use)
+                if is_land_with_contract is not None:
+                    _t(land, "IsLandWithContract", bool(is_land_with_contract), always=True)
+            _t(obj, "LandCategory", land_category)
+            _t(obj, "HeatingType", getattr(prop, "heating_type", ""))
 
-        _add_text(obj, "RoomType", prop.room_type)
-        _add_text(obj, "FlatRoomsCount", prop.flat_rooms_count)
-        _add_text(obj, "IsEuroFlat", prop.is_euro_flat)
-        _add_text(obj, "IsApartments", prop.is_apartments)
-        _add_text(obj, "IsPenthouse", prop.is_penthouse)
+        # Фото
+        photos_qs = getattr(prop, "photos", None)
+        if photos_qs and photos_qs.exists():
+            photos_el = SubElement(obj, "Photos")
+            for p in photos_qs.all():
+                ph = SubElement(photos_el, "PhotoSchema")
+                _t(ph, "FullUrl", getattr(p, "full_url", ""), always=True)
+                if getattr(p, "is_default", False):
+                    _t(ph, "IsDefault", True, always=True)
 
-        _add_decimal(obj, "TotalArea", prop.total_area)
-        _add_decimal(obj, "LivingArea", prop.living_area)
-        _add_decimal(obj, "KitchenArea", prop.kitchen_area)
-        _add_text(obj, "FloorNumber", prop.floor_number)
-        _add_text(obj, "LoggiasCount", prop.loggias_count)
-        _add_text(obj, "BalconiesCount", prop.balconies_count)
-        _add_text(obj, "WindowsViewType", prop.windows_view_type)
-        _add_text(obj, "SeparateWcsCount", prop.separate_wcs_count)
-        _add_text(obj, "CombinedWcsCount", prop.combined_wcs_count)
-        _add_text(obj, "RepairType", prop.repair_type)
-
-        if any([prop.jk_id, prop.jk_name, prop.house_id, prop.house_name, prop.flat_number, prop.section_number]):
-            jk = SubElement(obj, "JKSchema")
-            _add_text(jk, "Id", prop.jk_id)
-            _add_text(jk, "Name", prop.jk_name)
-            if prop.house_id or prop.house_name:
-                house = SubElement(jk, "House")
-                _add_text(house, "Id", prop.house_id)
-                _add_text(house, "Name", prop.house_name)
-            if prop.flat_number or prop.section_number:
-                flat = SubElement(jk, "Flat")
-                _add_text(flat, "FlatNumber", prop.flat_number)
-                _add_text(flat, "SectionNumber", prop.section_number)
-
-        _add_text(obj, "HeatingType", prop.heating_type)
-        if any([prop.land_area, prop.land_area_unit, prop.permitted_land_use, prop.is_land_with_contract]):
-            land = SubElement(obj, "Land")
-            _add_decimal(land, "Area", prop.land_area)
-            _add_text(land, "AreaUnitType", prop.land_area_unit)
-            _add_text(land, "PermittedLandUseType", prop.permitted_land_use)
-            _add_text(land, "IsLandWithContract", prop.is_land_with_contract)
-        _add_text(obj, "LandCategory", prop.land_category)
-        _add_text(obj, "HasTerrace", prop.has_terrace)
-        _add_text(obj, "HasCellar", prop.has_cellar)
-
-        _add_text(obj, "IsRentByParts", prop.is_rent_by_parts)
-        _add_text(obj, "RentByPartsDescription", prop.rent_by_parts_desc)
-        _add_decimal(obj, "CeilingHeight", prop.ceiling_height)
-        _add_text(obj, "ElectricityPower", prop.power)
-        _add_text(obj, "HasParking", prop.has_parking)
-        _add_text(obj, "ParkingPlaces", prop.parking_places)
-        _add_text(obj, "FurnishingDetails", prop.furnishing_details)
-
-        for tag, flag in [
-            ("HasInternet", prop.has_internet),
-            ("HasFurniture", prop.has_furniture),
-            ("HasKitchenFurniture", prop.has_kitchen_furniture),
-            ("HasTv", prop.has_tv),
-            ("HasWasher", prop.has_washer),
-            ("HasConditioner", prop.has_conditioner),
-            ("HasRefrigerator", prop.has_refrigerator),
-            ("HasDishwasher", prop.has_dishwasher),
-            ("HasShower", prop.has_shower),
-            ("HasPhone", prop.has_phone),
-            ("HasRamp", prop.has_ramp),
-            ("HasBathtub", prop.has_bathtub),
-        ]:
-            _add_text(obj, tag, flag)
-
-        if any([prop.price is not None, prop.mortgage_allowed, prop.agent_bonus_value is not None,
-                prop.security_deposit is not None, prop.min_rent_term_months is not None]):
+        # Условия сделки (BargainTerms)
+        price = getattr(prop, "price", None)
+        if (
+            price is not None
+            or getattr(prop, "mortgage_allowed", None) is not None
+            or getattr(prop, "agent_bonus_value", None) is not None
+            or getattr(prop, "security_deposit", None) is not None
+            or getattr(prop, "min_rent_term_months", None) is not None
+        ):
             bt = SubElement(obj, "BargainTerms")
-            _add_decimal(bt, "Price", prop.price)
-            _add_text(bt, "Currency", prop.currency or "rur")
-            _add_text(bt, "MortgageAllowed", prop.mortgage_allowed)
-            if prop.agent_bonus_value is not None:
+            _dec(bt, "Price", price)
+            _t(bt, "Currency", getattr(prop, "currency", None) or "rur")
+            if getattr(prop, "mortgage_allowed", None) is not None:
+                _t(bt, "MortgageAllowed", bool(getattr(prop, "mortgage_allowed")), always=True)
+            # AgentBonus
+            abv = getattr(prop, "agent_bonus_value", None)
+            if abv is not None:
                 ab = SubElement(bt, "AgentBonus")
-                _add_decimal(ab, "Value", prop.agent_bonus_value)
-                _add_text(ab, "PaymentType", "percent" if prop.agent_bonus_is_percent else "fixed")
-                if not prop.agent_bonus_is_percent:
-                    _add_text(ab, "Currency", prop.currency or "rur")
-            _add_decimal(bt, "SecurityDeposit", prop.security_deposit)
-            _add_text(bt, "MinRentTerm", prop.min_rent_term_months)
+                _dec(ab, "Value", abv)
+                is_percent = bool(getattr(prop, "agent_bonus_is_percent", False))
+                _t(ab, "PaymentType", "percent" if is_percent else "fixed", always=True)
+                if not is_percent:
+                    _t(ab, "Currency", getattr(prop, "currency", None) or "rur")
+            # Аренда:
+            if getattr(prop, "security_deposit", None) is not None:
+                _dec(bt, "SecurityDeposit", getattr(prop, "security_deposit"))
+            if getattr(prop, "min_rent_term_months", None) is not None:
+                _t(bt, "MinRentTerm", getattr(prop, "min_rent_term_months"))
 
     xml_bytes = tostring(root, encoding="utf-8", xml_declaration=True)
     return HttpResponse(xml_bytes, content_type="application/xml; charset=utf-8")
