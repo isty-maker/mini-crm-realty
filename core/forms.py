@@ -61,32 +61,63 @@ class PropertyForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
 
-        phone_country = (cleaned_data.get("phone_country") or "").strip() or "7"
-        cleaned_data["phone_country"] = phone_country
+        if "phone_country" in cleaned_data:
+            phone_country = (cleaned_data.get("phone_country") or "").strip() or "7"
+            cleaned_data["phone_country"] = phone_country
 
         for field_name in ("phone_number", "phone_number2"):
-            raw_value = cleaned_data.get(field_name, "") or ""
-            digits_only = re.sub(r"\D+", "", str(raw_value))
-            if digits_only.startswith("8") and len(digits_only) == 11:
-                digits_only = digits_only[1:]
-            cleaned_data[field_name] = digits_only
+            raw_value = cleaned_data.get(field_name)
+            if raw_value:
+                digits_only = re.sub(r"\D+", "", str(raw_value))
+                if digits_only.startswith("8") and len(digits_only) == 11:
+                    digits_only = digits_only[1:]
+                cleaned_data[field_name] = digits_only
 
-        if "category" in self.fields:
-            category = cleaned_data.get("category")
-            if not category:
-                self.add_error("category", "Выберите тип объекта.")
-        else:
+        if "category" not in self.fields:
             raise forms.ValidationError(
                 "Поле 'category' отсутствует в форме — проверьте шаблон/форму."
             )
 
-        if "operation" in self.fields:
-            operation = cleaned_data.get("operation")
-            if not operation:
-                self.add_error("operation", "Выберите тип сделки.")
+        category = (cleaned_data.get("category") or "").strip()
+        operation = (cleaned_data.get("operation") or "").strip()
 
-        category_value = cleaned_data.get("category")
-        if category_value in {"flat", "room", "house"} and not cleaned_data.get("total_area"):
+        if not category:
+            self.add_error("category", "Выберите «Тип объекта».")
+
+        if "operation" in self.fields and not operation:
+            self.add_error("operation", "Выберите «Тип сделки».")
+
+        def need(field_name):
+            return field_name in self.fields
+
+        if category == "house" and need("house_type") and not cleaned_data.get("house_type"):
+            self.add_error(
+                "house_type",
+                "Выберите подтип дома (дом/дача/коттедж/таунхаус/доля).",
+            )
+
+        if category == "commercial" and need("commercial_type") and not cleaned_data.get("commercial_type"):
+            self.add_error(
+                "commercial_type",
+                "Выберите подтип коммерческой недвижимости.",
+            )
+
+        if category == "land" and need("land_type") and not cleaned_data.get("land_type"):
+            self.add_error("land_type", "Выберите подтип земельного участка.")
+
+        if category == "flat" and need("flat_type") and not cleaned_data.get("flat_type"):
+            self.add_error(
+                "flat_type",
+                "Выберите подтип квартиры (если применимо).",
+            )
+
+        if category == "room" and need("room_type_ext") and not cleaned_data.get("room_type_ext"):
+            self.add_error(
+                "room_type_ext",
+                "Уточните тип комнаты (если применимо).",
+            )
+
+        if category in {"flat", "room", "house"} and not cleaned_data.get("total_area"):
             self.add_error("total_area", "Укажите общую площадь (TotalArea).")
 
         return cleaned_data
@@ -94,7 +125,8 @@ class PropertyForm(forms.ModelForm):
     class Meta:
         model = Property
         fields = "__all__"
-        exclude = ["external_id"]
+        if any(f.name == "external_id" for f in model._meta.fields):
+            exclude = ["external_id"]
 
         labels = {
             "furnishing_details": "Комплектация",
