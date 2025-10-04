@@ -7,19 +7,20 @@
   <form method="post">
     {% csrf_token %}
 
-    <section class="group" data-op="sale,rent">
+    <div class="form-row">
+      {{ form.category.label_tag }} {{ form.category }}
+    </div>
+    {% if form.fields.operation %}
+      <div class="form-row">
+        {{ form.operation.label_tag }} {{ form.operation }}
+      </div>
+    {% endif %}
+
+    <section class="group">
       <h3>Основное</h3>
       <div class="form-row">
         {{ form.external_id.label_tag }}
         {{ form.external_id }}
-      </div>
-      <div class="form-row">
-        {{ form.category.label_tag }}
-        {{ form.category }}
-      </div>
-      <div class="form-row">
-        {{ form.operation.label_tag }}
-        {{ form.operation }}
       </div>
       <div class="form-row">
         {{ form.title.label_tag }}
@@ -76,7 +77,7 @@
       </div>
     </section>
 
-    <section class="group" data-op="sale,rent">
+    <section class="group">
       <h3>Адрес</h3>
       <div class="form-row">
         {{ form.address.label_tag }}
@@ -98,7 +99,7 @@
       </div>
     </section>
 
-    <section class="group" data-op="sale,rent">
+    <section class="group">
       <h3>Контакты</h3>
       <div class="form-row row-2">
         <div class="form-row">
@@ -116,7 +117,7 @@
       </div>
     </section>
 
-    <section class="group" data-op="sale,rent">
+    <section class="group">
       <h3>Медиа</h3>
       <div class="form-row">
         {{ form.layout_photo_url.label_tag }}
@@ -128,7 +129,7 @@
       </div>
     </section>
 
-    <section class="group" data-op="sale,rent">
+    <section class="group">
       <h3>Здание</h3>
       <div class="form-row">
         {{ form.building_name.label_tag }}
@@ -249,7 +250,7 @@
     </section>
 
     <section class="group" data-cat="house">
-      <h3>Дом и участок</h3>
+      <h3>Дом</h3>
       <div class="form-row">
         {{ form.heating_type.label_tag }}
         {{ form.heating_type }}
