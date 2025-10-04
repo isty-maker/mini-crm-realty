@@ -3,9 +3,10 @@
   <h1>Новый объект</h1>
   <form method="post">{% csrf_token %}
     <div class="form-row">{{ form.category.label_tag }} {{ form.category }}</div>
-    {# показываем поле сделки, даже если его потом некуда сохранять — это пригодится позже #}
     <div class="form-row">{{ form.operation.label_tag }} {{ form.operation }}</div>
     <button type="submit">Далее</button>
   </form>
-  <p class="form-hint">Запись будет создана только после нажатия «Сохранить» на следующем шаге.</p>
+  <p style="font-size:.9em;color:#666;margin-top:.5rem;">
+    Запись будет создана только после нажатия «Сохранить» на следующем шаге.
+  </p>
 {% endblock %}

@@ -5,28 +5,15 @@
   <h1>{{ prop|default:"Новый объект" }}</h1>
 
   <form method="post"
-        data-cat="{{ form.instance.category|default_if_none:'' }}"
-        data-op="{{ form.instance.operation|default_if_none:'' }}">
+        data-cat="{{ form.instance.category|default_if_none:''|default:initial_vals.category }}"
+        data-op="{{ form.instance.operation|default_if_none:''|default:initial_vals.operation }}">
     {% csrf_token %}
-
-    <div class="chips" style="display:flex; gap:.5rem; align-items:center; margin:.5rem 0;">
-      <span class="chip" style="border:1px solid #ccc; padding:.2rem .5rem; border-radius:.5rem;">
-        {{ form.instance.category|default:form.category.value }}
-      </span>
-      {% if form.fields.operation %}
-      <span class="chip" style="border:1px solid #ccc; padding:.2rem .5rem; border-radius:.5rem;">
-        {{ form.instance.operation|default:form.operation.value }}
-      </span>
-      {% endif %}
-      <a href="#" id="toggle-type">Изменить</a>
-    </div>
-
-    <div id="type-selects" style="display:none; margin-bottom:.5rem;">
-      <div class="form-row">{{ form.category.label_tag }} {{ form.category }}</div>
-      {% if form.fields.operation %}
-      <div class="form-row">{{ form.operation.label_tag }} {{ form.operation }}</div>
-      {% endif %}
-    </div>
+    <input type="hidden" id="initial_category" value="{{ initial_vals.category|default:'' }}">
+    <input type="hidden" id="initial_operation" value="{{ initial_vals.operation|default:'' }}">
+    <div class="form-row">{{ form.category.label_tag }} {{ form.category }}</div>
+    {% if form.fields.operation %}
+    <div class="form-row">{{ form.operation.label_tag }} {{ form.operation }}</div>
+    {% endif %}
 
     <section class="group">
       <h3>Экспорт</h3>
