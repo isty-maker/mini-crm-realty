@@ -21,29 +21,19 @@
       <div class="form-row">{{ form.export_to_domclick.label_tag }} {{ form.export_to_domclick }}</div>
     </section>
 
+    <!-- Общие поля (видны всегда) -->
     <section class="group">
       <h3>Основное</h3>
+      <div class="form-row">{{ form.title.label_tag }} {{ form.title }}</div>
+      <div class="form-row row-2">
+        {{ form.price.label_tag }} {{ form.price }}
+        {{ form.currency.label_tag }} {{ form.currency }}
+      </div>
+      <div class="form-row">{{ form.address.label_tag }} {{ form.address }}</div>
+      <div class="form-row">{{ form.description.label_tag }} {{ form.description }}</div>
       <div class="form-row">
         {{ form.external_id.label_tag }}
         {{ form.external_id }}
-      </div>
-      <div class="form-row">
-        {{ form.title.label_tag }}
-        {{ form.title }}
-      </div>
-      <div class="form-row">
-        {{ form.description.label_tag }}
-        {{ form.description }}
-      </div>
-      <div class="form-row row-2">
-        <div class="form-row">
-          {{ form.price.label_tag }}
-          {{ form.price }}
-        </div>
-        <div class="form-row">
-          {{ form.currency.label_tag }}
-          {{ form.currency }}
-        </div>
       </div>
       <div class="form-row">
         <label>{{ form.mortgage_allowed }} {{ form.mortgage_allowed.label }}</label>
@@ -69,6 +59,7 @@
       </div>
     </section>
 
+    <!-- Площади (видны всегда, чтобы "Общая площадь" была у любых типов) -->
     <section class="group">
       <h3>Площади</h3>
       <div class="form-row">
@@ -84,10 +75,6 @@
 
     <section class="group">
       <h3>Адрес</h3>
-      <div class="form-row">
-        {{ form.address.label_tag }}
-        {{ form.address }}
-      </div>
       <div class="form-row row-2">
         <div class="form-row">
           {{ form.lat.label_tag }}
@@ -170,15 +157,13 @@
       </div>
     </section>
 
+    <!-- Жилые характеристики (квартира/дом/комната) -->
     <section class="group" data-cat="flat,house,room">
       <h3>Характеристики жилья</h3>
-      <div class="form-row">
-        {{ form.rooms.label_tag }} {{ form.rooms }}
-      </div>
-      <div class="form-row">
-        {{ form.floor_number.label_tag }}
-        {{ form.floor_number }}
-      </div>
+      {% if form.fields.flat_type %}<div class="form-row" data-cat="flat">{{ form.flat_type.label_tag }} {{ form.flat_type }}</div>{% endif %}
+      {% if form.fields.room_type_ext %}<div class="form-row" data-cat="room">{{ form.room_type_ext.label_tag }} {{ form.room_type_ext }}</div>{% endif %}
+      <div class="form-row">{{ form.rooms.label_tag }} {{ form.rooms }}</div>
+      <div class="form-row">{{ form.floor_number.label_tag }} {{ form.floor_number }}</div>
       <div class="form-row">
         {{ form.room_type.label_tag }}
         {{ form.room_type }}
@@ -254,16 +239,7 @@
       </div>
     </section>
 
-    <section class="group" data-cat="flat">
-      <h3>Квартира</h3>
-      <div class="form-row">{{ form.flat_type.label_tag }} {{ form.flat_type }}</div>
-    </section>
-
-    <section class="group" data-cat="room">
-      <h3>Комната</h3>
-      <div class="form-row">{{ form.room_type_ext.label_tag }} {{ form.room_type_ext }}</div>
-    </section>
-
+    <!-- Дом (ТОЛЬКО для house) -->
     <section class="group" data-cat="house">
       <h3>Дом</h3>
       {% if form.fields.house_type %}<div class="form-row">{{ form.house_type.label_tag }} {{ form.house_type }}</div>{% endif %}
@@ -281,19 +257,14 @@
       <div class="form-row">{{ form.parking_places.label_tag }} {{ form.parking_places }}</div>
     </section>
 
-    <section class="group" data-cat="land">
-      <h3>Земельный участок</h3>
-      <div class="form-row">{{ form.land_type.label_tag }} {{ form.land_type }}</div>
-      <div class="form-row">{{ form.land_area.label_tag }} {{ form.land_area }}</div>
-      <div class="form-row">{{ form.land_area_unit.label_tag }} {{ form.land_area_unit }}</div>
-      <div class="form-row">{{ form.permitted_land_use.label_tag }} {{ form.permitted_land_use }}</div>
-      <div class="form-row">{{ form.is_land_with_contract.label_tag }} {{ form.is_land_with_contract }}</div>
-      <div class="form-row">{{ form.land_category.label_tag }} {{ form.land_category }}</div>
-    </section>
-
+    <!-- Коммерция -->
     <section class="group" data-cat="commercial">
       <h3>Коммерция</h3>
-      <div class="form-row">{{ form.commercial_type.label_tag }} {{ form.commercial_type }}</div>
+      {% if form.fields.commercial_type %}<div class="form-row">{{ form.commercial_type.label_tag }} {{ form.commercial_type }}</div>{% endif %}
+      <div class="form-row">{{ form.power.label_tag }} {{ form.power }}</div>
+      <div class="form-row">{{ form.has_parking.label_tag }} {{ form.has_parking }}</div>
+      <div class="form-row">{{ form.parking_places.label_tag }} {{ form.parking_places }}</div>
+      <div class="form-row">{{ form.has_ramp.label_tag }} {{ form.has_ramp }}</div>
       <div class="form-row">
         <label>{{ form.is_rent_by_parts }} {{ form.is_rent_by_parts.label }}</label>
       </div>
@@ -305,20 +276,17 @@
         {{ form.ceiling_height.label_tag }}
         {{ form.ceiling_height }}
       </div>
-      <div class="form-row">
-        {{ form.power.label_tag }}
-        {{ form.power }}
-      </div>
-      <div class="form-row">
-        {{ form.parking_places.label_tag }}
-        {{ form.parking_places }}
-      </div>
-      <div class="form-row">
-        <label>{{ form.has_parking }} {{ form.has_parking.label }}</label>
-      </div>
-      <div class="form-row">
-        <label>{{ form.has_ramp }} {{ form.has_ramp.label }}</label>
-      </div>
+    </section>
+
+    <!-- Земля -->
+    <section class="group" data-cat="land">
+      <h3>Земельный участок</h3>
+      {% if form.fields.land_type %}<div class="form-row">{{ form.land_type.label_tag }} {{ form.land_type }}</div>{% endif %}
+      <div class="form-row">{{ form.land_area.label_tag }} {{ form.land_area }}</div>
+      <div class="form-row">{{ form.land_area_unit.label_tag }} {{ form.land_area_unit }}</div>
+      <div class="form-row">{{ form.permitted_land_use.label_tag }} {{ form.permitted_land_use }}</div>
+      <div class="form-row">{{ form.land_category.label_tag }} {{ form.land_category }}</div>
+      <div class="form-row">{{ form.is_land_with_contract.label_tag }} {{ form.is_land_with_contract }}</div>
     </section>
 
     <section class="group" data-cat="flat,room,house">
