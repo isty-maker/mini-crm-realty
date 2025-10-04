@@ -279,7 +279,7 @@
 
     <section class="group" data-cat="house">
       <h3>Дом</h3>
-      <div class="form-row">{{ form.house_type.label_tag }} {{ form.house_type }}</div>
+      {% if form.fields.house_type %}<div class="form-row">{{ form.house_type.label_tag }} {{ form.house_type }}</div>{% endif %}
       <div class="form-row">{{ form.land_area.label_tag }} {{ form.land_area }}</div>
       <div class="form-row">{{ form.land_area_unit.label_tag }} {{ form.land_area_unit }}</div>
       <div class="form-row">{{ form.permitted_land_use.label_tag }} {{ form.permitted_land_use }}</div>
