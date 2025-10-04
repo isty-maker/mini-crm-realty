@@ -251,52 +251,22 @@
 
     <section class="group" data-cat="house">
       <h3>Дом</h3>
-      <div class="form-row">
-        {{ form.heating_type.label_tag }}
-        {{ form.heating_type }}
-      </div>
-      <div class="form-row row-2">
-        <div class="form-row">
-          {{ form.land_area.label_tag }}
-          {{ form.land_area }}
-        </div>
-        <div class="form-row">
-          {{ form.land_area_unit.label_tag }}
-          {{ form.land_area_unit }}
-        </div>
-      </div>
-      <div class="form-row">
-        {{ form.permitted_land_use.label_tag }}
-        {{ form.permitted_land_use }}
-      </div>
-      <div class="form-row">
-        {{ form.land_category.label_tag }}
-        {{ form.land_category }}
-      </div>
-      <div class="form-row">
-        <label>{{ form.is_land_with_contract }} {{ form.is_land_with_contract.label }}</label>
-      </div>
-      <div class="form-row">
-        <label>{{ form.has_terrace }} {{ form.has_terrace.label }}</label>
-      </div>
-      <div class="form-row">
-        <label>{{ form.has_cellar }} {{ form.has_cellar.label }}</label>
-      </div>
-      <div class="form-row">
-        {{ form.ceiling_height.label_tag }}
-        {{ form.ceiling_height }}
-      </div>
-      <div class="form-row">
-        {{ form.power.label_tag }}
-        {{ form.power }}
-      </div>
-      <div class="form-row">
-        {{ form.parking_places.label_tag }}
-        {{ form.parking_places }}
-      </div>
-      <div class="form-row">
-        <label>{{ form.has_parking }} {{ form.has_parking.label }}</label>
-      </div>
+
+      <div class="form-row">{{ form.land_area.label_tag }} {{ form.land_area }}</div>
+      <div class="form-row">{{ form.land_area_unit.label_tag }} {{ form.land_area_unit }}</div>
+      <div class="form-row">{{ form.permitted_land_use.label_tag }} {{ form.permitted_land_use }}</div>
+      <div class="form-row">{{ form.is_land_with_contract.label_tag }} {{ form.is_land_with_contract }}</div>
+      <div class="form-row">{{ form.land_category.label_tag }} {{ form.land_category }}</div>
+
+      <div class="form-row">{{ form.heating_type.label_tag }} {{ form.heating_type }}</div>
+      <div class="form-row">{{ form.ceiling_height.label_tag }} {{ form.ceiling_height }}</div>
+      <div class="form-row">{{ form.has_terrace.label_tag }} {{ form.has_terrace }}</div>
+      <div class="form-row">{{ form.has_cellar.label_tag }} {{ form.has_cellar }}</div>
+
+      {# если используешь эти поля для частного дома #}
+      <div class="form-row">{{ form.power.label_tag }} {{ form.power }}</div>
+      <div class="form-row">{{ form.has_parking.label_tag }} {{ form.has_parking }}</div>
+      <div class="form-row">{{ form.parking_places.label_tag }} {{ form.parking_places }}</div>
     </section>
 
     <section class="group" data-cat="commercial">
