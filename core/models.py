@@ -1,4 +1,6 @@
 # core/models.py
+import uuid
+
 from django.db import models
 
 CATEGORY_CHOICES = [
@@ -89,9 +91,19 @@ CURRENCY_CHOICES = [("rur","RUB"),("usd","USD"),("eur","EUR")]
 ROOM_TYPE_CHOICES = [("separate","Изолированная"),("combined","Совмещенная"),("both","Оба варианта")]
 STATUS_CHOICES = [("active", "Активен"), ("archived", "В архиве")]
 
+def gen_external_id():
+    return "p" + uuid.uuid4().hex[:12]
+
+
 class Property(models.Model):
     # Базовое
-    external_id = models.CharField("Внешний ID", max_length=100, unique=True)
+    external_id = models.CharField(
+        "Внешний ID",
+        max_length=100,
+        unique=True,
+        blank=True,
+        default=gen_external_id,
+    )
     category = models.CharField(
         "Категория (ЦИАН)",
         max_length=64,
@@ -118,7 +130,9 @@ class Property(models.Model):
     lng = models.DecimalField("Долгота", max_digits=9, decimal_places=6, null=True, blank=True)
     cadastral_number = models.CharField("Кадастровый номер", max_length=64, blank=True)
 
-    phone_country = models.CharField("Код страны", max_length=8, blank=True)
+    phone_country = models.CharField(
+        "Код страны", max_length=8, blank=True, default="7"
+    )
     phone_number = models.CharField("Телефон №1", max_length=32, blank=True)
     phone_number2 = models.CharField("Телефон №2 (опц.)", max_length=32, blank=True)
 
