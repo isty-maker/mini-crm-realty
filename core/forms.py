@@ -24,6 +24,7 @@ class PropertyForm(forms.ModelForm):
         fields = [
             "external_id","category",
             "title","description",
+            "export_to_cian","export_to_domclick",
             "address","lat","lng","cadastral_number",
             "phone_country","phone_number","phone_number2",
             "layout_photo_url","object_tour_url",

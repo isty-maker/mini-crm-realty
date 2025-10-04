@@ -211,7 +211,14 @@ def _enable_choice_fields(form, field_names):
 
 def panel_list(request):
     q = request.GET.get("q", "").strip()
+    show = request.GET.get("show")
+
     props = Property.objects.all()
+    if show == "archived":
+        props = props.filter(status="archived")
+    elif show != "all":
+        props = props.filter(status="active")
+
     if q:
         props = props.filter(
             Q(title__icontains=q) |
@@ -219,7 +226,25 @@ def panel_list(request):
             Q(external_id__icontains=q)
         )
     props = props.order_by("-updated_at", "-id")
-    return render(request, "core/panel_list.html", {"props": props, "q": q})
+    return render(
+        request,
+        "core/panel_list.html",
+        {"props": props, "q": q, "show": show},
+    )
+
+
+def panel_archive(request, pk):
+    prop = get_object_or_404(Property, pk=pk)
+    prop.status = "archived"
+    prop.save(update_fields=["status"])
+    return redirect("/panel/")
+
+
+def panel_restore(request, pk):
+    prop = get_object_or_404(Property, pk=pk)
+    prop.status = "active"
+    prop.save(update_fields=["status"])
+    return redirect("/panel/?show=archived")
 
 def panel_new(request):
     if request.method == "POST":

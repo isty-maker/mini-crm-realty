@@ -3,6 +3,14 @@
 {% block content %}
   <h1>Объекты</h1>
 
+  <p style="margin-bottom:1rem;">
+    <a href="/panel/">Активные</a>
+    |
+    <a href="/panel/?show=archived">Архив</a>
+    |
+    <a href="/panel/?show=all">Все</a>
+  </p>
+
   <form method="get" action="/panel/">
     <input type="text" name="q" value="{{ q }}" placeholder="Поиск: заголовок / город / ExternalId">
     <button type="submit">Искать</button>
@@ -37,7 +45,14 @@
           <td>{{ p.title }}</td>
           <td>{{ p.city }}</td>
           <td><span class="muted">{{ p.updated_at }}</span></td>
-          <td><a href="/panel/edit/{{ p.pk }}/">Открыть</a></td>
+          <td style="display:flex; gap:.5rem;">
+            <a href="/panel/edit/{{ p.pk }}/">Открыть</a>
+            {% if p.status == "active" %}
+              <a href="/panel/archive/{{ p.pk }}/">В архив</a>
+            {% elif p.status == "archived" %}
+              <a href="/panel/restore/{{ p.pk }}/">Вернуть</a>
+            {% endif %}
+          </td>
         </tr>
       {% empty %}
         <tr><td colspan="5">Пока нет объектов</td></tr>
