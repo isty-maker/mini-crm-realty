@@ -39,8 +39,9 @@ class PropertyForm(forms.ModelForm):
 
             "jk_id","jk_name","house_id","house_name","flat_number","section_number",
 
-            "house_type","heating_type","land_area","land_area_unit","permitted_land_use","is_land_with_contract","land_category","land_type",
-            "has_terrace","has_cellar",
+            "house_type",
+            "land_area","land_area_unit","permitted_land_use","is_land_with_contract","land_category","land_type",
+            "heating_type","has_terrace","has_cellar",
 
             "commercial_type","is_rent_by_parts","rent_by_parts_desc","ceiling_height","power","parking_places","has_parking",
 
