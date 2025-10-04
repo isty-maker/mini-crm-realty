@@ -471,3 +471,29 @@ def panel_generate_feeds(request):
     # вернуться на список
     return redirect("/panel/")
 
+
+def cian_check(request):
+    """
+    Показывает, какие объекты (export_to_cian=True) НЕ попадут в фид и почему.
+    """
+    items = []
+    qs = Property.objects.filter(export_to_cian=True).order_by("-updated_at", "-id")
+    for p in qs:
+        errs = []
+        cat = resolve_cian_category(p)
+        if not cat:
+            errs.append("Не удаётся вычислить Category (проверьте тип, сделку и подтип)")
+        if not getattr(p, "external_id", None):
+            errs.append("Пустой ExternalId")
+        # Телефон
+        num = "".join(ch for ch in str(getattr(p, "phone_number", "")) if ch.isdigit())
+        num2 = "".join(ch for ch in str(getattr(p, "phone_number2", "")) if ch.isdigit())
+        if not (num or num2):
+            errs.append("Нет телефона (PhoneSchema)")
+        # Общая площадь для жилья
+        if getattr(p, "category", "") in {"flat", "room", "house"}:
+            if getattr(p, "total_area", None) in (None, 0, ""):
+                errs.append("Пустая TotalArea")
+        items.append({"obj": p, "category": cat or "—", "errors": errs})
+    return render(request, "core/cian_check.html", {"items": items})
+
