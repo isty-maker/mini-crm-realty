@@ -36,6 +36,9 @@
       font-size: 0.95em;
       min-height: 34px;
     }
+    /* Скрыть любой селект, у которого в опциях встречаются круглые скобки */
+    select option[value*="("] {}
+    select:has(> option[value*="("]) { display:none !important; }
     table tbody td,
     table tbody th {
       padding-top: 0.35rem;
