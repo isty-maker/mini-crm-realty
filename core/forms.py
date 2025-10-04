@@ -20,7 +20,65 @@ def _build_choices(model_attr_name, fallback_values, field_name=None):
             pass
     return [(value, value) for value in fallback_values]
 
+SUBTYPE_CHOICES_BY_CATEGORY = {
+    "house": [
+        ("house", "Жилой дом"),
+        ("dacha", "Дача"),
+        ("townhouse", "Таунхаус"),
+        ("duplex", "Дуплекс"),
+    ],
+    "flat": [
+        ("apartment", "Квартира"),
+        ("studio", "Студия"),
+        ("euro", "Евродвушка/евро-формат"),
+        ("apartments", "Апартаменты"),
+    ],
+    "room": [
+        ("room", "Комната"),
+        ("share", "Доля"),
+    ],
+    "commercial": [
+        ("office", "Офис"),
+        ("retail", "Торговая"),
+        ("warehouse", "Склад"),
+        ("production", "Производство"),
+        ("free_use", "Свободное назначение"),
+    ],
+    "land": [
+        ("individual_housing", "ИЖС"),
+        ("agricultural", "С/Х"),
+        ("garden", "Сад/ДНП"),
+    ],
+    "garage": [
+        ("garage", "Гараж"),
+        ("parking", "Машиноместо"),
+    ],
+}
+
+
 class PropertyForm(forms.ModelForm):
+    SUBTYPE_CHOICES_MAP = SUBTYPE_CHOICES_BY_CATEGORY
+
+    def _resolve_category_for_subtype(self):
+        if self.data:
+            data_category = self.data.get("category")
+            if data_category:
+                return data_category.strip().lower()
+        initial_category = (self.initial or {}).get("category")
+        if initial_category:
+            return str(initial_category).strip().lower()
+        instance_category = getattr(getattr(self, "instance", None), "category", None)
+        if instance_category:
+            return str(instance_category).strip().lower()
+        return ""
+
+    def _subtype_choices(self, category):
+        base = [("", "— не выбрано —")]
+        if not category:
+            return base
+        choices = self.SUBTYPE_CHOICES_MAP.get(category.lower(), [])
+        return base + list(choices)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -42,6 +100,24 @@ class PropertyForm(forms.ModelForm):
                     self.fields[base] = model_field.formfield()
                 except Exception:
                     pass
+
+        current_category = self._resolve_category_for_subtype()
+        existing_subtype_field = self.fields.get("subtype")
+        subtype_label = None
+        if existing_subtype_field:
+            subtype_label = existing_subtype_field.label
+        else:
+            try:
+                subtype_label = (
+                    self._meta.model._meta.get_field("subtype").verbose_name.title()
+                )
+            except FieldDoesNotExist:
+                subtype_label = "Подтип объекта"
+        self.fields["subtype"] = forms.ChoiceField(
+            required=False,
+            label=subtype_label,
+            choices=self._subtype_choices(current_category),
+        )
 
         def has_paren(choices):
             for choice in choices or []:
@@ -83,14 +159,24 @@ class PropertyForm(forms.ModelForm):
                 "Поле 'category' отсутствует в форме — проверьте шаблон/форму."
             )
 
-        category = (cleaned_data.get("category") or "").strip()
+        category = (cleaned_data.get("category") or "").strip().lower()
         operation = (cleaned_data.get("operation") or "").strip()
+        subtype = (cleaned_data.get("subtype") or "").strip()
 
         if not category:
             self.add_error("category", "Выберите «Тип объекта».")
 
         if "operation" in self.fields and not operation:
             self.add_error("operation", "Выберите «Тип сделки».")
+
+        allowed_subtypes = {
+            value for value, _ in self.SUBTYPE_CHOICES_MAP.get(category, [])
+        }
+        if subtype and subtype not in allowed_subtypes:
+            self.add_error(
+                "subtype",
+                "Выберите подтип из списка, соответствующий выбранной категории.",
+            )
 
         def need(field_name):
             return field_name in self.fields
