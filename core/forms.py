@@ -32,7 +32,7 @@ class PropertyForm(forms.ModelForm):
             "building_ceiling_height","building_passenger_lifts","building_cargo_lifts",
 
             "room_type","flat_rooms_count","is_euro_flat","is_apartments","is_penthouse",
-            "total_area","living_area","kitchen_area","floor_number",
+            "total_area","living_area","kitchen_area","rooms","floor_number",
             "loggias_count","balconies_count","windows_view_type",
             "separate_wcs_count","combined_wcs_count","repair_type",
 
@@ -52,6 +52,10 @@ class PropertyForm(forms.ModelForm):
         labels = {
             "furnishing_details": "Комплектация",
             "total_area": "Общая площадь, м²",
+            "living_area": "Жилая площадь, м²",
+            "kitchen_area": "Площадь кухни, м²",
+            "rooms": "Количество комнат",
+            "floor_number": "Этаж",
         }
 
         widgets = {
