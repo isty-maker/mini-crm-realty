@@ -18,6 +18,10 @@
         {{ form.category }}
       </div>
       <div class="form-row">
+        {{ form.operation.label_tag }}
+        {{ form.operation }}
+      </div>
+      <div class="form-row">
         {{ form.title.label_tag }}
         {{ form.title }}
       </div>
@@ -56,6 +60,19 @@
           {{ form.min_rent_term_months.label_tag }}
           {{ form.min_rent_term_months }}
         </div>
+      </div>
+    </section>
+
+    <section class="group">
+      <h3>Площади</h3>
+      <div class="form-row">
+        {{ form.total_area.label_tag }} {{ form.total_area }}
+      </div>
+      <div class="form-row">
+        {{ form.living_area.label_tag }} {{ form.living_area }}
+      </div>
+      <div class="form-row">
+        {{ form.kitchen_area.label_tag }} {{ form.kitchen_area }}
       </div>
     </section>
 
@@ -147,8 +164,15 @@
       </div>
     </section>
 
-    <section class="group" data-cat="flat,room">
-      <h3>Квартира / Комната</h3>
+    <section class="group" data-cat="flat,house,room">
+      <h3>Характеристики жилья</h3>
+      <div class="form-row">
+        {{ form.rooms.label_tag }} {{ form.rooms }}
+      </div>
+      <div class="form-row">
+        {{ form.floor_number.label_tag }}
+        {{ form.floor_number }}
+      </div>
       <div class="form-row">
         {{ form.room_type.label_tag }}
         {{ form.room_type }}
@@ -156,21 +180,6 @@
       <div class="form-row">
         {{ form.flat_rooms_count.label_tag }}
         {{ form.flat_rooms_count }}
-      </div>
-      <div class="form-row">
-        {{ form.total_area.label_tag }} {{ form.total_area }}
-      </div>
-      <div class="form-row">
-        {{ form.living_area.label_tag }}
-        {{ form.living_area }}
-      </div>
-      <div class="form-row">
-        {{ form.kitchen_area.label_tag }}
-        {{ form.kitchen_area }}
-      </div>
-      <div class="form-row">
-        {{ form.floor_number.label_tag }}
-        {{ form.floor_number }}
       </div>
       <div class="form-row row-2">
         <div class="form-row">
@@ -297,9 +306,6 @@
       <div class="form-row">
         {{ form.rent_by_parts_desc.label_tag }}
         {{ form.rent_by_parts_desc }}
-      </div>
-      <div class="form-row">
-        {{ form.total_area.label_tag }} {{ form.total_area }}
       </div>
       <div class="form-row">
         {{ form.ceiling_height.label_tag }}
