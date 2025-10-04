@@ -19,6 +19,38 @@ def _build_choices(model_attr_name, fallback_values, field_name=None):
     return [(value, value) for value in fallback_values]
 
 class PropertyForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Гарантируем, что базовые селекты присутствуют, если есть в модели
+        for base in ("category", "operation"):
+            if hasattr(self._meta.model, base) and base not in self.fields:
+                try:
+                    model_field = self._meta.model._meta.get_field(base)
+                    self.fields[base] = model_field.formfield()
+                except Exception:
+                    pass
+
+        def has_paren(choices):
+            for choice in choices:
+                if isinstance(choice, (list, tuple)) and len(choice) == 2:
+                    value, label = choice
+                    if isinstance(label, (list, tuple)):
+                        if has_paren(label):
+                            return True
+                    else:
+                        sval = str(value or "").lower()
+                        slab = str(label or "").lower()
+                        if "(" in sval and ")" in sval:
+                            return True
+                        if "(" in slab and ")" in slab:
+                            return True
+            return False
+
+        for name, field in list(self.fields.items()):
+            if isinstance(field, forms.ChoiceField) and has_paren(field.choices):
+                self.fields.pop(name, None)
+
     class Meta:
         model = Property
         fields = [
