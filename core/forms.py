@@ -34,29 +34,24 @@ class PropertyForm(forms.ModelForm):
                     pass
 
         def has_paren(choices):
-            for choice in choices:
+            for choice in choices or []:
                 if isinstance(choice, (list, tuple)) and len(choice) == 2:
                     value, label = choice
                     if isinstance(label, (list, tuple)):
                         if has_paren(label):
                             return True
                     else:
-                        sval = str(value or "").lower()
-                        slab = str(label or "").lower()
-                        if "(" in sval and ")" in sval:
+                        if "(" in str(value) and ")" in str(value):
                             return True
-                        if "(" in slab and ")" in slab:
+                        if "(" in str(label) and ")" in str(label):
                             return True
             return False
 
-        to_delete = []
-        for name, field in self.fields.items():
-            if name in ("category", "operation"):
+        for name, field in list(self.fields.items()):
+            if name in ("category", "operation", "subtype"):
                 continue
-            if isinstance(field, forms.ChoiceField) and has_paren(field.choices):
-                to_delete.append(name)
-        for name in to_delete:
-            self.fields.pop(name, None)
+            if isinstance(field, forms.ChoiceField) and has_paren(getattr(field, "choices", [])):
+                self.fields.pop(name, None)
 
     def clean(self):
         cleaned_data = super().clean()
