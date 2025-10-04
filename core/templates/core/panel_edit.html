@@ -157,15 +157,12 @@
         {{ form.flat_rooms_count.label_tag }}
         {{ form.flat_rooms_count }}
       </div>
-      <div class="form-row row-2">
-        <div class="form-row">
-          {{ form.total_area.label_tag }}
-          {{ form.total_area }}
-        </div>
-        <div class="form-row">
-          {{ form.living_area.label_tag }}
-          {{ form.living_area }}
-        </div>
+      <div class="form-row">
+        {{ form.total_area.label_tag }} {{ form.total_area }}
+      </div>
+      <div class="form-row">
+        {{ form.living_area.label_tag }}
+        {{ form.living_area }}
       </div>
       <div class="form-row">
         {{ form.kitchen_area.label_tag }}
@@ -302,8 +299,7 @@
         {{ form.rent_by_parts_desc }}
       </div>
       <div class="form-row">
-        {{ form.total_area.label_tag }}
-        {{ form.total_area }}
+        {{ form.total_area.label_tag }} {{ form.total_area }}
       </div>
       <div class="form-row">
         {{ form.ceiling_height.label_tag }}
