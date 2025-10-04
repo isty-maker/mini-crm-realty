@@ -24,8 +24,18 @@ class PropertyForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # Убираем легаси-поля с комбинированными категориями (mega-select)
+        legacy_category_fields = (
+            "category_combined",
+            "type_combined",
+            "legacy_category",
+            "legacy_category_combined",
+        )
+        for legacy in legacy_category_fields:
+            self.fields.pop(legacy, None)
+
         # Гарантируем, что базовые селекты присутствуют, если есть в модели
-        for base in ("category", "operation"):
+        for base in ("category", "operation", "subtype"):
             if hasattr(self._meta.model, base) and base not in self.fields:
                 try:
                     model_field = self._meta.model._meta.get_field(base)
@@ -152,11 +162,17 @@ class PhotoForm(forms.ModelForm):
 
 class NewObjectStep1Form(forms.Form):
     CATEGORY_CHOICES = getattr(Property, "CATEGORY_CHOICES", [
-        ("flat","Квартира"), ("room","Комната"),
-        ("house","Дом/коттедж"), ("commercial","Коммерческая"), ("land","Земельный участок"),
+        ("house", "Дом"),
+        ("flat", "Квартира"),
+        ("room", "Комната"),
+        ("commercial", "Коммерция"),
+        ("land", "Земля"),
+        ("garage", "Гараж"),
     ])
     OPERATION_CHOICES = getattr(Property, "OPERATION_CHOICES", [
-        ("sale","Продажа"), ("rent","Аренда"),
+        ("sale", "Продажа"),
+        ("rent_long", "Аренда"),
+        ("rent_daily", "Посуточно"),
     ])
     category  = forms.ChoiceField(choices=CATEGORY_CHOICES, label="Тип объекта")
     operation = forms.ChoiceField(choices=OPERATION_CHOICES, label="Тип сделки", required=False)

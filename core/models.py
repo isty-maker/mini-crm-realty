@@ -1,32 +1,22 @@
 # core/models.py
-import uuid
+import random
 
 from django.db import models
+from django.utils import timezone
 
 CATEGORY_CHOICES = [
-    ("flatRent","Квартира (аренда)"), ("bedRent","Койко-место (аренда)"),
-    ("roomRent","Комната (аренда)"), ("houseRent","Дом/дача (аренда)"),
-    ("cottageRent","Коттедж (аренда)"), ("townhouseRent","Таунхаус (аренда)"),
-    ("houseShareRent","Часть дома (аренда)"), ("garageRent","Гараж (аренда)"),
-    ("buildingRent","Здание (аренда)"), ("commercialLandRent","Коммерческая земля (аренда)"),
-    ("officeRent","Офис (аренда)"), ("freeAppointmentObjectRent","ПСН (аренда)"),
-    ("industryRent","Производство (аренда)"), ("warehouseRent","Склад (аренда)"),
-    ("shoppingAreaRent","Торговая площадь (аренда)"),
-    ("dailyHouseRent","Посуточно дом/дача/коттедж"),
-    ("dailyFlatRent","Посуточно квартира"), ("dailyBedRent","Посуточно койко-место"),
-    ("dailyRoomRent","Посуточно комната"),
+    ("house", "Дом"),
+    ("flat", "Квартира"),
+    ("room", "Комната"),
+    ("commercial", "Коммерция"),
+    ("land", "Земля"),
+    ("garage", "Гараж"),
+]
 
-    ("flatShareSale","Доля в квартире (продажа)"),
-    ("flatSale","Квартира (продажа)"), ("newBuildingFlatSale","Квартира в новостройке (продажа)"),
-    ("roomSale","Комната (продажа)"),
-    ("houseSale","Дом/дача (продажа)"), ("cottageSale","Коттедж (продажа)"),
-    ("townhouseSale","Таунхаус (продажа)"), ("landSale","Участок (продажа)"),
-    ("houseShareSale","Часть дома (продажа)"), ("garageSale","Гараж (продажа)"),
-    ("businessSale","Готовый бизнес (продажа)"), ("buildingSale","Здание (продажа)"),
-    ("commercialLandSale","Коммерческая земля (продажа)"),
-    ("officeSale","Офис (продажа)"), ("freeAppointmentObjectSale","ПСН (продажа)"),
-    ("industrySale","Производство (продажа)"), ("warehouseSale","Склад (продажа)"),
-    ("shoppingAreaSale","Торговая площадь (продажа)"),
+OPERATION_CHOICES = [
+    ("sale", "Продажа"),
+    ("rent_long", "Аренда"),
+    ("rent_daily", "Посуточно"),
 ]
 
 FLAT_SUBTYPE_CHOICES = [
@@ -74,12 +64,12 @@ MATERIAL_TYPE_CHOICES = [
     ("solidWood","Цельное дерево"),("wireframe","Каркасный"),("wood","Деревянный"),
 ]
 HEATING_TYPE_CHOICES = [
-    ("autonomousGas","Автономное газовое"),("centralCoal","Центральное угольное"),
-    ("centralGas","Центральное газовое"),("diesel","Дизельное"),
-    ("electric","Электрическое"),("fireplace","Камин"),("no","Нет"),
-    ("solidFuelBoiler","Твердотопливный котел"),("stove","Печь"),
+    ("central", "Центральное"),
+    ("gas", "Газовое"),
+    ("electric", "Электро"),
+    ("solid", "Твёрдое топливо"),
 ]
-LAND_AREA_UNIT_CHOICES = [("sotka","Сотка"),("hectare","Гектар")]
+LAND_AREA_UNIT_CHOICES = [("sotka", "Сотка"), ("sqm", "м²")]
 PERMITTED_LAND_USE_CHOICES = [
     ("individualHousingConstruction","ИЖС"),("privateFarm","ЛПХ"),
     ("gardening","Садоводство"),("horticulture","Огородничество"),
@@ -91,10 +81,6 @@ CURRENCY_CHOICES = [("rur","RUB"),("usd","USD"),("eur","EUR")]
 ROOM_TYPE_CHOICES = [("separate","Изолированная"),("combined","Совмещенная"),("both","Оба варианта")]
 STATUS_CHOICES = [("active", "Активен"), ("archived", "В архиве")]
 
-def gen_external_id():
-    return "p" + uuid.uuid4().hex[:12]
-
-
 class Property(models.Model):
     # Базовое
     external_id = models.CharField(
@@ -102,16 +88,22 @@ class Property(models.Model):
         max_length=100,
         unique=True,
         blank=True,
-        default=gen_external_id,
     )
     category = models.CharField(
-        "Категория (ЦИАН)",
-        max_length=64,
+        "Тип объекта",
+        max_length=20,
         choices=CATEGORY_CHOICES,
         blank=True,
         null=True,
-        default=None,
     )
+    operation = models.CharField(
+        "Тип сделки",
+        max_length=20,
+        choices=OPERATION_CHOICES,
+        blank=True,
+        null=True,
+    )
+    subtype = models.CharField("Подтип", max_length=30, blank=True, null=True)
     status = models.CharField(
         max_length=10,
         choices=STATUS_CHOICES,
@@ -120,7 +112,8 @@ class Property(models.Model):
     )
 
     export_to_cian = models.BooleanField(default=True, verbose_name="Экспорт в ЦИАН")
-    export_to_domclick = models.BooleanField(default=False, verbose_name="Экспорт в ДомКлик")
+    export_to_domklik = models.BooleanField(default=False, verbose_name="Экспорт в ДомКлик")
+    is_archived = models.BooleanField(default=False, verbose_name="В архиве")
 
     title = models.CharField("Заголовок (внутр.)", max_length=64, blank=True)
     description = models.TextField("Описание", blank=True)
@@ -197,9 +190,9 @@ class Property(models.Model):
 
     # Загород / участок
     house_type = models.CharField(max_length=20, choices=HOUSE_TYPE_CHOICES, null=True, blank=True, verbose_name="Подтип дома")
-    heating_type = models.CharField("Отопление", max_length=32, choices=HEATING_TYPE_CHOICES, blank=True)
-    land_area = models.DecimalField("Площадь участка", max_digits=7, decimal_places=2, null=True, blank=True)
-    land_area_unit = models.CharField("Единица участка", max_length=8, choices=LAND_AREA_UNIT_CHOICES, blank=True)
+    heating_type = models.CharField("Отопление", max_length=20, choices=HEATING_TYPE_CHOICES, blank=True)
+    land_area = models.DecimalField("Площадь участка", max_digits=8, decimal_places=2, null=True, blank=True)
+    land_area_unit = models.CharField("Единица участка", max_length=10, choices=LAND_AREA_UNIT_CHOICES, blank=True)
     permitted_land_use = models.CharField("ВРИ участка", max_length=48, choices=PERMITTED_LAND_USE_CHOICES, blank=True)
     is_land_with_contract = models.BooleanField("Участок с подрядом", default=False)
     land_category = models.CharField("Категория земель", max_length=32, choices=LAND_CATEGORY_CHOICES, blank=True)
@@ -260,6 +253,21 @@ class Property(models.Model):
     def __str__(self):
         base = f"{self.get_category_display()} | {self.address or ''}".strip()
         return f"{base} [{self.external_id}]"
+
+    @classmethod
+    def _generate_external_id(cls):
+        for _ in range(10):
+            stamp = timezone.now().strftime("%Y%m%d%H%M%S")
+            suffix = f"{random.randint(0, 999):03d}"
+            candidate = f"AG{stamp}{suffix}"
+            if not cls.objects.filter(external_id=candidate).exists():
+                return candidate
+        raise ValueError("Не удалось сгенерировать уникальный external_id")
+
+    def save(self, *args, **kwargs):
+        if not self.external_id:
+            self.external_id = self.__class__._generate_external_id()
+        super().save(*args, **kwargs)
 
 class Photo(models.Model):
     prop = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="photos")
