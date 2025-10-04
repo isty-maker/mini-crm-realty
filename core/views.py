@@ -250,39 +250,28 @@ def panel_new(request):
     if request.method == "POST":
         form = NewObjectStep1Form(request.POST)
         if form.is_valid():
-            cat = form.cleaned_data.get("category") or ""
-            op = form.cleaned_data.get("operation") or ""
+            cat = form.cleaned_data.get("category","")
+            op  = form.cleaned_data.get("operation","")
             return redirect(f"/panel/create/?category={cat}&operation={op}")
     else:
         form = NewObjectStep1Form()
-
     return render(request, "core/panel_new_step1.html", {"form": form})
 
 
 def panel_create(request):
     initial = {
-        "category": request.GET.get("category", ""),
-        "operation": request.GET.get("operation", ""),
+        "category": request.GET.get("category",""),
+        "operation": request.GET.get("operation",""),
     }
     if request.method == "POST":
         form = PropertyForm(request.POST)
-        _enable_choice_fields(form, ["category", "operation"])
         if form.is_valid():
             prop = form.save()
             return redirect(f"/panel/edit/{prop.pk}/")
     else:
         form = PropertyForm(initial=initial)
-        _enable_choice_fields(form, ["category", "operation"])
-
-    return render(
-        request,
-        "core/panel_edit.html",
-        {
-            "form": form,
-            "prop": None,
-            "photos": [],
-        },
-    )
+    # ВАЖНО: пробрасываем initial_vals в шаблон, чтобы секции включались сразу
+    return render(request, "core/panel_edit.html", {"form": form, "prop": None, "photos": [], "initial_vals": initial})
 
 def panel_edit(request, pk):
     """
@@ -300,7 +289,11 @@ def panel_edit(request, pk):
         form = PropertyForm(instance=prop)
         _enable_choice_fields(form, ["category", "operation"])
     # пока без фактических фото — отдадим пустой список для шаблона
-    return render(request, "core/panel_edit.html", {"form": form, "prop": prop, "photos": []})
+    return render(
+        request,
+        "core/panel_edit.html",
+        {"form": form, "prop": prop, "photos": [], "initial_vals": {"category": "", "operation": ""}},
+    )
 
 def panel_add_photo(request, pk):
     # TODO: заменить на реальную загрузку (URL или FileField)

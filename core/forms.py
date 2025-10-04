@@ -79,15 +79,12 @@ class PhotoForm(forms.ModelForm):
 
 
 class NewObjectStep1Form(forms.Form):
-    # choices из модели, если есть; иначе — дефолты
     CATEGORY_CHOICES = getattr(Property, "CATEGORY_CHOICES", [
-        ("flat", "Квартира"), ("room", "Комната"),
-        ("house", "Дом/коттедж"), ("commercial", "Коммерческая"),
+        ("flat","Квартира"), ("room","Комната"),
+        ("house","Дом/коттедж"), ("commercial","Коммерческая"), ("land","Земельный участок"),
     ])
-    # поле operation может отсутствовать в модели — форму всё равно показываем
     OPERATION_CHOICES = getattr(Property, "OPERATION_CHOICES", [
-        ("sale", "Продажа"), ("rent", "Аренда"),
+        ("sale","Продажа"), ("rent","Аренда"),
     ])
-
     category  = forms.ChoiceField(choices=CATEGORY_CHOICES, label="Тип объекта")
     operation = forms.ChoiceField(choices=OPERATION_CHOICES, label="Тип сделки", required=False)
