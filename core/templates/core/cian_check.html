@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Проверка экспорта ЦИАН — Мини-CRM{% endblock %}
+{% block content %}
+  <a href="/panel/">&larr; к списку</a>
+  <h1>Проверка перед экспортом</h1>
+  <p>Список объектов, отмеченных для выгрузки в ЦИАН. Заполните обязательные поля перед генерацией фида.</p>
+  <p>
+    <a role="button" href="/panel/export/cian/">Сгенерировать фид</a>
+    <span class="muted" style="margin-left:1rem;">Файл сохраняется в <code>media/feeds/cian.xml</code></span>
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Заголовок</th>
+        <th>CIAN Category</th>
+        <th>Отсутствуют</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for item in items %}
+      <tr>
+        <td>{{ item.prop.pk }}</td>
+        <td>{{ item.prop.title|default:"—" }}</td>
+        <td>{{ item.category_code|default:"—" }}</td>
+        <td>
+          {% if item.missing %}
+            {{ item.missing|join:", " }}
+          {% else %}
+            <span class="muted">Все обязательные заполнены</span>
+          {% endif %}
+        </td>
+      </tr>
+    {% empty %}
+      <tr>
+        <td colspan="4">Нет объектов, отмеченных для экспорта.</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

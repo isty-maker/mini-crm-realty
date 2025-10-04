@@ -6,6 +6,7 @@
   <h1>{{ prop|default:"Новый объект" }}</h1>
 
   <form method="post">
+    <div id="subtypes-data" data-subtypes='{{ subtype_choices_json|default:"{}"|safe }}' hidden></div>
     {% csrf_token %}
     <section class="group">
       <h3>Тип и сделка</h3>

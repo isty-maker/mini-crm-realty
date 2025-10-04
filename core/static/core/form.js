@@ -1,4 +1,19 @@
 (function () {
+  function subtypeMap() {
+    var container = document.getElementById('subtypes-data');
+    if (!container) {
+      return {};
+    }
+    var raw = container.getAttribute('data-subtypes') || '{}';
+    try {
+      return JSON.parse(raw);
+    } catch (err) {
+      return {};
+    }
+  }
+
+  var SUBTYPE_CHOICES = subtypeMap();
+
   function storeInitialDisabled(control) {
     if (control.dataset.initialDisabled === undefined) {
       control.dataset.initialDisabled = control.disabled ? 'true' : 'false';
@@ -50,18 +65,63 @@
     return categoryField ? categoryField.value : '';
   }
 
-  function handleChange() {
-    showSection(currentCategory());
+  function rebuildSubtypeOptions(category, options) {
+    var field = fieldByName('subtype');
+    if (!field) {
+      return;
+    }
+
+    var preserve = options && options.preserve === true;
+    var previousValue = preserve ? field.value : '';
+    while (field.firstChild) {
+      field.removeChild(field.firstChild);
+    }
+
+    function appendOption(value, label) {
+      var option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      field.appendChild(option);
+    }
+
+    appendOption('', '— не выбрано —');
+
+    var normalizedCategory = (category || '').toLowerCase();
+    var choices = SUBTYPE_CHOICES[normalizedCategory] || [];
+    var allowedValues = [''];
+    choices.forEach(function (choice) {
+      if (Array.isArray(choice) && choice.length >= 2) {
+        appendOption(choice[0], choice[1]);
+        allowedValues.push(String(choice[0]));
+      }
+    });
+
+    if (preserve && allowedValues.indexOf(previousValue) !== -1) {
+      field.value = previousValue;
+    } else {
+      field.value = '';
+    }
+  }
+
+  function updateCategoryUi(options) {
+    var category = currentCategory();
+    rebuildSubtypeOptions(category, options);
+    showSection(category);
   }
 
   document.addEventListener('DOMContentLoaded', function () {
     var categoryField = fieldByName('category');
     var subtypeField = fieldByName('subtype');
-    handleChange();
-    [categoryField, subtypeField].forEach(function (field) {
-      if (field) {
-        field.addEventListener('change', handleChange);
-      }
-    });
+    updateCategoryUi({ preserve: true });
+    if (categoryField) {
+      categoryField.addEventListener('change', function () {
+        updateCategoryUi({ preserve: false });
+      });
+    }
+    if (subtypeField) {
+      subtypeField.addEventListener('change', function () {
+        showSection(currentCategory());
+      });
+    }
   });
 })();

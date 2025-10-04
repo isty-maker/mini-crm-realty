@@ -10,7 +10,7 @@ def _house_base(subtype: str) -> str:
         return "house"
     if subtype in {"cottage", "kothedge"}:
         return "cottage"
-    if subtype in {"townhouse", "таунхаус"}:
+    if subtype in {"townhouse", "таунхаус", "duplex"}:
         return "townhouse"
     if "share" in subtype or "доля" in subtype:
         return "houseShare"
@@ -31,6 +31,7 @@ def _commercial_base(subtype: str) -> str:
         "production": "industry",
         "industry": "industry",
         "free_purpose": "freeAppointmentObject",
+        "free_use": "freeAppointmentObject",
         "freepurpose": "freeAppointmentObject",
         "psn": "freeAppointmentObject",
         "building": "building",
