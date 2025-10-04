@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Django system checks
+        run: python manage.py check
+      - name: Ensure migrations are up to date
+        run: python manage.py makemigrations --check --dry-run --noinput
+      - name: Run pytest
+        run: pytest -q
