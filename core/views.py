@@ -8,6 +8,7 @@ import os
 from functools import lru_cache
 from xml.etree.ElementTree import Element, SubElement, tostring
 from django.utils.encoding import smart_str
+from django.forms.models import model_to_dict
 
 from .models import Property, Photo
 from .forms import PropertyForm, PhotoForm, NewObjectStep1Form
@@ -217,13 +218,23 @@ def panel_new(request):
     if request.method == "POST":
         form = NewObjectStep1Form(request.POST)
         if form.is_valid():
-            prop = Property.objects.create(
-                category=form.cleaned_data["category"],
-                operation=form.cleaned_data["operation"],
-            )
+            create_kwargs = {}
+            # category точно сохраняем (поле есть в модели)
+            if hasattr(Property, "category"):
+                create_kwargs["category"] = form.cleaned_data.get("category") or None
+            # operation сохраняем ТОЛЬКО если такое поле существует в модели
+            if hasattr(Property, "operation"):
+                create_kwargs["operation"] = form.cleaned_data.get("operation") or None
+
+            # title пустой — чтобы форма редактирования не ругалась
+            if hasattr(Property, "title"):
+                create_kwargs["title"] = ""
+
+            prop = Property.objects.create(**create_kwargs)
             return redirect(f"/panel/edit/{prop.pk}/")
     else:
         form = NewObjectStep1Form()
+
     return render(request, "core/panel_new_step1.html", {"form": form})
 
 def panel_edit(request, pk):
@@ -459,18 +470,3 @@ def panel_generate_feeds(request):
     # вернуться на список
     return redirect("/panel/")
 
-
-def panel_new(request):
-    """
-    Создание объекта:
-    GET  -> пустая форма
-    POST -> сохранить и перейти на редактирование созданного объекта
-    """
-    if request.method == "POST":
-        form = PropertyForm(request.POST)
-        if form.is_valid():
-            prop = form.save()
-            return redirect(f"/panel/edit/{prop.pk}/")
-    else:
-        form = PropertyForm()
-    return render(request, "core/panel_edit.html", {"form": form, "prop": None, "photos": []})

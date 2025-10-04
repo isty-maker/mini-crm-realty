@@ -1,17 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Новый объект — шаг 1{% endblock %}
 {% block content %}
-  <h1>Новый объект: шаг 1</h1>
-  <form method="post">
-    {% csrf_token %}
-    <div class="form-row">
-      {{ form.category.label_tag }}
-      {{ form.category }}
-    </div>
-    <div class="form-row">
-      {{ form.operation.label_tag }}
-      {{ form.operation }}
-    </div>
+  <h1>Новый объект</h1>
+  <form method="post">{% csrf_token %}
+    <div class="form-row">{{ form.category.label_tag }} {{ form.category }}</div>
+    {# показываем поле сделки, даже если его потом некуда сохранять — это пригодится позже #}
+    <div class="form-row">{{ form.operation.label_tag }} {{ form.operation }}</div>
     <button type="submit">Далее</button>
   </form>
 {% endblock %}
