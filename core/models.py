@@ -27,6 +27,39 @@ CATEGORY_CHOICES = [
     ("shoppingAreaSale","Торговая площадь (продажа)"),
 ]
 
+FLAT_SUBTYPE_CHOICES = [
+    ("apartment", "Квартира"),
+    ("studio", "Студия"),
+    ("apartments", "Апартаменты"),
+    ("penthouse", "Пентхаус"),
+]
+
+ROOM_SUBTYPE_CHOICES = [
+    ("room", "Комната"),
+    ("share", "Доля комнаты/комната в квартире"),
+]
+
+HOUSE_TYPE_CHOICES = [
+    ("house", "Жилой дом"),
+    ("dacha", "Дача"),
+    ("townhouse", "Таунхаус"),
+    ("cottage", "Коттедж"),
+]
+
+COMMERCIAL_SUBTYPE_CHOICES = [
+    ("office", "Офис"),
+    ("retail", "Торговая"),
+    ("warehouse", "Склад"),
+    ("production", "Производство"),
+    ("free_purpose", "Свободное назначение"),
+]
+
+LAND_SUBTYPE_CHOICES = [
+    ("izh", "ИЖС"),
+    ("agriculture", "С/Х"),
+    ("garden", "СНТ/садовый участок"),
+]
+
 WINDOWS_VIEW_CHOICES = [("street","На улицу"),("yard","Во двор"),("yardAndStreet","На улицу и двор")]
 REPAIR_TYPE_CHOICES = [("cosmetic","Косметический"),("design","Дизайнерский"),("euro","Евроремонт"),("no","Без ремонта")]
 MATERIAL_TYPE_CHOICES = [
@@ -86,8 +119,10 @@ class Property(models.Model):
     building_cargo_lifts = models.PositiveSmallIntegerField("Грузовых лифтов", null=True, blank=True)
 
     # Квартира
+    flat_type = models.CharField(max_length=20, choices=FLAT_SUBTYPE_CHOICES, null=True, blank=True, verbose_name="Подтип квартиры")
     room_type = models.CharField("Тип комнат", max_length=16, choices=ROOM_TYPE_CHOICES, blank=True)
     flat_rooms_count = models.PositiveSmallIntegerField("Кол-во комнат (кв.)", null=True, blank=True)
+    room_type_ext = models.CharField(max_length=30, choices=ROOM_SUBTYPE_CHOICES, null=True, blank=True, verbose_name="Подтип комнаты")
     is_euro_flat = models.BooleanField("Европланировка", default=False)
     is_apartments = models.BooleanField("Апартаменты (юрид.)", default=False)
     is_penthouse = models.BooleanField("Пентхаус", default=False)
@@ -130,16 +165,19 @@ class Property(models.Model):
     section_number = models.CharField("№ секции", max_length=32, blank=True)
 
     # Загород / участок
+    house_type = models.CharField(max_length=20, choices=HOUSE_TYPE_CHOICES, null=True, blank=True, verbose_name="Подтип дома")
     heating_type = models.CharField("Отопление", max_length=32, choices=HEATING_TYPE_CHOICES, blank=True)
     land_area = models.DecimalField("Площадь участка", max_digits=7, decimal_places=2, null=True, blank=True)
     land_area_unit = models.CharField("Единица участка", max_length=8, choices=LAND_AREA_UNIT_CHOICES, blank=True)
     permitted_land_use = models.CharField("ВРИ участка", max_length=48, choices=PERMITTED_LAND_USE_CHOICES, blank=True)
     is_land_with_contract = models.BooleanField("Участок с подрядом", default=False)
     land_category = models.CharField("Категория земель", max_length=32, choices=LAND_CATEGORY_CHOICES, blank=True)
+    land_type = models.CharField(max_length=20, choices=LAND_SUBTYPE_CHOICES, null=True, blank=True, verbose_name="Подтип земельного участка")
     has_terrace = models.BooleanField("Есть терраса", default=False)
     has_cellar = models.BooleanField("Есть погреб", default=False)
 
     # Коммерция / дом (частые)
+    commercial_type = models.CharField(max_length=20, choices=COMMERCIAL_SUBTYPE_CHOICES, null=True, blank=True, verbose_name="Подтип коммерции")
     is_rent_by_parts = models.BooleanField("Сдаётся по частям", default=False)
     rent_by_parts_desc = models.CharField("Описание сдачи части", max_length=255, blank=True)
     ceiling_height = models.DecimalField("Высота потолков, м", max_digits=4, decimal_places=2, null=True, blank=True)

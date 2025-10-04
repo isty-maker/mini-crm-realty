@@ -261,9 +261,19 @@
       </div>
     </section>
 
+    <section class="group" data-cat="flat">
+      <h3>Квартира</h3>
+      <div class="form-row">{{ form.flat_type.label_tag }} {{ form.flat_type }}</div>
+    </section>
+
+    <section class="group" data-cat="room">
+      <h3>Комната</h3>
+      <div class="form-row">{{ form.room_type_ext.label_tag }} {{ form.room_type_ext }}</div>
+    </section>
+
     <section class="group" data-cat="house">
       <h3>Дом</h3>
-
+      <div class="form-row">{{ form.house_type.label_tag }} {{ form.house_type }}</div>
       <div class="form-row">{{ form.land_area.label_tag }} {{ form.land_area }}</div>
       <div class="form-row">{{ form.land_area_unit.label_tag }} {{ form.land_area_unit }}</div>
       <div class="form-row">{{ form.permitted_land_use.label_tag }} {{ form.permitted_land_use }}</div>
@@ -281,8 +291,19 @@
       <div class="form-row">{{ form.parking_places.label_tag }} {{ form.parking_places }}</div>
     </section>
 
+    <section class="group" data-cat="land">
+      <h3>Земельный участок</h3>
+      <div class="form-row">{{ form.land_type.label_tag }} {{ form.land_type }}</div>
+      <div class="form-row">{{ form.land_area.label_tag }} {{ form.land_area }}</div>
+      <div class="form-row">{{ form.land_area_unit.label_tag }} {{ form.land_area_unit }}</div>
+      <div class="form-row">{{ form.permitted_land_use.label_tag }} {{ form.permitted_land_use }}</div>
+      <div class="form-row">{{ form.is_land_with_contract.label_tag }} {{ form.is_land_with_contract }}</div>
+      <div class="form-row">{{ form.land_category.label_tag }} {{ form.land_category }}</div>
+    </section>
+
     <section class="group" data-cat="commercial">
       <h3>Коммерция</h3>
+      <div class="form-row">{{ form.commercial_type.label_tag }} {{ form.commercial_type }}</div>
       <div class="form-row">
         <label>{{ form.is_rent_by_parts }} {{ form.is_rent_by_parts.label }}</label>
       </div>
