@@ -7,6 +7,7 @@ from core import views as core_views
 urlpatterns = [
     path("panel/", core_views.panel_list, name="panel_list"),
     path("panel/new/", core_views.panel_new, name="panel_new"),
+    path("panel/create/", core_views.panel_create, name="panel_create"),
     path("panel/edit/<int:pk>/", core_views.panel_edit, name="panel_edit"),
     path("panel/edit/<int:pk>/add-photo/", core_views.panel_add_photo, name="panel_add_photo"),
     path("panel/photo/<int:photo_id>/delete/", core_views.panel_delete_photo, name="panel_delete_photo"),
