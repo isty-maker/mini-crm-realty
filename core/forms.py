@@ -1,4 +1,6 @@
 # core/forms.py
+import re
+
 from django import forms
 from django.core.exceptions import FieldDoesNotExist
 
@@ -51,37 +53,54 @@ class PropertyForm(forms.ModelForm):
             if isinstance(field, forms.ChoiceField) and has_paren(field.choices):
                 self.fields.pop(name, None)
 
+    def clean(self):
+        cleaned_data = super().clean()
+
+        phone_country = (cleaned_data.get("phone_country") or "").strip()
+        if not phone_country:
+            phone_country = "7"
+        cleaned_data["phone_country"] = phone_country
+
+        for field_name in ("phone_number", "phone_number2"):
+            raw_value = cleaned_data.get(field_name, "") or ""
+            digits_only = re.sub(r"\D+", "", str(raw_value))
+            if digits_only.startswith("8") and len(digits_only) == 11:
+                digits_only = digits_only[1:]
+            cleaned_data[field_name] = digits_only
+
+        category = cleaned_data.get("category")
+        if not category:
+            self.add_error("category", "Выберите категорию объекта.")
+
+        if "operation" in self.fields:
+            operation = cleaned_data.get("operation")
+            if not operation:
+                self.add_error("operation", "Выберите тип сделки.")
+
+        category_value = (category or "").lower()
+        housing_keywords = (
+            "flat",
+            "room",
+            "house",
+            "cottage",
+            "townhouse",
+            "bed",
+        )
+        needs_total_area = any(keyword in category_value for keyword in housing_keywords)
+
+        total_area = cleaned_data.get("total_area")
+        if needs_total_area and not total_area:
+            self.add_error(
+                "total_area",
+                "Для объектов жилья укажите общую площадь.",
+            )
+
+        return cleaned_data
+
     class Meta:
         model = Property
-        fields = [
-            "external_id","category",
-            "title","description",
-            "export_to_cian","export_to_domclick",
-            "address","lat","lng","cadastral_number",
-            "phone_country","phone_number","phone_number2",
-            "layout_photo_url","object_tour_url",
-
-            "building_name","building_floors","building_build_year","building_material",
-            "building_ceiling_height","building_passenger_lifts","building_cargo_lifts",
-
-            "flat_type","room_type","flat_rooms_count","room_type_ext","is_euro_flat","is_apartments","is_penthouse",
-            "total_area","living_area","kitchen_area","rooms","floor_number",
-            "loggias_count","balconies_count","windows_view_type",
-            "separate_wcs_count","combined_wcs_count","repair_type",
-
-            "jk_id","jk_name","house_id","house_name","flat_number","section_number",
-
-            "house_type",
-            "land_area","land_area_unit","permitted_land_use","is_land_with_contract","land_category","land_type",
-            "heating_type","ceiling_height","has_terrace","has_cellar","power","has_parking","parking_places",
-
-            "commercial_type","is_rent_by_parts","rent_by_parts_desc",
-
-            "furnishing_details","has_internet","has_furniture","has_kitchen_furniture","has_tv","has_washer","has_conditioner",
-            "has_refrigerator","has_dishwasher","has_shower","has_phone","has_ramp","has_bathtub",
-        
-            "price","currency","mortgage_allowed","agent_bonus_value","agent_bonus_is_percent","security_deposit","min_rent_term_months",
-        ]
+        fields = "__all__"
+        exclude = ["external_id"]
 
         labels = {
             "furnishing_details": "Комплектация",
