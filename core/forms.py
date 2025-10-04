@@ -41,9 +41,9 @@ class PropertyForm(forms.ModelForm):
 
             "house_type",
             "land_area","land_area_unit","permitted_land_use","is_land_with_contract","land_category","land_type",
-            "heating_type","has_terrace","has_cellar",
+            "heating_type","ceiling_height","has_terrace","has_cellar","power","has_parking","parking_places",
 
-            "commercial_type","is_rent_by_parts","rent_by_parts_desc","ceiling_height","power","parking_places","has_parking",
+            "commercial_type","is_rent_by_parts","rent_by_parts_desc",
 
             "furnishing_details","has_internet","has_furniture","has_kitchen_furniture","has_tv","has_washer","has_conditioner",
             "has_refrigerator","has_dishwasher","has_shower","has_phone","has_ramp","has_bathtub",
