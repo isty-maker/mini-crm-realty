@@ -87,11 +87,21 @@ PERMITTED_LAND_USE_CHOICES = [
 LAND_CATEGORY_CHOICES = [("settlements","Земли населенных пунктов"),("forAgriculturalPurposes","С/Х назначения"),("other","Иное")]
 CURRENCY_CHOICES = [("rur","RUB"),("usd","USD"),("eur","EUR")]
 ROOM_TYPE_CHOICES = [("separate","Изолированная"),("combined","Совмещенная"),("both","Оба варианта")]
+STATUS_CHOICES = [("active", "Активен"), ("archived", "В архиве")]
 
 class Property(models.Model):
     # Базовое
     external_id = models.CharField("Внешний ID", max_length=100, unique=True)
     category = models.CharField("Категория (ЦИАН)", max_length=64, choices=CATEGORY_CHOICES)
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default="active",
+        verbose_name="Статус",
+    )
+
+    export_to_cian = models.BooleanField(default=True, verbose_name="Экспорт в ЦИАН")
+    export_to_domclick = models.BooleanField(default=False, verbose_name="Экспорт в ДомКлик")
 
     title = models.CharField("Заголовок (внутр.)", max_length=64, blank=True)
     description = models.TextField("Описание", blank=True)
