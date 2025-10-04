@@ -10,10 +10,13 @@
     {% csrf_token %}
     <input type="hidden" id="initial_category" value="{{ initial_vals.category|default:'' }}">
     <input type="hidden" id="initial_operation" value="{{ initial_vals.operation|default:'' }}">
-    <div class="form-row">{{ form.category.label_tag }} {{ form.category }}</div>
-    {% if form.fields.operation %}
-    <div class="form-row">{{ form.operation.label_tag }} {{ form.operation }}</div>
-    {% endif %}
+    <section class="group">
+      <h3>Тип и сделка</h3>
+      <div class="form-row">{{ form.category.label_tag }} {{ form.category }}</div>
+      {% if form.fields.operation %}
+      <div class="form-row">{{ form.operation.label_tag }} {{ form.operation }}</div>
+      {% endif %}
+    </section>
 
     <section class="group">
       <h3>Экспорт</h3>
