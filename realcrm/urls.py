@@ -13,4 +13,6 @@ urlpatterns = [
     path("panel/photo/<int:photo_id>/delete/", core_views.panel_delete_photo, name="panel_delete_photo"),
     path("panel/photo/<int:photo_id>/make-main/", core_views.panel_toggle_main, name="panel_toggle_main"),
     path("panel/generate-feeds/", core_views.panel_generate_feeds, name="panel_generate_feeds"),
+    path("panel/archive/<int:pk>/", core_views.panel_archive, name="panel_archive"),
+    path("panel/restore/<int:pk>/", core_views.panel_restore, name="panel_restore"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
