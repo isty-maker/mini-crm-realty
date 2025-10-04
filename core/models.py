@@ -92,7 +92,14 @@ STATUS_CHOICES = [("active", "Активен"), ("archived", "В архиве")]
 class Property(models.Model):
     # Базовое
     external_id = models.CharField("Внешний ID", max_length=100, unique=True)
-    category = models.CharField("Категория (ЦИАН)", max_length=64, choices=CATEGORY_CHOICES)
+    category = models.CharField(
+        "Категория (ЦИАН)",
+        max_length=64,
+        choices=CATEGORY_CHOICES,
+        blank=True,
+        null=True,
+        default=None,
+    )
     status = models.CharField(
         max_length=10,
         choices=STATUS_CHOICES,
