@@ -51,6 +51,7 @@ class PropertyForm(forms.ModelForm):
 
         labels = {
             "furnishing_details": "Комплектация",
+            "total_area": "Общая площадь, м²",
         }
 
         widgets = {
