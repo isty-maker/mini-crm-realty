@@ -1,14 +1,16 @@
 # core/views.py
-from django.db.models import Q
-from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseRedirect
-from django.shortcuts import render, redirect, get_object_or_404
-from django.conf import settings
-from django.core.exceptions import FieldDoesNotExist
 import os
+import uuid
 from functools import lru_cache
 from xml.etree.ElementTree import Element, SubElement, tostring
-from django.utils.encoding import smart_str
+
+from django.conf import settings
+from django.core.exceptions import FieldDoesNotExist
+from django.db.models import Q
 from django.forms.models import model_to_dict
+from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseRedirect
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.encoding import smart_str
 
 from .models import Property, Photo
 from .forms import PropertyForm, PhotoForm, NewObjectStep1Form
@@ -66,6 +68,11 @@ def _field_verbose_name(field_name):
         return Property._meta.get_field(field_name).verbose_name
     except FieldDoesNotExist:
         return field_name
+
+
+def _gen_external_id():
+    # короткий стабильный id для черновика, шанс коллизии мизерный
+    return f"OBJ-{uuid.uuid4().hex[:8]}"
 
 
 def _split_key_value(text):
@@ -229,6 +236,14 @@ def panel_new(request):
             # title пустой — чтобы форма редактирования не ругалась
             if hasattr(Property, "title"):
                 create_kwargs["title"] = ""
+
+            # НОВОЕ — всегда проставляем уникальный external_id
+            if hasattr(Property, "external_id"):
+                eid = _gen_external_id()
+                # на всякий случай проверим уникальность (редко, но вдруг)
+                while Property.objects.filter(external_id=eid).exists():
+                    eid = _gen_external_id()
+                create_kwargs["external_id"] = eid
 
             prop = Property.objects.create(**create_kwargs)
             return redirect(f"/panel/edit/{prop.pk}/")
