@@ -41,8 +41,12 @@
     });
   }
 
+  function fieldByName(name) {
+    return document.querySelector('[name="' + name + '"]') || document.getElementById('id_' + name);
+  }
+
   function currentCategory() {
-    var categoryField = document.getElementById('id_category');
+    var categoryField = fieldByName('category');
     return categoryField ? categoryField.value : '';
   }
 
@@ -51,8 +55,8 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
-    var categoryField = document.getElementById('id_category');
-    var subtypeField = document.getElementById('id_subtype');
+    var categoryField = fieldByName('category');
+    var subtypeField = fieldByName('subtype');
     handleChange();
     [categoryField, subtypeField].forEach(function (field) {
       if (field) {

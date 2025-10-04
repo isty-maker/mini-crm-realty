@@ -143,139 +143,139 @@
       <h3>Параметры дома</h3>
       {% if form.fields.house_type %}
       <div class="form-row">
-        <label for="{{ form.house_type.id_for_label }}_house">{{ form.house_type.label }}</label>
-        {{ form.house_type.as_widget(attrs={'id': form.house_type.id_for_label|add:'_house'}) }}
+        <label for="{{ form.house_type.id_for_label }}">{{ form.house_type.label }}</label>
+        {{ form.house_type }}
         {{ form.house_type.errors }}
       </div>
       {% endif %}
       {% with field=form.total_area %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_house">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.living_area %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_house">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.kitchen_area %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_house">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.land_area %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_house">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.land_area_unit %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_house">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.permitted_land_use %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_house">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.is_land_with_contract %}
       <div class="form-row">
         <label>
-          {{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }} {{ field.label }}
+          {{ field }} {{ field.label }}
         </label>
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.land_category %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_house">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.heating_type %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_house">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.has_terrace %}
       <div class="form-row">
-        <label>{{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }} {{ field.label }}</label>
+        <label>{{ field }} {{ field.label }}</label>
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.has_cellar %}
       <div class="form-row">
-        <label>{{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }} {{ field.label }}</label>
+        <label>{{ field }} {{ field.label }}</label>
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.rooms %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_house">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.repair_type %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_house">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.separate_wcs_count %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_house">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.combined_wcs_count %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_house">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.ceiling_height %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_house">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.power %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_house">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.has_parking %}
       <div class="form-row">
-        <label>{{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }} {{ field.label }}</label>
+        <label>{{ field }} {{ field.label }}</label>
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.parking_places %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_house">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_house'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
@@ -285,152 +285,152 @@
       <h3>Квартира</h3>
       {% if form.fields.flat_type %}
       <div class="form-row">
-        <label for="{{ form.flat_type.id_for_label }}_flat">{{ form.flat_type.label }}</label>
-        {{ form.flat_type.as_widget(attrs={'id': form.flat_type.id_for_label|add:'_flat'}) }}
+        <label for="{{ form.flat_type.id_for_label }}">{{ form.flat_type.label }}</label>
+        {{ form.flat_type }}
         {{ form.flat_type.errors }}
       </div>
       {% endif %}
       {% with field=form.total_area %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_flat">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_flat'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.living_area %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_flat">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_flat'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.kitchen_area %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_flat">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_flat'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.rooms %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_flat">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_flat'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.floor_number %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_flat">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_flat'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.room_type %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_flat">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_flat'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.flat_rooms_count %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_flat">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_flat'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       <div class="form-row row-2">
         {% with field=form.loggias_count %}
         <div class="form-row">
-          <label for="{{ field.id_for_label }}_flat">{{ field.label }}</label>
-          {{ field.as_widget(attrs={'id': field.id_for_label|add:'_flat'}) }}
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
           {{ field.errors }}
         </div>
         {% endwith %}
         {% with field=form.balconies_count %}
         <div class="form-row">
-          <label for="{{ field.id_for_label }}_flat">{{ field.label }}</label>
-          {{ field.as_widget(attrs={'id': field.id_for_label|add:'_flat'}) }}
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
           {{ field.errors }}
         </div>
         {% endwith %}
       </div>
       {% with field=form.windows_view_type %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_flat">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_flat'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       <div class="form-row row-2">
         {% with field=form.separate_wcs_count %}
         <div class="form-row">
-          <label for="{{ field.id_for_label }}_flat">{{ field.label }}</label>
-          {{ field.as_widget(attrs={'id': field.id_for_label|add:'_flat'}) }}
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
           {{ field.errors }}
         </div>
         {% endwith %}
         {% with field=form.combined_wcs_count %}
         <div class="form-row">
-          <label for="{{ field.id_for_label }}_flat">{{ field.label }}</label>
-          {{ field.as_widget(attrs={'id': field.id_for_label|add:'_flat'}) }}
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
           {{ field.errors }}
         </div>
         {% endwith %}
       </div>
       {% with field=form.repair_type %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_flat">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_flat'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.is_euro_flat %}
       <div class="form-row">
-        <label>{{ field.as_widget(attrs={'id': field.id_for_label|add:'_flat'}) }} {{ field.label }}</label>
+        <label>{{ field }} {{ field.label }}</label>
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.is_apartments %}
       <div class="form-row">
-        <label>{{ field.as_widget(attrs={'id': field.id_for_label|add:'_flat'}) }} {{ field.label }}</label>
+        <label>{{ field }} {{ field.label }}</label>
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.is_penthouse %}
       <div class="form-row">
-        <label>{{ field.as_widget(attrs={'id': field.id_for_label|add:'_flat'}) }} {{ field.label }}</label>
+        <label>{{ field }} {{ field.label }}</label>
         {{ field.errors }}
       </div>
       {% endwith %}
       <div class="form-row">
-        <label for="{{ form.jk_id.id_for_label }}_flat">{{ form.jk_id.label }}</label>
-        {{ form.jk_id.as_widget(attrs={'id': form.jk_id.id_for_label|add:'_flat'}) }}
+        <label for="{{ form.jk_id.id_for_label }}">{{ form.jk_id.label }}</label>
+        {{ form.jk_id }}
         {{ form.jk_id.errors }}
       </div>
       <div class="form-row">
-        <label for="{{ form.jk_name.id_for_label }}_flat">{{ form.jk_name.label }}</label>
-        {{ form.jk_name.as_widget(attrs={'id': form.jk_name.id_for_label|add:'_flat'}) }}
+        <label for="{{ form.jk_name.id_for_label }}">{{ form.jk_name.label }}</label>
+        {{ form.jk_name }}
         {{ form.jk_name.errors }}
       </div>
       <div class="form-row">
-        <label for="{{ form.house_id.id_for_label }}_flat">{{ form.house_id.label }}</label>
-        {{ form.house_id.as_widget(attrs={'id': form.house_id.id_for_label|add:'_flat'}) }}
+        <label for="{{ form.house_id.id_for_label }}">{{ form.house_id.label }}</label>
+        {{ form.house_id }}
         {{ form.house_id.errors }}
       </div>
       <div class="form-row">
-        <label for="{{ form.house_name.id_for_label }}_flat">{{ form.house_name.label }}</label>
-        {{ form.house_name.as_widget(attrs={'id': form.house_name.id_for_label|add:'_flat'}) }}
+        <label for="{{ form.house_name.id_for_label }}">{{ form.house_name.label }}</label>
+        {{ form.house_name }}
         {{ form.house_name.errors }}
       </div>
       <div class="form-row">
-        <label for="{{ form.flat_number.id_for_label }}_flat">{{ form.flat_number.label }}</label>
-        {{ form.flat_number.as_widget(attrs={'id': form.flat_number.id_for_label|add:'_flat'}) }}
+        <label for="{{ form.flat_number.id_for_label }}">{{ form.flat_number.label }}</label>
+        {{ form.flat_number }}
         {{ form.flat_number.errors }}
       </div>
       <div class="form-row">
-        <label for="{{ form.section_number.id_for_label }}_flat">{{ form.section_number.label }}</label>
-        {{ form.section_number.as_widget(attrs={'id': form.section_number.id_for_label|add:'_flat'}) }}
+        <label for="{{ form.section_number.id_for_label }}">{{ form.section_number.label }}</label>
+        {{ form.section_number }}
         {{ form.section_number.errors }}
       </div>
     </div>
@@ -439,97 +439,97 @@
       <h3>Комната</h3>
       {% if form.fields.room_type_ext %}
       <div class="form-row">
-        <label for="{{ form.room_type_ext.id_for_label }}_room">{{ form.room_type_ext.label }}</label>
-        {{ form.room_type_ext.as_widget(attrs={'id': form.room_type_ext.id_for_label|add:'_room'}) }}
+        <label for="{{ form.room_type_ext.id_for_label }}">{{ form.room_type_ext.label }}</label>
+        {{ form.room_type_ext }}
         {{ form.room_type_ext.errors }}
       </div>
       {% endif %}
       {% with field=form.total_area %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_room">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_room'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.living_area %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_room">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_room'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.rooms %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_room">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_room'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.floor_number %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_room">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_room'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.room_type %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_room">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_room'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       <div class="form-row row-2">
         {% with field=form.separate_wcs_count %}
         <div class="form-row">
-          <label for="{{ field.id_for_label }}_room">{{ field.label }}</label>
-          {{ field.as_widget(attrs={'id': field.id_for_label|add:'_room'}) }}
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
           {{ field.errors }}
         </div>
         {% endwith %}
         {% with field=form.combined_wcs_count %}
         <div class="form-row">
-          <label for="{{ field.id_for_label }}_room">{{ field.label }}</label>
-          {{ field.as_widget(attrs={'id': field.id_for_label|add:'_room'}) }}
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
           {{ field.errors }}
         </div>
         {% endwith %}
       </div>
       {% with field=form.repair_type %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_room">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_room'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       <div class="form-row">
-        <label for="{{ form.jk_id.id_for_label }}_room">{{ form.jk_id.label }}</label>
-        {{ form.jk_id.as_widget(attrs={'id': form.jk_id.id_for_label|add:'_room'}) }}
+        <label for="{{ form.jk_id.id_for_label }}">{{ form.jk_id.label }}</label>
+        {{ form.jk_id }}
         {{ form.jk_id.errors }}
       </div>
       <div class="form-row">
-        <label for="{{ form.jk_name.id_for_label }}_room">{{ form.jk_name.label }}</label>
-        {{ form.jk_name.as_widget(attrs={'id': form.jk_name.id_for_label|add:'_room'}) }}
+        <label for="{{ form.jk_name.id_for_label }}">{{ form.jk_name.label }}</label>
+        {{ form.jk_name }}
         {{ form.jk_name.errors }}
       </div>
       <div class="form-row">
-        <label for="{{ form.house_id.id_for_label }}_room">{{ form.house_id.label }}</label>
-        {{ form.house_id.as_widget(attrs={'id': form.house_id.id_for_label|add:'_room'}) }}
+        <label for="{{ form.house_id.id_for_label }}">{{ form.house_id.label }}</label>
+        {{ form.house_id }}
         {{ form.house_id.errors }}
       </div>
       <div class="form-row">
-        <label for="{{ form.house_name.id_for_label }}_room">{{ form.house_name.label }}</label>
-        {{ form.house_name.as_widget(attrs={'id': form.house_name.id_for_label|add:'_room'}) }}
+        <label for="{{ form.house_name.id_for_label }}">{{ form.house_name.label }}</label>
+        {{ form.house_name }}
         {{ form.house_name.errors }}
       </div>
       <div class="form-row">
-        <label for="{{ form.flat_number.id_for_label }}_room">{{ form.flat_number.label }}</label>
-        {{ form.flat_number.as_widget(attrs={'id': form.flat_number.id_for_label|add:'_room'}) }}
+        <label for="{{ form.flat_number.id_for_label }}">{{ form.flat_number.label }}</label>
+        {{ form.flat_number }}
         {{ form.flat_number.errors }}
       </div>
       <div class="form-row">
-        <label for="{{ form.section_number.id_for_label }}_room">{{ form.section_number.label }}</label>
-        {{ form.section_number.as_widget(attrs={'id': form.section_number.id_for_label|add:'_room'}) }}
+        <label for="{{ form.section_number.id_for_label }}">{{ form.section_number.label }}</label>
+        {{ form.section_number }}
         {{ form.section_number.errors }}
       </div>
     </div>
@@ -538,61 +538,61 @@
       <h3>Коммерция</h3>
       {% if form.fields.commercial_type %}
       <div class="form-row">
-        <label for="{{ form.commercial_type.id_for_label }}_commercial">{{ form.commercial_type.label }}</label>
-        {{ form.commercial_type.as_widget(attrs={'id': form.commercial_type.id_for_label|add:'_commercial'}) }}
+        <label for="{{ form.commercial_type.id_for_label }}">{{ form.commercial_type.label }}</label>
+        {{ form.commercial_type }}
         {{ form.commercial_type.errors }}
       </div>
       {% endif %}
       {% with field=form.total_area %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_commercial">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_commercial'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.ceiling_height %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_commercial">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_commercial'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.power %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_commercial">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_commercial'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.has_parking %}
       <div class="form-row">
-        <label>{{ field.as_widget(attrs={'id': field.id_for_label|add:'_commercial'}) }} {{ field.label }}</label>
+        <label>{{ field }} {{ field.label }}</label>
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.parking_places %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_commercial">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_commercial'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.has_ramp %}
       <div class="form-row">
-        <label>{{ field.as_widget(attrs={'id': field.id_for_label|add:'_commercial'}) }} {{ field.label }}</label>
+        <label>{{ field }} {{ field.label }}</label>
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.is_rent_by_parts %}
       <div class="form-row">
-        <label>{{ field.as_widget(attrs={'id': field.id_for_label|add:'_commercial'}) }} {{ field.label }}</label>
+        <label>{{ field }} {{ field.label }}</label>
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.rent_by_parts_desc %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_commercial">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_commercial'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
@@ -602,42 +602,42 @@
       <h3>Земельный участок</h3>
       {% if form.fields.land_type %}
       <div class="form-row">
-        <label for="{{ form.land_type.id_for_label }}_land">{{ form.land_type.label }}</label>
-        {{ form.land_type.as_widget(attrs={'id': form.land_type.id_for_label|add:'_land'}) }}
+        <label for="{{ form.land_type.id_for_label }}">{{ form.land_type.label }}</label>
+        {{ form.land_type }}
         {{ form.land_type.errors }}
       </div>
       {% endif %}
       {% with field=form.land_area %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_land">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_land'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.land_area_unit %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_land">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_land'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.permitted_land_use %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_land">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_land'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.land_category %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_land">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_land'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.is_land_with_contract %}
       <div class="form-row">
-        <label>{{ field.as_widget(attrs={'id': field.id_for_label|add:'_land'}) }} {{ field.label }}</label>
+        <label>{{ field }} {{ field.label }}</label>
         {{ field.errors }}
       </div>
       {% endwith %}
@@ -647,21 +647,21 @@
       <h3>Гараж</h3>
       {% with field=form.total_area %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_garage">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_garage'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.has_parking %}
       <div class="form-row">
-        <label>{{ field.as_widget(attrs={'id': field.id_for_label|add:'_garage'}) }} {{ field.label }}</label>
+        <label>{{ field }} {{ field.label }}</label>
         {{ field.errors }}
       </div>
       {% endwith %}
       {% with field=form.parking_places %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}_garage">{{ field.label }}</label>
-        {{ field.as_widget(attrs={'id': field.id_for_label|add:'_garage'}) }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {{ field.errors }}
       </div>
       {% endwith %}
