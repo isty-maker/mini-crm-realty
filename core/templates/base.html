@@ -56,73 +56,29 @@
     {% block content %}{% endblock %}
   </main>
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const categorySelect = document.querySelector('select[name="category"]');
-      const operationSelect = document.querySelector('select[name="operation"]');
+document.addEventListener('DOMContentLoaded', function(){
+  function g(id){ return document.getElementById(id); }
+  function val(id){ const el = g(id); return el ? (el.value||'').trim() : ''; }
 
-      const normalizeCategory = (value) => {
-        if (!value) return null;
-        const low = value.toLowerCase();
-        if (low.includes('flat') || low.includes('apartment')) return 'flat';
-        if (low.includes('room') || low.includes('bed')) return 'room';
-        if (low.includes('house') || low.includes('cottage') || low.includes('townhouse')) return 'house';
-        if (low.includes('land')) return 'land';
-        if (low.includes('office') || low.includes('industry') || low.includes('warehouse') ||
-            low.includes('shopping') || low.includes('commercial') || low.includes('business') ||
-            low.includes('building') || low.includes('garage') || low.includes('freeappointment')) {
-          return 'commercial';
-        }
-        return value;
-      };
-
-      const resolveOperation = () => {
-        if (operationSelect && operationSelect.value) {
-          return operationSelect.value.toLowerCase();
-        }
-        if (!categorySelect || !categorySelect.value) {
-          return null;
-        }
-        const low = categorySelect.value.toLowerCase();
-        if (low.includes('rent')) return 'rent';
-        if (low.includes('sale')) return 'sale';
-        return null;
-      };
-
-      const splitAttr = (value) => {
-        if (!value) return null;
-        return value.split(',').map((item) => item.trim().toLowerCase()).filter(Boolean);
-      };
-
-      const updateGroups = () => {
-        const rawCategory = categorySelect ? categorySelect.value : null;
-        const normalizedCategory = normalizeCategory(rawCategory);
-        const categoryCandidates = [];
-        if (normalizedCategory) categoryCandidates.push(normalizedCategory.toLowerCase());
-        if (rawCategory) categoryCandidates.push(rawCategory.toLowerCase());
-
-        const operationValue = resolveOperation();
-
-        document.querySelectorAll('section.group').forEach((section) => {
-          const catAttr = splitAttr(section.dataset.cat);
-          const opAttr = splitAttr(section.dataset.op);
-
-          const categoryMatches = !catAttr || categoryCandidates.length === 0 ||
-            categoryCandidates.some((candidate) => catAttr.includes(candidate));
-          const operationMatches = !opAttr || !operationValue || opAttr.includes(operationValue);
-
-          section.style.display = categoryMatches && operationMatches ? '' : 'none';
-        });
-      };
-
-      if (categorySelect) {
-        categorySelect.addEventListener('change', updateGroups);
-      }
-      if (operationSelect) {
-        operationSelect.addEventListener('change', updateGroups);
-      }
-
-      updateGroups();
+  function updateGroups(){
+    const cat = val('id_category');
+    const op  = val('id_operation');
+    document.querySelectorAll('.group').forEach(sec => {
+      const cats = (sec.dataset.cat||'').split(',').map(s=>s.trim()).filter(Boolean);
+      const ops  = (sec.dataset.op ||'').split(',').map(s=>s.trim()).filter(Boolean);
+      const catOK = !cats.length || (cat && cats.includes(cat));
+      const opOK  = !ops.length  || (op  && ops.includes(op));
+      sec.style.display = (catOK && opOK) ? '' : 'none';
     });
+  }
+
+  ['id_category','id_operation'].forEach(id=>{
+    const el = g(id);
+    if (el) el.addEventListener('change', updateGroups);
+  });
+
+  updateGroups();
+});
   </script>
 </body>
 </html>
