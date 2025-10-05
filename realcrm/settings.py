@@ -41,6 +41,10 @@ INSTALLED_APPS = [
     "django_filters",  # библиотека фильтров
 ]
 
+MIGRATION_MODULES = {
+    "core": "core.mig_current",
+}
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
