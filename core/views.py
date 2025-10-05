@@ -270,53 +270,59 @@ def panel_create(request):
         "category": request.GET.get("category", ""),
         "operation": request.GET.get("operation", ""),
     }
+    def render_form(form):
+        subtypes_map_json = json.dumps(
+            PropertyForm.SUBTYPE_CHOICES_MAP, ensure_ascii=False
+        )
+        context = {
+            "form": form,
+            "prop": None,
+            "photos": [],
+            "subtypes_map_json": subtypes_map_json,
+            "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
+        }
+        return render(request, "core/panel_edit.html", context)
+
     if request.method == "POST":
         form = PropertyForm(request.POST)
         if form.is_valid():
-            prop = form.save()
-            return redirect(f"/panel/edit/{prop.pk}/")
-    else:
-        form = PropertyForm(initial=initial)
+            obj = form.save()
+            return redirect("panel_edit", pk=obj.pk)
+        return render_form(form)
 
-    subtypes_map_json = json.dumps(
-        PropertyForm.SUBTYPE_CHOICES_MAP, ensure_ascii=False
-    )
-    context = {
-        "form": form,
-        "prop": None,
-        "photos": [],
-        "subtypes_map_json": subtypes_map_json,
-        "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
-    }
-    return render(request, "core/panel_edit.html", context)
+    form = PropertyForm(initial=initial)
+    return render_form(form)
 
 def panel_edit(request, pk):
     """
     Редактирование существующего объекта (без фото-логики).
     """
     prop = get_object_or_404(Property, pk=pk)
+    def render_form(form):
+        subtypes_map_json = json.dumps(
+            PropertyForm.SUBTYPE_CHOICES_MAP, ensure_ascii=False
+        )
+        context = {
+            "form": form,
+            "prop": prop,
+            "photos": [],
+            "subtypes_map_json": subtypes_map_json,
+            "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
+        }
+        return render(request, "core/panel_edit.html", context)
+
     if request.method == "POST":
         form = PropertyForm(request.POST, instance=prop)
         _enable_choice_fields(form, ["category", "operation"])
         if form.is_valid():
-            form.save()
+            obj = form.save()
             # остаёмся на этой же странице
-            return redirect(f"/panel/edit/{prop.pk}/")
-    else:
-        form = PropertyForm(instance=prop)
-        _enable_choice_fields(form, ["category", "operation"])
-    # пока без фактических фото — отдадим пустой список для шаблона
-    subtypes_map_json = json.dumps(
-        PropertyForm.SUBTYPE_CHOICES_MAP, ensure_ascii=False
-    )
-    context = {
-        "form": form,
-        "prop": prop,
-        "photos": [],
-        "subtypes_map_json": subtypes_map_json,
-        "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
-    }
-    return render(request, "core/panel_edit.html", context)
+            return redirect("panel_edit", pk=obj.pk)
+        return render_form(form)
+
+    form = PropertyForm(instance=prop)
+    _enable_choice_fields(form, ["category", "operation"])
+    return render_form(form)
 
 def panel_add_photo(request, pk):
     # TODO: заменить на реальную загрузку (URL или FileField)
