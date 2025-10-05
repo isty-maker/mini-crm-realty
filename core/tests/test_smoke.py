@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.test import Client, TestCase
 
 from core.models import Property
@@ -7,7 +9,35 @@ class Smoke(TestCase):
     def test_create_page_renders(self):
         c = Client()
         response = c.get("/panel/create/?category=house&operation=sale")
-        assert response.status_code in (200, 302, 404)
+        assert response.status_code == 200
+
+    def test_export_check_page(self):
+        Property.objects.create(
+            title="Smoke House",
+            external_id="SMOKE-CHECK",
+            category="house",
+            operation="sale",
+            subtype="house",
+            total_area=Decimal("120"),
+            export_to_cian=True,
+        )
+        response = self.client.get("/panel/export/cian/check")
+        assert response.status_code == 200
+        assert "Smoke House" in response.content.decode("utf-8")
+
+    def test_export_xml(self):
+        Property.objects.create(
+            title="Smoke Flat",
+            external_id="SMOKE-XML",
+            category="flat",
+            operation="sale",
+            subtype="apartment",
+            total_area=Decimal("45"),
+            export_to_cian=True,
+        )
+        response = self.client.get("/panel/export/cian")
+        assert response.status_code == 200
+        assert b"<Feed" in response.content
 
 
 class FlagsExistenceTests(TestCase):

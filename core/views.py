@@ -1,4 +1,5 @@
 # core/views.py
+import json
 import os
 from functools import lru_cache
 from xml.etree.ElementTree import Element, SubElement, tostring
@@ -277,11 +278,17 @@ def panel_create(request):
     else:
         form = PropertyForm(initial=initial)
 
-    return render(
-        request,
-        "core/panel_edit.html",
-        {"form": form, "prop": None, "photos": []},
+    subtypes_map_json = json.dumps(
+        PropertyForm.SUBTYPE_CHOICES_MAP, ensure_ascii=False
     )
+    context = {
+        "form": form,
+        "prop": None,
+        "photos": [],
+        "subtypes_map_json": subtypes_map_json,
+        "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
+    }
+    return render(request, "core/panel_edit.html", context)
 
 def panel_edit(request, pk):
     """
@@ -299,11 +306,17 @@ def panel_edit(request, pk):
         form = PropertyForm(instance=prop)
         _enable_choice_fields(form, ["category", "operation"])
     # пока без фактических фото — отдадим пустой список для шаблона
-    return render(
-        request,
-        "core/panel_edit.html",
-        {"form": form, "prop": prop, "photos": []},
+    subtypes_map_json = json.dumps(
+        PropertyForm.SUBTYPE_CHOICES_MAP, ensure_ascii=False
     )
+    context = {
+        "form": form,
+        "prop": prop,
+        "photos": [],
+        "subtypes_map_json": subtypes_map_json,
+        "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
+    }
+    return render(request, "core/panel_edit.html", context)
 
 def panel_add_photo(request, pk):
     # TODO: заменить на реальную загрузку (URL или FileField)
@@ -345,6 +358,15 @@ def _digits_only(s):
     return "".join(ch for ch in str(s) if ch.isdigit())
 
 
+def _resolve_property_subtype(prop):
+    return (
+        getattr(prop, "subtype", None)
+        or getattr(prop, "house_type", None)
+        or getattr(prop, "commercial_type", None)
+        or getattr(prop, "land_type", None)
+    )
+
+
 def export_cian(request):
     root = Element("Feed")
     SubElement(root, "Feed_Version").text = "2"  # Спецификация ЦИАН, версия 2  (см. doc)  # noqa
@@ -356,12 +378,7 @@ def export_cian(request):
     )
 
     for prop in qs:
-        subtype_value = (
-            getattr(prop, "subtype", None)
-            or getattr(prop, "house_type", None)
-            or getattr(prop, "commercial_type", None)
-            or getattr(prop, "land_type", None)
-        )
+        subtype_value = _resolve_property_subtype(prop)
         category_str = build_cian_category(prop.category, prop.operation, subtype_value)
         if not category_str:
             # пропускаем объект без валидной категории
@@ -466,52 +483,60 @@ def export_cian(request):
                 _t(bt, "MinRentTerm", getattr(prop, "min_rent_term_months"))
 
     xml_bytes = tostring(root, encoding="utf-8", xml_declaration=True)
+    feeds_dir = os.path.join(settings.MEDIA_ROOT, "feeds")
+    os.makedirs(feeds_dir, exist_ok=True)
+    out_path = os.path.join(feeds_dir, "cian.xml")
+    with open(out_path, "wb") as fh:
+        fh.write(xml_bytes)
+
     return HttpResponse(xml_bytes, content_type="application/xml; charset=utf-8")
 
 
-def panel_generate_feeds(request):
-    # получить xml-байты из существующей функции export_cian
-    resp = export_cian(request)
-    content_type = resp.get("Content-Type", "")
-    if not content_type.startswith("application/xml"):
-        return resp
-    xml_bytes = resp.content
-
-    # гарантировать/media/feeds
-    feeds_dir = os.path.join(settings.MEDIA_ROOT, "feeds")
-    os.makedirs(feeds_dir, exist_ok=True)
-
-    # записать файл
-    out_path = os.path.join(feeds_dir, "cian.xml")
-    with open(out_path, "wb") as f:
-        f.write(xml_bytes)
-
-    # вернуться на список
-    return redirect("/panel/")
-
-
-def cian_check(request):
-    """
-    Показывает, какие объекты (export_to_cian=True) НЕ попадут в фид и почему.
-    """
+def export_cian_check(request):
+    qs = (
+        Property.objects.filter(export_to_cian=True, is_archived=False)
+        .order_by("id")
+    )
     items = []
-    qs = Property.objects.filter(export_to_cian=True).order_by("-updated_at", "-id")
-    for p in qs:
-        errs = []
-        cat = resolve_cian_category(p)
-        if not cat:
-            errs.append("Не удаётся вычислить Category (проверьте тип, сделку и подтип)")
-        if not getattr(p, "external_id", None):
-            errs.append("Пустой ExternalId")
-        # Телефон
-        num = "".join(ch for ch in str(getattr(p, "phone_number", "")) if ch.isdigit())
-        num2 = "".join(ch for ch in str(getattr(p, "phone_number2", "")) if ch.isdigit())
-        if not (num or num2):
-            errs.append("Нет телефона (PhoneSchema)")
-        # Общая площадь для жилья
-        if getattr(p, "category", "") in {"flat", "room", "house"}:
-            if getattr(p, "total_area", None) in (None, 0, ""):
-                errs.append("Пустая TotalArea")
-        items.append({"obj": p, "category": cat or "—", "errors": errs})
+
+    for prop in qs:
+        subtype_value = _resolve_property_subtype(prop)
+        category_str = build_cian_category(
+            getattr(prop, "category", ""),
+            getattr(prop, "operation", ""),
+            subtype_value,
+        )
+        missing = []
+
+        external_id = getattr(prop, "external_id", "") or ""
+        if not str(external_id).strip():
+            missing.append("ExternalId")
+
+        title = getattr(prop, "title", "") or ""
+        if not str(title).strip():
+            missing.append("Title")
+
+        if not category_str:
+            missing.append("Category (category/operation/subtype)")
+
+        base_category = (getattr(prop, "category", "") or "").strip()
+        if base_category in {"flat", "room", "house", "commercial"}:
+            total_area = getattr(prop, "total_area", None)
+            if total_area in (None, "", 0):
+                missing.append("TotalArea")
+
+        if base_category == "land":
+            land_area = getattr(prop, "land_area", None)
+            if land_area in (None, "", 0):
+                missing.append("LandArea")
+
+        items.append(
+            {
+                "prop": prop,
+                "category": category_str,
+                "missing": missing,
+            }
+        )
+
     return render(request, "core/cian_check.html", {"items": items})
 
