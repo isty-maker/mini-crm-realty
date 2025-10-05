@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     "django_filters",  # библиотека фильтров
 ]
 
-MIGRATION_MODULES = {
+MIGRATIONS_MODULES = {
     "core": "core.mig_current",
 }
 

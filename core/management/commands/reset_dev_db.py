@@ -5,7 +5,9 @@ import os
 
 
 class Command(BaseCommand):
-    help = "DEV ONLY: drop local SQLite DB and re-create schema from 0001_initial"
+    help = (
+        "DEV ONLY: drop local SQLite DB and re-create schema from core.mig_current.0001_initial"
+    )
 
     def handle(self, *args, **opts):
         db_path = getattr(settings, "DATABASES", {}).get("default", {}).get("NAME")
