@@ -1,14 +1,4 @@
-from django.core.exceptions import FieldDoesNotExist
 from django.db import migrations
-
-
-class SafeRenameField(migrations.RenameField):
-    def state_forwards(self, app_label, state):
-        try:
-            super().state_forwards(app_label, state)
-        except FieldDoesNotExist:
-            # State already uses the new field name; no further action needed.
-            pass
 
 
 class Migration(migrations.Migration):
@@ -17,16 +7,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.SeparateDatabaseAndState(
-            database_operations=[
-                # Никаких DB-операций здесь. БД мы уже приводили ранее (0012).
-            ],
-            state_operations=[
-                SafeRenameField(
-                    model_name="property",
-                    old_name="export_to_domclick",
-                    new_name="export_to_domklik",
-                ),
-            ],
-        ),
+        # no-op: эта миграция теперь ничего не меняет ни в state, ни в БД.
     ]
