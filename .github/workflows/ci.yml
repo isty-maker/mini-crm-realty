@@ -39,20 +39,10 @@ jobs:
 
       - name: Guard: only one migration in core/mig_current
         run: |
-          echo "Ensuring only one migration (0001_initial.py) exists for core.mig_current..."
-          set -e
-          files=$(ls -1 core/mig_current | grep -E '^[0-9]{4}_.+\\.py$' || true)
+          files=$(ls -1 core/mig_current | grep -E '^[0-9]{4}_.+\.py$' || true)
           echo "$files"
-          if [ -z "$files" ]; then
-            count=0
-          else
-            count=$(echo "$files" | wc -l)
-          fi
-          if [ "$count" -ne 1 ]; then
-            echo "Expected exactly 1 migration file in core/mig_current, found: $count"
-            exit 1
-          fi
-          echo "$files" | grep -q '^0001_initial\\.py$' || (echo "0001_initial.py not found" && exit 1)
+          test "$(echo "$files" | wc -l)" -eq 1
+          echo "$files" | grep -q '^0001_initial\.py$'
 
       - name: Migrate
         run: python manage.py migrate --noinput
