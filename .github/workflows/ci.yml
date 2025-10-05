@@ -26,14 +26,14 @@ jobs:
           pip install -r requirements-dev.txt || true
           pip install pytest pytest-django || true
 
-      - name: Run Django checks
+      - name: Django checks
         run: python manage.py check
 
-      - name: Check migrations
+      - name: Pending migrations check
         run: python manage.py makemigrations --check --dry-run --noinput
 
-      - name: Apply migrations
+      - name: Migrate
         run: python manage.py migrate --noinput
 
-      - name: Run tests
+      - name: Tests
         run: python -m pytest
