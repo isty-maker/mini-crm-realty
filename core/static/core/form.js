@@ -14,29 +14,86 @@
       } else if (control.dataset.initialDisabled === 'true') {
         control.disabled = true;
       } else {
-        control.disabled = false;
+        control.removeAttribute('disabled');
       }
     });
   }
 
-  function normalizeType(type) {
-    return (type || '').trim();
+  function normalizeValue(value) {
+    return (value || '').trim();
   }
 
-  function showSection(type) {
-    var target = normalizeType(type);
-    var sections = document.querySelectorAll('[data-section]');
+  function splitValues(raw) {
+    if (!raw) {
+      return [];
+    }
+    return raw
+      .split(/[\s,]+/)
+      .map(function (item) {
+        return normalizeValue(item);
+      })
+      .filter(Boolean);
+  }
+
+  function matchesOperation(tokens, currentOperation) {
+    if (!tokens.length) {
+      return true;
+    }
+    var value = normalizeValue(currentOperation);
+    if (!value) {
+      return false;
+    }
+    return tokens.some(function (token) {
+      if (!token) {
+        return false;
+      }
+      if (token === value) {
+        return true;
+      }
+      if (token === 'rent' && value.indexOf('rent') === 0) {
+        return true;
+      }
+      if (token === 'sale' && value === 'sale') {
+        return true;
+      }
+      return value.indexOf(token) === 0;
+    });
+  }
+
+  function sectionMatches(section, context) {
+    var categories = splitValues(section.dataset.category || section.dataset.section || '');
+    var operations = splitValues(section.dataset.operation || '');
+    var subtypes = splitValues(section.dataset.subtype || '');
+
+    var categoryMatch = !categories.length || categories.includes(context.category);
+    if (!categoryMatch) {
+      return { matches: false, disableAllowed: categories.length > 0 };
+    }
+
+    var operationMatch = matchesOperation(operations, context.operation);
+    if (!operationMatch) {
+      return { matches: false, disableAllowed: categories.length > 0 };
+    }
+
+    var subtypeMatch = !subtypes.length || subtypes.includes(context.subtype);
+    if (!subtypeMatch) {
+      return { matches: false, disableAllowed: categories.length > 0 };
+    }
+
+    return { matches: true, disableAllowed: categories.length > 0 };
+  }
+
+  function updateSections(context, sections) {
     sections.forEach(function (section) {
-      var dataset = (section.dataset.section || '').split(',').map(function (value) {
-        return value.trim();
-      }).filter(Boolean);
-      var match = target && dataset.includes(target);
-      if (match) {
+      var result = sectionMatches(section, context);
+      if (result.matches) {
         section.hidden = false;
         setDisabled(section, false);
       } else {
         section.hidden = true;
-        setDisabled(section, true);
+        if (result.disableAllowed) {
+          setDisabled(section, true);
+        }
       }
     });
   }
@@ -50,16 +107,37 @@
     return categoryField ? categoryField.value : '';
   }
 
-  function handleChange() {
-    showSection(currentCategory());
+  function currentOperation() {
+    var operationField = fieldByName('operation');
+    return operationField ? operationField.value : '';
+  }
+
+  function currentSubtype() {
+    var subtypeField = fieldByName('subtype');
+    return subtypeField ? subtypeField.value : '';
+  }
+
+  function handleChange(sections) {
+    updateSections(
+      {
+        category: normalizeValue(currentCategory()),
+        operation: normalizeValue(currentOperation()),
+        subtype: normalizeValue(currentSubtype())
+      },
+      sections
+    );
   }
 
   document.addEventListener('DOMContentLoaded', function () {
     var categoryField = fieldByName('category');
     var subtypeField = fieldByName('subtype');
+    var operationField = fieldByName('operation');
     var dataNode = document.getElementById('subtypes-data');
     var subtypeMap = {};
     var subtypePlaceholder = '— не выбрано —';
+    var sections = Array.prototype.slice.call(
+      document.querySelectorAll('[data-section], [data-category], [data-operation], [data-subtype]')
+    );
 
     if (dataNode) {
       if (dataNode.dataset.placeholder) {
@@ -117,14 +195,22 @@
         if (dataNode && subtypeField) {
           rebuildSubtypeOptions(categoryField.value, false);
         }
-        handleChange();
+        handleChange(sections);
+      });
+    }
+
+    if (operationField) {
+      operationField.addEventListener('change', function () {
+        handleChange(sections);
       });
     }
 
     if (subtypeField) {
-      subtypeField.addEventListener('change', handleChange);
+      subtypeField.addEventListener('change', function () {
+        handleChange(sections);
+      });
     }
 
-    handleChange();
+    handleChange(sections);
   });
 })();
