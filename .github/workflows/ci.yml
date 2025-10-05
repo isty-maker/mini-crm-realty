@@ -29,19 +29,30 @@ jobs:
       - name: Django checks
         run: python manage.py check
 
-      - name: Guard: exactly one core migration file
-        run: |
-          echo "Ensuring only one migration (0001_initial.py) exists for core..."
-          cnt=$(ls -1 core/migrations | grep -E '^[0-9]{4}_.+\\.py$' | wc -l)
-          if [ "$cnt" -ne 1 ]; then
-            echo "Expected exactly 1 migration file in core/migrations, found: $cnt"
-            ls -la core/migrations
-            exit 1
-          fi
-          ls -1 core/migrations | grep -q '^0001_initial\\.py$' || (echo "0001_initial.py not found" && exit 1)
-
       - name: Pending migrations check
         run: python manage.py makemigrations --check --dry-run --noinput
+
+      - name: Show migrations (core)
+        run: |
+          echo "== showmigrations core =="
+          python manage.py showmigrations core
+
+      - name: Guard: only one migration in core/mig_current
+        run: |
+          echo "Ensuring only one migration (0001_initial.py) exists for core.mig_current..."
+          set -e
+          files=$(ls -1 core/mig_current | grep -E '^[0-9]{4}_.+\\.py$' || true)
+          echo "$files"
+          if [ -z "$files" ]; then
+            count=0
+          else
+            count=$(echo "$files" | wc -l)
+          fi
+          if [ "$count" -ne 1 ]; then
+            echo "Expected exactly 1 migration file in core/mig_current, found: $count"
+            exit 1
+          fi
+          echo "$files" | grep -q '^0001_initial\\.py$' || (echo "0001_initial.py not found" && exit 1)
 
       - name: Migrate
         run: python manage.py migrate --noinput
