@@ -272,7 +272,8 @@ def panel_create(request):
     }
     def render_form(form):
         subtypes_map_json = json.dumps(
-            PropertyForm.SUBTYPE_CHOICES_MAP, ensure_ascii=False
+            getattr(form, "subtypes_map", PropertyForm.SUBTYPE_CHOICES_MAP),
+            ensure_ascii=False,
         )
         context = {
             "form": form,
@@ -286,7 +287,12 @@ def panel_create(request):
     if request.method == "POST":
         form = PropertyForm(request.POST)
         if form.is_valid():
-            obj = form.save()
+            obj = form.save(commit=False)
+            if not getattr(obj, "status", None):
+                obj.status = "draft"
+            obj.save()
+            if hasattr(form, "save_m2m"):
+                form.save_m2m()
             return redirect("panel_edit", pk=obj.pk)
         return render_form(form)
 
@@ -300,7 +306,8 @@ def panel_edit(request, pk):
     prop = get_object_or_404(Property, pk=pk)
     def render_form(form):
         subtypes_map_json = json.dumps(
-            PropertyForm.SUBTYPE_CHOICES_MAP, ensure_ascii=False
+            getattr(form, "subtypes_map", PropertyForm.SUBTYPE_CHOICES_MAP),
+            ensure_ascii=False,
         )
         context = {
             "form": form,
@@ -315,7 +322,12 @@ def panel_edit(request, pk):
         form = PropertyForm(request.POST, instance=prop)
         _enable_choice_fields(form, ["category", "operation"])
         if form.is_valid():
-            obj = form.save()
+            obj = form.save(commit=False)
+            if not getattr(obj, "status", None):
+                obj.status = "draft"
+            obj.save()
+            if hasattr(form, "save_m2m"):
+                form.save_m2m()
             # остаёмся на этой же странице
             return redirect("panel_edit", pk=obj.pk)
         return render_form(form)
