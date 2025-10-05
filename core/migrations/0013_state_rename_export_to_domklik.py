@@ -7,5 +7,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # no-op: эта миграция теперь ничего не меняет ни в state, ни в БД.
+        # no-op: intentionally empty to avoid duplicate renames
     ]
