@@ -32,5 +32,8 @@ jobs:
       - name: Check migrations
         run: python manage.py makemigrations --check --dry-run --noinput
 
+      - name: Migrate DB
+        run: python manage.py migrate --noinput
+
       - name: Run tests
         run: python -m pytest -q
