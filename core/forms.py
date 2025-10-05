@@ -7,6 +7,42 @@ from django.core.exceptions import FieldDoesNotExist
 from .models import Property, Photo
 
 
+PROPERTY_SUBTYPE_CHOICES = {
+    "house": [
+        ("house", "Жилой дом"),
+        ("dacha", "Дача"),
+        ("townhouse", "Таунхаус"),
+        ("duplex", "Дуплекс"),
+    ],
+    "flat": [
+        ("apartment", "Квартира"),
+        ("studio", "Студия"),
+        ("euro", "Евро-формат"),
+        ("apartments", "Апартаменты"),
+    ],
+    "room": [
+        ("room", "Комната"),
+        ("share", "Доля"),
+    ],
+    "commercial": [
+        ("office", "Офис"),
+        ("retail", "Торговая"),
+        ("warehouse", "Склад"),
+        ("production", "Производство"),
+        ("free_use", "Свободное назначение"),
+    ],
+    "land": [
+        ("individual_housing", "ИЖС"),
+        ("agricultural", "С/Х"),
+        ("garden", "Сад/ДНП"),
+    ],
+    "garage": [
+        ("garage", "Гараж"),
+        ("parking", "Машиноместо"),
+    ],
+}
+
+
 def _build_choices(model_attr_name, fallback_values, field_name=None):
     choices = getattr(Property, model_attr_name, None)
     if choices:
@@ -21,6 +57,9 @@ def _build_choices(model_attr_name, fallback_values, field_name=None):
     return [(value, value) for value in fallback_values]
 
 class PropertyForm(forms.ModelForm):
+    SUBTYPE_CHOICES_MAP = PROPERTY_SUBTYPE_CHOICES
+    SUBTYPE_PLACEHOLDER = "— не выбрано —"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -42,6 +81,38 @@ class PropertyForm(forms.ModelForm):
                     self.fields[base] = model_field.formfield()
                 except Exception:
                     pass
+
+        subtype_label = None
+        subtype_help_text = ""
+        if "subtype" in self.fields:
+            subtype_label = self.fields["subtype"].label
+            subtype_help_text = self.fields["subtype"].help_text
+
+        cat_from_data = (self.data.get("category") if self.data else "") or ""
+        if not cat_from_data:
+            cat_from_data = getattr(self.instance, "category", "") or ""
+        if not cat_from_data:
+            cat_from_data = self.initial.get("category", "")
+        cat_from_data = str(cat_from_data or "").strip()
+
+        subtype_choices = [
+            ("", self.SUBTYPE_PLACEHOLDER)
+        ] + list(self.SUBTYPE_CHOICES_MAP.get(cat_from_data, []))
+
+        self.fields["subtype"] = forms.ChoiceField(
+            choices=subtype_choices,
+            required=False,
+            label=subtype_label,
+            help_text=subtype_help_text,
+        )
+
+        if not subtype_label:
+            # Если label не удалось получить ранее, используем verbose_name из модели
+            try:
+                model_field = self._meta.model._meta.get_field("subtype")
+                self.fields["subtype"].label = model_field.verbose_name
+            except FieldDoesNotExist:
+                pass
 
         def has_paren(choices):
             for choice in choices or []:
@@ -124,6 +195,18 @@ class PropertyForm(forms.ModelForm):
 
         if category in {"flat", "room", "house"} and not cleaned_data.get("total_area"):
             self.add_error("total_area", "Укажите общую площадь (TotalArea).")
+
+        subtype_value = (cleaned_data.get("subtype") or "").strip()
+        if subtype_value:
+            category_key = category or getattr(self.instance, "category", "") or ""
+            category_key = str(category_key).strip()
+            if not category_key and self.initial:
+                category_key = str(self.initial.get("category", "")).strip()
+            allowed_values = {
+                value for value, _ in self.SUBTYPE_CHOICES_MAP.get(category_key, [])
+            }
+            if subtype_value not in allowed_values:
+                self.add_error("subtype", "Выберите допустимый подтип для выбранной категории.")
 
         return cleaned_data
 

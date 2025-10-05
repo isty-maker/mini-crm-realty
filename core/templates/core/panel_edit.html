@@ -7,6 +7,10 @@
 
   <form method="post">
     {% csrf_token %}
+    <div id="subtypes-data"
+         data-subtypes='{{ subtypes_map_json|default:"{}"|safe }}'
+         data-placeholder="{{ subtypes_placeholder }}"
+         hidden></div>
     <section class="group">
       <h3>Тип и сделка</h3>
       <div class="form-row">{{ form.category.label_tag }} {{ form.category }}</div>

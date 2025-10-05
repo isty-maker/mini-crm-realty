@@ -57,11 +57,74 @@
   document.addEventListener('DOMContentLoaded', function () {
     var categoryField = fieldByName('category');
     var subtypeField = fieldByName('subtype');
-    handleChange();
-    [categoryField, subtypeField].forEach(function (field) {
-      if (field) {
-        field.addEventListener('change', handleChange);
+    var dataNode = document.getElementById('subtypes-data');
+    var subtypeMap = {};
+    var subtypePlaceholder = '— не выбрано —';
+
+    if (dataNode) {
+      if (dataNode.dataset.placeholder) {
+        subtypePlaceholder = dataNode.dataset.placeholder;
       }
-    });
+      try {
+        subtypeMap = JSON.parse(dataNode.dataset.subtypes || '{}');
+      } catch (err) {
+        subtypeMap = {};
+      }
+    }
+
+    function rebuildSubtypeOptions(categoryValue, keepCurrent) {
+      if (!subtypeField) {
+        return;
+      }
+
+      var currentValue = keepCurrent ? subtypeField.value : '';
+      while (subtypeField.options.length > 0) {
+        subtypeField.remove(0);
+      }
+
+      var placeholderOption = document.createElement('option');
+      placeholderOption.value = '';
+      placeholderOption.textContent = subtypePlaceholder;
+      subtypeField.appendChild(placeholderOption);
+
+      var options = subtypeMap[categoryValue] || [];
+      options.forEach(function (pair) {
+        var option = document.createElement('option');
+        option.value = pair[0];
+        option.textContent = pair[1];
+        subtypeField.appendChild(option);
+      });
+
+      if (keepCurrent && currentValue) {
+        var isAllowed = options.some(function (pair) {
+          return pair[0] === currentValue;
+        });
+        if (isAllowed) {
+          subtypeField.value = currentValue;
+          return;
+        }
+      }
+
+      subtypeField.value = '';
+    }
+
+    if (dataNode && categoryField && subtypeField) {
+      rebuildSubtypeOptions(categoryField.value, true);
+    }
+
+    if (categoryField) {
+      categoryField.addEventListener('change', function () {
+        if (dataNode && subtypeField) {
+          rebuildSubtypeOptions(categoryField.value, false);
+        }
+        handleChange();
+      });
+    }
+
+    if (subtypeField) {
+      subtypeField.addEventListener('change', handleChange);
+    }
+
+    handleChange();
   });
 })();
