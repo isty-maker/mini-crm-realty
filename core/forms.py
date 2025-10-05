@@ -145,6 +145,7 @@ class PropertyForm(forms.ModelForm):
             "house_type": "Подтип дома",
             "commercial_type": "Подтип коммерции",
             "land_type": "Подтип земельного участка",
+            "export_to_domklik": "Экспорт в ДомКлик",
         }
 
         widgets = {
