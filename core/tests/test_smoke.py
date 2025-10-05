@@ -11,6 +11,32 @@ class Smoke(TestCase):
         response = c.get("/panel/create/?category=house&operation=sale")
         assert response.status_code == 200
 
+    def test_create_minimal_ok(self):
+        c = Client()
+        data = {
+            "title": "Test",
+            "category": "house",
+            "operation": "sale",
+            "subtype": "house",
+            "export_to_cian": "on",
+            "total_area": "10",
+            "status": "active",
+            "currency": "rur",
+            "house_type": "house",
+        }
+        response = c.post(
+            "/panel/create/?category=house&operation=sale", data, follow=True
+        )
+        assert response.status_code == 200
+        assert Property.objects.count() == 1
+
+    def test_create_invalid_shows_errors(self):
+        c = Client()
+        data = {"title": ""}
+        response = c.post("/panel/create/?category=house&operation=sale", data)
+        assert response.status_code == 200
+        assert "Исправьте ошибки" in response.content.decode("utf-8")
+
     def test_export_check_page(self):
         Property.objects.create(
             title="Smoke House",

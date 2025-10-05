@@ -5,8 +5,18 @@
   <a href="/panel/">&larr; к списку</a>
   <h1>{{ prop|default:"Новый объект" }}</h1>
 
-  <form method="post">
+  <form id="prop-form" method="post" action="{{ request.get_full_path }}">
     {% csrf_token %}
+    {% if form.errors %}
+      <div class="alert alert-danger">
+        <strong>Исправьте ошибки:</strong>
+        <ul>
+        {% for field, errors in form.errors.items %}
+          <li>{{ field }}: {{ errors|join:', ' }}</li>
+        {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
     <div id="subtypes-data"
          data-subtypes='{{ subtypes_map_json|default:"{}"|safe }}'
          data-placeholder="{{ subtypes_placeholder }}"
