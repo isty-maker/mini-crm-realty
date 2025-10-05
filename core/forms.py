@@ -42,6 +42,12 @@ PROPERTY_SUBTYPE_CHOICES = {
     ],
 }
 
+STATUS_FALLBACK_CHOICES = [
+    ("draft", "Черновик"),
+    ("active", "Активен"),
+    ("archived", "Архив"),
+]
+
 
 def _build_choices(model_attr_name, fallback_values, field_name=None):
     choices = getattr(Property, model_attr_name, None)
@@ -102,7 +108,7 @@ class PropertyForm(forms.ModelForm):
         self.fields["subtype"] = forms.ChoiceField(
             choices=subtype_choices,
             required=False,
-            label=subtype_label,
+            label=subtype_label or "Подтип",
             help_text=subtype_help_text,
         )
 
@@ -110,9 +116,43 @@ class PropertyForm(forms.ModelForm):
             # Если label не удалось получить ранее, используем verbose_name из модели
             try:
                 model_field = self._meta.model._meta.get_field("subtype")
-                self.fields["subtype"].label = model_field.verbose_name
+                self.fields["subtype"].label = model_field.verbose_name or "Подтип"
             except FieldDoesNotExist:
                 pass
+
+        model_defined_choices = list(getattr(self._meta.model, "STATUS_CHOICES", []))
+        status_choices = []
+        seen_statuses = set()
+        for value, label in model_defined_choices + STATUS_FALLBACK_CHOICES:
+            if value in seen_statuses:
+                continue
+            status_choices.append((value, label))
+            seen_statuses.add(value)
+        status_field = self.fields.get("status")
+        status_label = getattr(status_field, "label", None) if status_field else None
+        if not status_label:
+            try:
+                status_label = self._meta.model._meta.get_field("status").verbose_name
+            except FieldDoesNotExist:
+                status_label = "Статус"
+        status_field = forms.ChoiceField(
+            choices=status_choices,
+            required=False,
+            label=status_label or "Статус",
+        )
+        status_field.empty_value = "draft"
+        self.fields["status"] = status_field
+
+        if not self.is_bound:
+            explicit_initial = self.initial.get("status")
+            if explicit_initial:
+                status_field.initial = explicit_initial
+            else:
+                instance_status = getattr(self.instance, "status", "")
+                if getattr(self.instance, "pk", None):
+                    status_field.initial = instance_status or status_field.initial
+                else:
+                    status_field.initial = status_field.initial or "draft"
 
         def has_paren(choices):
             for choice in choices or []:
@@ -133,6 +173,8 @@ class PropertyForm(forms.ModelForm):
                 continue
             if isinstance(field, forms.ChoiceField) and has_paren(getattr(field, "choices", [])):
                 self.fields.pop(name, None)
+
+        self.subtypes_map = self.SUBTYPE_CHOICES_MAP
 
     def clean(self):
         cleaned_data = super().clean()
@@ -208,7 +250,33 @@ class PropertyForm(forms.ModelForm):
             if subtype_value not in allowed_values:
                 self.add_error("subtype", "Выберите допустимый подтип для выбранной категории.")
 
+        status_value = (cleaned_data.get("status") or "").strip()
+        if not status_value:
+            cleaned_data["status"] = "draft"
+
         return cleaned_data
+
+    def _post_clean(self):
+        status_field = None
+        original_choices = None
+        appended = False
+        try:
+            status_field = self._meta.model._meta.get_field("status")
+        except FieldDoesNotExist:
+            status_field = None
+
+        if status_field is not None:
+            original_choices = getattr(status_field, "choices", ())
+            existing = {value for value, _ in original_choices}
+            if "draft" not in existing:
+                appended = True
+                status_field.choices = list(original_choices) + [STATUS_FALLBACK_CHOICES[0]]
+
+        try:
+            super()._post_clean()
+        finally:
+            if appended and status_field is not None:
+                status_field.choices = original_choices
 
     class Meta:
         model = Property

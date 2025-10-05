@@ -15,7 +15,18 @@ def main():
             "available on your PYTHONPATH environment variable? Did you "
             "forget to activate a virtual environment?"
         ) from exc
-    execute_from_command_line(sys.argv)
+
+    argv = list(sys.argv)
+    if len(argv) > 1 and argv[1] == 'test':
+        normalized = []
+        for arg in argv[2:]:
+            if arg == '-q':
+                normalized.append('--verbosity=0')
+            else:
+                normalized.append(arg)
+        argv = argv[:2] + normalized
+
+    execute_from_command_line(argv)
 
 
 if __name__ == '__main__':

@@ -11,9 +11,16 @@
       <div class="alert alert-danger">
         <strong>Исправьте ошибки:</strong>
         <ul>
-        {% for field, errors in form.errors.items %}
-          <li>{{ field }}: {{ errors|join:', ' }}</li>
+        {% for field in form %}
+          {% if field.errors %}
+            <li><a href="#{{ field.id_for_label }}">{{ field.label }}:</a> {{ field.errors|join:", " }}</li>
+          {% endif %}
         {% endfor %}
+        {% if form.non_field_errors %}
+          {% for e in form.non_field_errors %}
+            <li>{{ e }}</li>
+          {% endfor %}
+        {% endif %}
         </ul>
       </div>
     {% endif %}
@@ -23,48 +30,84 @@
          hidden></div>
     <section class="group">
       <h3>Тип и сделка</h3>
-      <div class="form-row">{{ form.category.label_tag }} {{ form.category }}</div>
-      <div class="form-row">{{ form.operation.label_tag }} {{ form.operation }}</div>
-      <div class="form-row">{{ form.subtype.label_tag }} {{ form.subtype }}</div>
+      {% with field=form.category %}
+      <div class="form-row">
+        {{ field.label_tag }} {{ field }}
+        {% include "core/includes/field_errors.html" %}
+      </div>
+      {% endwith %}
+      {% with field=form.operation %}
+      <div class="form-row">
+        {{ field.label_tag }} {{ field }}
+        {% include "core/includes/field_errors.html" %}
+      </div>
+      {% endwith %}
+      {% with field=form.subtype %}
+      <div class="form-row">
+        {{ field.label_tag }} {{ field }}
+        {% include "core/includes/field_errors.html" %}
+      </div>
+      {% endwith %}
     </section>
 
     <section class="group">
       <h3>Экспорт</h3>
-      <div class="form-row"><label>{{ form.export_to_cian }} {{ form.export_to_cian.label }}</label></div>
-      <div class="form-row"><label>{{ form.export_to_domklik }} {{ form.export_to_domklik.label }}</label></div>
-      <div class="form-row"><label>{{ form.is_archived }} {{ form.is_archived.label }}</label></div>
+      {% with field=form.status %}
+      <div class="form-row">
+        {{ field.label_tag }} {{ field }}
+        {% include "core/includes/field_errors.html" %}
+      </div>
+      {% endwith %}
+      {% with field=form.export_to_cian %}
+      <div class="form-row">
+        <label>{{ field }} {{ field.label }}</label>
+        {% include "core/includes/field_errors.html" %}
+      </div>
+      {% endwith %}
+      {% with field=form.export_to_domklik %}
+      <div class="form-row">
+        <label>{{ field }} {{ field.label }}</label>
+        {% include "core/includes/field_errors.html" %}
+      </div>
+      {% endwith %}
+      {% with field=form.is_archived %}
+      <div class="form-row">
+        <label>{{ field }} {{ field.label }}</label>
+        {% include "core/includes/field_errors.html" %}
+      </div>
+      {% endwith %}
     </section>
 
     <!-- Общие поля (видны всегда) -->
     <section class="group">
       <h3>Основное</h3>
-      <div class="form-row">{{ form.title.label_tag }} {{ form.title }}</div>
+      <div class="form-row">{{ form.title.label_tag }} {{ form.title }}{% if form.title.errors %}<div class="field-error">{{ form.title.errors|join:", " }}</div>{% endif %}</div>
       <div class="form-row row-2">
-        {{ form.price.label_tag }} {{ form.price }}
-        {{ form.currency.label_tag }} {{ form.currency }}
+        {{ form.price.label_tag }} {{ form.price }}{% if form.price.errors %}<div class="field-error">{{ form.price.errors|join:", " }}</div>{% endif %}
+        {{ form.currency.label_tag }} {{ form.currency }}{% if form.currency.errors %}<div class="field-error">{{ form.currency.errors|join:", " }}</div>{% endif %}
       </div>
-      <div class="form-row">{{ form.address.label_tag }} {{ form.address }}</div>
-      <div class="form-row">{{ form.description.label_tag }} {{ form.description }}</div>
+      <div class="form-row">{{ form.address.label_tag }} {{ form.address }}{% if form.address.errors %}<div class="field-error">{{ form.address.errors|join:", " }}</div>{% endif %}</div>
+      <div class="form-row">{{ form.description.label_tag }} {{ form.description }}{% if form.description.errors %}<div class="field-error">{{ form.description.errors|join:", " }}</div>{% endif %}</div>
       <div class="form-row">
-        <label>{{ form.mortgage_allowed }} {{ form.mortgage_allowed.label }}</label>
+        <label>{{ form.mortgage_allowed }} {{ form.mortgage_allowed.label }}</label>{% if form.mortgage_allowed.errors %}<div class="field-error">{{ form.mortgage_allowed.errors|join:", " }}</div>{% endif %}
       </div>
       <div class="form-row row-2">
         <div class="form-row">
           {{ form.agent_bonus_value.label_tag }}
-          {{ form.agent_bonus_value }}
+          {{ form.agent_bonus_value }}{% if form.agent_bonus_value.errors %}<div class="field-error">{{ form.agent_bonus_value.errors|join:", " }}</div>{% endif %}
         </div>
         <div class="form-row">
-          <label>{{ form.agent_bonus_is_percent }} {{ form.agent_bonus_is_percent.label }}</label>
+          <label>{{ form.agent_bonus_is_percent }} {{ form.agent_bonus_is_percent.label }}</label>{% if form.agent_bonus_is_percent.errors %}<div class="field-error">{{ form.agent_bonus_is_percent.errors|join:", " }}</div>{% endif %}
         </div>
       </div>
       <div class="form-row row-2">
         <div class="form-row">
           {{ form.security_deposit.label_tag }}
-          {{ form.security_deposit }}
+          {{ form.security_deposit }}{% if form.security_deposit.errors %}<div class="field-error">{{ form.security_deposit.errors|join:", " }}</div>{% endif %}
         </div>
         <div class="form-row">
           {{ form.min_rent_term_months.label_tag }}
-          {{ form.min_rent_term_months }}
+          {{ form.min_rent_term_months }}{% if form.min_rent_term_months.errors %}<div class="field-error">{{ form.min_rent_term_months.errors|join:", " }}</div>{% endif %}
         </div>
       </div>
     </section>
@@ -74,16 +117,16 @@
       <div class="form-row row-2">
         <div class="form-row">
           {{ form.lat.label_tag }}
-          {{ form.lat }}
+          {{ form.lat }}{% if form.lat.errors %}<div class="field-error">{{ form.lat.errors|join:", " }}</div>{% endif %}
         </div>
         <div class="form-row">
           {{ form.lng.label_tag }}
-          {{ form.lng }}
+          {{ form.lng }}{% if form.lng.errors %}<div class="field-error">{{ form.lng.errors|join:", " }}</div>{% endif %}
         </div>
       </div>
       <div class="form-row">
         {{ form.cadastral_number.label_tag }}
-        {{ form.cadastral_number }}
+        {{ form.cadastral_number }}{% if form.cadastral_number.errors %}<div class="field-error">{{ form.cadastral_number.errors|join:", " }}</div>{% endif %}
       </div>
     </section>
 
@@ -92,16 +135,16 @@
       <div class="form-row row-2">
         <div class="form-row">
           {{ form.phone_country.label_tag }}
-          {{ form.phone_country }}
+          {{ form.phone_country }}{% if form.phone_country.errors %}<div class="field-error">{{ form.phone_country.errors|join:", " }}</div>{% endif %}
         </div>
         <div class="form-row">
           {{ form.phone_number.label_tag }}
-          {{ form.phone_number }}
+          {{ form.phone_number }}{% if form.phone_number.errors %}<div class="field-error">{{ form.phone_number.errors|join:", " }}</div>{% endif %}
         </div>
       </div>
       <div class="form-row">
         {{ form.phone_number2.label_tag }}
-        {{ form.phone_number2 }}
+        {{ form.phone_number2 }}{% if form.phone_number2.errors %}<div class="field-error">{{ form.phone_number2.errors|join:", " }}</div>{% endif %}
       </div>
     </section>
 
@@ -109,11 +152,11 @@
       <h3>Медиа</h3>
       <div class="form-row">
         {{ form.layout_photo_url.label_tag }}
-        {{ form.layout_photo_url }}
+        {{ form.layout_photo_url }}{% if form.layout_photo_url.errors %}<div class="field-error">{{ form.layout_photo_url.errors|join:", " }}</div>{% endif %}
       </div>
       <div class="form-row">
         {{ form.object_tour_url.label_tag }}
-        {{ form.object_tour_url }}
+        {{ form.object_tour_url }}{% if form.object_tour_url.errors %}<div class="field-error">{{ form.object_tour_url.errors|join:", " }}</div>{% endif %}
       </div>
     </section>
 
@@ -121,35 +164,35 @@
       <h3>Здание</h3>
       <div class="form-row">
         {{ form.building_name.label_tag }}
-        {{ form.building_name }}
+        {{ form.building_name }}{% if form.building_name.errors %}<div class="field-error">{{ form.building_name.errors|join:", " }}</div>{% endif %}
       </div>
       <div class="form-row row-2">
         <div class="form-row">
           {{ form.building_floors.label_tag }}
-          {{ form.building_floors }}
+          {{ form.building_floors }}{% if form.building_floors.errors %}<div class="field-error">{{ form.building_floors.errors|join:", " }}</div>{% endif %}
         </div>
         <div class="form-row">
           {{ form.building_build_year.label_tag }}
-          {{ form.building_build_year }}
+          {{ form.building_build_year }}{% if form.building_build_year.errors %}<div class="field-error">{{ form.building_build_year.errors|join:", " }}</div>{% endif %}
         </div>
       </div>
       <div class="form-row">
         {{ form.building_material.label_tag }}
-        {{ form.building_material }}
+        {{ form.building_material }}{% if form.building_material.errors %}<div class="field-error">{{ form.building_material.errors|join:", " }}</div>{% endif %}
       </div>
       <div class="form-row row-2">
         <div class="form-row">
           {{ form.building_ceiling_height.label_tag }}
-          {{ form.building_ceiling_height }}
+          {{ form.building_ceiling_height }}{% if form.building_ceiling_height.errors %}<div class="field-error">{{ form.building_ceiling_height.errors|join:", " }}</div>{% endif %}
         </div>
         <div class="form-row">
           {{ form.building_passenger_lifts.label_tag }}
-          {{ form.building_passenger_lifts }}
+          {{ form.building_passenger_lifts }}{% if form.building_passenger_lifts.errors %}<div class="field-error">{{ form.building_passenger_lifts.errors|join:", " }}</div>{% endif %}
         </div>
       </div>
       <div class="form-row">
         {{ form.building_cargo_lifts.label_tag }}
-        {{ form.building_cargo_lifts }}
+        {{ form.building_cargo_lifts }}{% if form.building_cargo_lifts.errors %}<div class="field-error">{{ form.building_cargo_lifts.errors|join:", " }}</div>{% endif %}
       </div>
     </section>
 
@@ -159,49 +202,49 @@
       <div class="form-row">
         <label for="{{ form.house_type.id_for_label }}">{{ form.house_type.label }}</label>
         {{ form.house_type }}
-        {{ form.house_type.errors }}
+        {% if form.house_type.errors %}<div class="field-error">{{ form.house_type.errors|join:", " }}</div>{% endif %}
       </div>
       {% endif %}
       {% with field=form.total_area %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.living_area %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.kitchen_area %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.land_area %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.land_area_unit %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.permitted_land_use %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.is_land_with_contract %}
@@ -209,88 +252,88 @@
         <label>
           {{ field }} {{ field.label }}
         </label>
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.land_category %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.heating_type %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.has_terrace %}
       <div class="form-row">
         <label>{{ field }} {{ field.label }}</label>
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.has_cellar %}
       <div class="form-row">
         <label>{{ field }} {{ field.label }}</label>
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.rooms %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.repair_type %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.separate_wcs_count %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.combined_wcs_count %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.ceiling_height %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.power %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.has_parking %}
       <div class="form-row">
         <label>{{ field }} {{ field.label }}</label>
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.parking_places %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
     </div>
@@ -301,56 +344,56 @@
       <div class="form-row">
         <label for="{{ form.flat_type.id_for_label }}">{{ form.flat_type.label }}</label>
         {{ form.flat_type }}
-        {{ form.flat_type.errors }}
+        {% if form.flat_type.errors %}<div class="field-error">{{ form.flat_type.errors|join:", " }}</div>{% endif %}
       </div>
       {% endif %}
       {% with field=form.total_area %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.living_area %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.kitchen_area %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.rooms %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.floor_number %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.room_type %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.flat_rooms_count %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       <div class="form-row row-2">
@@ -358,14 +401,14 @@
         <div class="form-row">
           <label for="{{ field.id_for_label }}">{{ field.label }}</label>
           {{ field }}
-          {{ field.errors }}
+          {% include "core/includes/field_errors.html" %}
         </div>
         {% endwith %}
         {% with field=form.balconies_count %}
         <div class="form-row">
           <label for="{{ field.id_for_label }}">{{ field.label }}</label>
           {{ field }}
-          {{ field.errors }}
+          {% include "core/includes/field_errors.html" %}
         </div>
         {% endwith %}
       </div>
@@ -373,7 +416,7 @@
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       <div class="form-row row-2">
@@ -381,14 +424,14 @@
         <div class="form-row">
           <label for="{{ field.id_for_label }}">{{ field.label }}</label>
           {{ field }}
-          {{ field.errors }}
+          {% include "core/includes/field_errors.html" %}
         </div>
         {% endwith %}
         {% with field=form.combined_wcs_count %}
         <div class="form-row">
           <label for="{{ field.id_for_label }}">{{ field.label }}</label>
           {{ field }}
-          {{ field.errors }}
+          {% include "core/includes/field_errors.html" %}
         </div>
         {% endwith %}
       </div>
@@ -396,56 +439,56 @@
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.is_euro_flat %}
       <div class="form-row">
         <label>{{ field }} {{ field.label }}</label>
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.is_apartments %}
       <div class="form-row">
         <label>{{ field }} {{ field.label }}</label>
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.is_penthouse %}
       <div class="form-row">
         <label>{{ field }} {{ field.label }}</label>
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       <div class="form-row">
         <label for="{{ form.jk_id.id_for_label }}">{{ form.jk_id.label }}</label>
         {{ form.jk_id }}
-        {{ form.jk_id.errors }}
+        {% if form.jk_id.errors %}<div class="field-error">{{ form.jk_id.errors|join:", " }}</div>{% endif %}
       </div>
       <div class="form-row">
         <label for="{{ form.jk_name.id_for_label }}">{{ form.jk_name.label }}</label>
         {{ form.jk_name }}
-        {{ form.jk_name.errors }}
+        {% if form.jk_name.errors %}<div class="field-error">{{ form.jk_name.errors|join:", " }}</div>{% endif %}
       </div>
       <div class="form-row">
         <label for="{{ form.house_id.id_for_label }}">{{ form.house_id.label }}</label>
         {{ form.house_id }}
-        {{ form.house_id.errors }}
+        {% if form.house_id.errors %}<div class="field-error">{{ form.house_id.errors|join:", " }}</div>{% endif %}
       </div>
       <div class="form-row">
         <label for="{{ form.house_name.id_for_label }}">{{ form.house_name.label }}</label>
         {{ form.house_name }}
-        {{ form.house_name.errors }}
+        {% if form.house_name.errors %}<div class="field-error">{{ form.house_name.errors|join:", " }}</div>{% endif %}
       </div>
       <div class="form-row">
         <label for="{{ form.flat_number.id_for_label }}">{{ form.flat_number.label }}</label>
         {{ form.flat_number }}
-        {{ form.flat_number.errors }}
+        {% if form.flat_number.errors %}<div class="field-error">{{ form.flat_number.errors|join:", " }}</div>{% endif %}
       </div>
       <div class="form-row">
         <label for="{{ form.section_number.id_for_label }}">{{ form.section_number.label }}</label>
         {{ form.section_number }}
-        {{ form.section_number.errors }}
+        {% if form.section_number.errors %}<div class="field-error">{{ form.section_number.errors|join:", " }}</div>{% endif %}
       </div>
     </div>
 
@@ -455,42 +498,42 @@
       <div class="form-row">
         <label for="{{ form.room_type_ext.id_for_label }}">{{ form.room_type_ext.label }}</label>
         {{ form.room_type_ext }}
-        {{ form.room_type_ext.errors }}
+        {% if form.room_type_ext.errors %}<div class="field-error">{{ form.room_type_ext.errors|join:", " }}</div>{% endif %}
       </div>
       {% endif %}
       {% with field=form.total_area %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.living_area %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.rooms %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.floor_number %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.room_type %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       <div class="form-row row-2">
@@ -498,14 +541,14 @@
         <div class="form-row">
           <label for="{{ field.id_for_label }}">{{ field.label }}</label>
           {{ field }}
-          {{ field.errors }}
+          {% include "core/includes/field_errors.html" %}
         </div>
         {% endwith %}
         {% with field=form.combined_wcs_count %}
         <div class="form-row">
           <label for="{{ field.id_for_label }}">{{ field.label }}</label>
           {{ field }}
-          {{ field.errors }}
+          {% include "core/includes/field_errors.html" %}
         </div>
         {% endwith %}
       </div>
@@ -513,38 +556,38 @@
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       <div class="form-row">
         <label for="{{ form.jk_id.id_for_label }}">{{ form.jk_id.label }}</label>
         {{ form.jk_id }}
-        {{ form.jk_id.errors }}
+        {% if form.jk_id.errors %}<div class="field-error">{{ form.jk_id.errors|join:", " }}</div>{% endif %}
       </div>
       <div class="form-row">
         <label for="{{ form.jk_name.id_for_label }}">{{ form.jk_name.label }}</label>
         {{ form.jk_name }}
-        {{ form.jk_name.errors }}
+        {% if form.jk_name.errors %}<div class="field-error">{{ form.jk_name.errors|join:", " }}</div>{% endif %}
       </div>
       <div class="form-row">
         <label for="{{ form.house_id.id_for_label }}">{{ form.house_id.label }}</label>
         {{ form.house_id }}
-        {{ form.house_id.errors }}
+        {% if form.house_id.errors %}<div class="field-error">{{ form.house_id.errors|join:", " }}</div>{% endif %}
       </div>
       <div class="form-row">
         <label for="{{ form.house_name.id_for_label }}">{{ form.house_name.label }}</label>
         {{ form.house_name }}
-        {{ form.house_name.errors }}
+        {% if form.house_name.errors %}<div class="field-error">{{ form.house_name.errors|join:", " }}</div>{% endif %}
       </div>
       <div class="form-row">
         <label for="{{ form.flat_number.id_for_label }}">{{ form.flat_number.label }}</label>
         {{ form.flat_number }}
-        {{ form.flat_number.errors }}
+        {% if form.flat_number.errors %}<div class="field-error">{{ form.flat_number.errors|join:", " }}</div>{% endif %}
       </div>
       <div class="form-row">
         <label for="{{ form.section_number.id_for_label }}">{{ form.section_number.label }}</label>
         {{ form.section_number }}
-        {{ form.section_number.errors }}
+        {% if form.section_number.errors %}<div class="field-error">{{ form.section_number.errors|join:", " }}</div>{% endif %}
       </div>
     </div>
 
@@ -554,60 +597,60 @@
       <div class="form-row">
         <label for="{{ form.commercial_type.id_for_label }}">{{ form.commercial_type.label }}</label>
         {{ form.commercial_type }}
-        {{ form.commercial_type.errors }}
+        {% if form.commercial_type.errors %}<div class="field-error">{{ form.commercial_type.errors|join:", " }}</div>{% endif %}
       </div>
       {% endif %}
       {% with field=form.total_area %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.ceiling_height %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.power %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.has_parking %}
       <div class="form-row">
         <label>{{ field }} {{ field.label }}</label>
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.parking_places %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.has_ramp %}
       <div class="form-row">
         <label>{{ field }} {{ field.label }}</label>
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.is_rent_by_parts %}
       <div class="form-row">
         <label>{{ field }} {{ field.label }}</label>
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.rent_by_parts_desc %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
     </div>
@@ -618,41 +661,41 @@
       <div class="form-row">
         <label for="{{ form.land_type.id_for_label }}">{{ form.land_type.label }}</label>
         {{ form.land_type }}
-        {{ form.land_type.errors }}
+        {% if form.land_type.errors %}<div class="field-error">{{ form.land_type.errors|join:", " }}</div>{% endif %}
       </div>
       {% endif %}
       {% with field=form.land_area %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.land_area_unit %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.permitted_land_use %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.land_category %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.is_land_with_contract %}
       <div class="form-row">
         <label>{{ field }} {{ field.label }}</label>
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
     </div>
@@ -663,20 +706,20 @@
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.has_parking %}
       <div class="form-row">
         <label>{{ field }} {{ field.label }}</label>
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.parking_places %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {{ field.errors }}
+        {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
     </div>
@@ -686,7 +729,7 @@
       <div class="form-row">
         <label for="{{ form.furnishing_details.id_for_label }}">{{ form.furnishing_details.label }}</label>
         {{ form.furnishing_details }}
-        {{ form.furnishing_details.errors }}
+        {% if form.furnishing_details.errors %}<div class="field-error">{{ form.furnishing_details.errors|join:", " }}</div>{% endif %}
       </div>
       <div class="form-row">
         <label>{{ form.has_internet }} {{ form.has_internet.label }}</label>

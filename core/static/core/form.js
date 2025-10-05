@@ -5,9 +5,28 @@
     }
   }
 
+  function canToggle(control) {
+    if (!control) {
+      return false;
+    }
+    if (control.id === 'id_status') {
+      return false;
+    }
+    if (control.dataset.keepEnabled === 'true') {
+      return false;
+    }
+    if (control.hasAttribute('required')) {
+      return false;
+    }
+    return true;
+  }
+
   function setDisabled(section, shouldDisable) {
     var controls = section.querySelectorAll('input, select, textarea');
     controls.forEach(function (control) {
+      if (!canToggle(control)) {
+        return;
+      }
       storeInitialDisabled(control);
       if (shouldDisable) {
         control.disabled = true;
