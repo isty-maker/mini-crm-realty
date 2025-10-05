@@ -33,4 +33,4 @@ jobs:
         run: python manage.py makemigrations --check --dry-run --noinput
 
       - name: Run tests
-        run: python -m pytest
+        run: python -m pytest -q

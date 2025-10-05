@@ -122,7 +122,7 @@ class Property(models.Model):
     )
 
     export_to_cian = models.BooleanField(default=True, verbose_name="Экспорт в ЦИАН")
-    export_to_domklik = models.BooleanField(default=False, verbose_name="Экспорт в ДомКлик")
+    export_to_domklik = models.BooleanField(default=False)
     is_archived = models.BooleanField(default=False, verbose_name="В архиве")
 
     title = models.CharField("Заголовок (внутр.)", max_length=64, blank=True)
