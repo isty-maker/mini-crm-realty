@@ -487,9 +487,8 @@ def export_cian(request):
 
     feeds_dir = os.path.join(settings.MEDIA_ROOT, "feeds")
     os.makedirs(feeds_dir, exist_ok=True)
-    out_path = os.path.join(feeds_dir, "cian.xml")
-    with open(out_path, "wb") as fh:
-        fh.write(xml_bytes)
+    with open(os.path.join(feeds_dir, "cian.xml"), "wb") as f:
+        f.write(xml_bytes)
 
     response = HttpResponse(xml_bytes, content_type="application/xml; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="cian.xml"'
