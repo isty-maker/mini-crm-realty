@@ -153,7 +153,7 @@
       </div>
     </section>
 
-    <div class="group" data-section="house">
+    <div class="group category-section category-section--house" data-section="house" data-category="house">
       <h3>Параметры дома</h3>
       {% if form.fields.house_type %}
       <div class="form-row">
@@ -295,7 +295,7 @@
       {% endwith %}
     </div>
 
-    <div class="group" data-section="flat">
+    <div class="group category-section category-section--flat" data-section="flat" data-category="flat">
       <h3>Квартира</h3>
       {% if form.fields.flat_type %}
       <div class="form-row">
@@ -449,7 +449,7 @@
       </div>
     </div>
 
-    <div class="group" data-section="room">
+    <div class="group category-section category-section--room" data-section="room" data-category="room">
       <h3>Комната</h3>
       {% if form.fields.room_type_ext %}
       <div class="form-row">
@@ -548,7 +548,7 @@
       </div>
     </div>
 
-    <div class="group" data-section="commercial">
+    <div class="group category-section category-section--commercial" data-section="commercial" data-category="commercial">
       <h3>Коммерция</h3>
       {% if form.fields.commercial_type %}
       <div class="form-row">
@@ -612,7 +612,7 @@
       {% endwith %}
     </div>
 
-    <div class="group" data-section="land">
+    <div class="group category-section category-section--land" data-section="land" data-category="land">
       <h3>Земельный участок</h3>
       {% if form.fields.land_type %}
       <div class="form-row">
@@ -657,7 +657,7 @@
       {% endwith %}
     </div>
 
-    <div class="group" data-section="garage">
+    <div class="group category-section category-section--garage" data-section="garage" data-category="garage">
       <h3>Гараж</h3>
       {% with field=form.total_area %}
       <div class="form-row">
