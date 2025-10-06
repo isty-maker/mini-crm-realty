@@ -30,7 +30,30 @@
     ```
     (Поменяй `<username>` на свой логин PA.)
 
-## 3. Переменные окружения
+## 3. Где вписать домен и переменные окружения на PythonAnywhere
+
+```
+Web → Environment variables:
+  DEBUG=False
+  ALLOWED_HOSTS=<username>.pythonanywhere.com
+  CSRF_TRUSTED_ORIGINS=https://<username>.pythonanywhere.com
+  SITE_BASE_URL=https://<username>.pythonanywhere.com
+  SHARED_KEY=kontinent  # замени при необходимости
+
+Static files:
+  /static/ → /home/<username>/mini-crm-realty/staticfiles
+  /media/  → /home/<username>/mini-crm-realty/media
+
+После git pull на сервере:
+  workon mini-crm-realty  # или source venv/bin/activate
+  cd ~/mini-crm-realty
+  pip install -r requirements.txt
+  python manage.py migrate --noinput
+  python manage.py collectstatic --noinput
+Затем Web → Reload.
+```
+
+## 4. Переменные окружения
 - Во вкладке **Web** → раздел **Environment variables**:
   - Добавь:
     - `DEBUG` → `False`
@@ -40,13 +63,13 @@
     - `SHARED_KEY` → `kontinent` (или свой)
 - Сохрани.
 
-## 4. Static & Media на PA
+## 5. Static & Media на PA
 - Вкладка **Web** → секция **Static files**:
   - URL: `/static/` → Path: `/home/<username>/mini-crm-realty/staticfiles`
   - URL: `/media/`  → Path: `/home/<username>/mini-crm-realty/media`
 - Нажми **Save**.
 
-## 5. Миграции и сборка статики на сервере
+## 6. Миграции и сборка статики на сервере
 - Открой **Bash console** на PA:
   ```
   workon mini-crm-realty        # активировать venv (если называл по-другому — подставь своё имя)
@@ -57,12 +80,12 @@
   ```
 - Вернись во вкладку **Web** и нажми **Reload** (перезапустить приложение).
 
-## 6. Проверка
+## 7. Проверка
 - Открой `https://<username>.pythonanywhere.com/healthz` — должно показать `ok`.
 - Открой `https://<username>.pythonanywhere.com/panel/` — должна открыться панель.
 - Экспорт: `https://<username>.pythonanywhere.com/panel/export/cian` → отдаёт XML; файл также пишется в `/home/<username>/mini-crm-realty/media/feeds/cian.xml`.
 
-## 7. Обновления кода в дальнейшем
+## 8. Обновления кода в дальнейшем
 - На сервере в Bash-консоли:
   ```
   cd ~/mini-crm-realty
