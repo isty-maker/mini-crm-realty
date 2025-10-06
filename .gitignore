@@ -24,3 +24,8 @@ staticfiles/
 
 # Logs
 *.log
+
+# forbid stray raw snapshots
+*.raw.txt
+*.bak
+*.tmp
