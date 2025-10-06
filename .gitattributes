@@ -1,0 +1,18 @@
+* text=auto eol=lf
+
+# текстовые типы всегда как текст
+*.py   text diff=python
+*.md   text
+*.txt  text
+*.html text
+*.css  text
+*.js   text
+*.json text
+*.yml  text
+*.yaml text
+*.xml  text
+*.ini  text
+*.cfg  text
+
+# на всякий случай — точно без LFS для requirements.txt
+requirements.txt text eol=lf diff -filter -merge
