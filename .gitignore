@@ -24,3 +24,8 @@ staticfiles/
 
 # Logs
 *.log
+
+# Raw snapshots / temp files
+*.raw.txt
+*.bak
+*.tmp
