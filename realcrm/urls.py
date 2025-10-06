@@ -5,6 +5,7 @@ from django.conf.urls.static import static
 from core import views as core_views
 
 urlpatterns = [
+    path("healthz/", core_views.healthz, name="healthz"),
     path("panel/", core_views.panel_list, name="panel_list"),
     path("panel/new/", core_views.panel_new, name="panel_new"),
     path("panel/create/", core_views.panel_create, name="panel_create"),

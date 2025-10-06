@@ -17,6 +17,11 @@ from .cian import build_cian_category
 from .forms import PropertyForm, PhotoForm, NewObjectStep1Form
 
 
+
+def healthz(request):
+    return HttpResponse("ok", content_type="text/plain")
+
+
 def _normalize_category(value):
     if not value:
         return None
