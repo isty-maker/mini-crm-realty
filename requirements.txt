@@ -1,7 +1,4 @@
-# Runtime deps
 Django==5.2.7
 python-dotenv>=1.0.1,<2.0
 django-filter>=24.2,<25
-
-# Enable later when image compression lands:
-# Pillow>=10.4.0,<11.0
+# Pillow>=10.4.0,<11.0  # оставляем закомментированным, включим когда понадобится сжатие фото
