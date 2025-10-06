@@ -1,0 +1,18 @@
+* text=auto eol=lf
+
+# текстовые типы
+*.py   text diff=python
+*.md   text
+*.txt  text diff
+*.html text
+*.css  text
+*.js   text
+*.json text
+*.yml  text
+*.yaml text
+*.xml  text
+*.ini  text
+*.cfg  text
+
+# requirements.txt — обычный текст с LF и включенным diff
+requirements.txt text eol=lf diff
