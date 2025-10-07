@@ -309,7 +309,7 @@ class PropertyForm(forms.ModelForm):
 class PhotoForm(forms.ModelForm):
     class Meta:
         model = Photo
-        fields = ["full_url","is_default"]
+        fields = ["image", "full_url", "is_default"]
 
 
 class NewObjectStep1Form(forms.Form):

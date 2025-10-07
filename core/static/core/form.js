@@ -233,3 +233,23 @@
     handleChange(sections);
   });
 })();
+
+document.addEventListener("DOMContentLoaded", function () {
+  var input = document.getElementById("photo-input");
+  var img = document.getElementById("photo-preview");
+  if (!input || !img) return;
+
+  input.addEventListener("change", function (e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) {
+      img.style.display = "none";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function (ev) {
+      img.src = ev.target.result;
+      img.style.display = "block";
+    };
+    reader.readAsDataURL(file);
+  });
+});

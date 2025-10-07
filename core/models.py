@@ -1,6 +1,9 @@
 # core/models.py
 import random
+from io import BytesIO
 
+from PIL import Image
+from django.core.files.base import ContentFile
 from django.db import models
 from django.utils import timezone
 
@@ -277,11 +280,31 @@ class Property(models.Model):
 
 class Photo(models.Model):
     prop = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="photos")
-    full_url = models.URLField("URL изображения")
+    full_url = models.URLField("URL изображения", blank=True)
     is_default = models.BooleanField("Фото по умолчанию", default=False)
+    image = models.ImageField(upload_to="photos/%Y/%m/%d", null=True, blank=True)
 
     class Meta:
         ordering = ["-is_default", "id"]
 
     def __str__(self):
-        return self.full_url
+        return self.full_url or (self.image.name if self.image else "")
+
+    def save(self, *args, **kwargs):
+        if self.image and hasattr(self.image, "file"):
+            try:
+                img = Image.open(self.image)
+                img = img.convert("RGB")
+                max_side = 2560
+                w, h = img.size
+                scale = min(1.0, float(max_side) / float(max(w, h)))
+                if scale < 1.0:
+                    img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+                buf = BytesIO()
+                img.save(buf, format="JPEG", quality=82, optimize=True, progressive=True)
+                buf.seek(0)
+                orig_name = (self.image.name.rsplit("/", 1)[-1]).rsplit(".", 1)[0]
+                self.image.save(f"{orig_name}.jpg", ContentFile(buf.read()), save=False)
+            except Exception:
+                pass
+        super().save(*args, **kwargs)

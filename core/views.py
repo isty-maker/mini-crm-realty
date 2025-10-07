@@ -1,7 +1,9 @@
 # core/views.py
 import json
+import operator
 import os
-from functools import lru_cache
+import re
+from functools import lru_cache, reduce
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from django.conf import settings
@@ -212,7 +214,7 @@ def _enable_choice_fields(form, field_names):
             }
 
 def panel_list(request):
-    q = request.GET.get("q", "").strip()
+    q = request.GET.get("q", "")
     show = request.GET.get("show")
     include_archived = request.GET.get("include_archived") == "1"
 
@@ -225,11 +227,16 @@ def panel_list(request):
         props = props.filter(is_archived=False)
 
     if q:
-        props = props.filter(
-            Q(title__icontains=q)
-            | Q(address__icontains=q)
-            | Q(external_id__icontains=q)
-        )
+        tokens = [t for t in re.split(r"\s+", q.strip()) if t]
+        if tokens:
+            per_token = []
+            for t in tokens:
+                per_token.append(
+                    Q(title__icontains=t)
+                    | Q(address__icontains=t)
+                    | Q(external_id__icontains=t)
+                )
+            props = props.filter(reduce(operator.and_, per_token))
     props = props.order_by("-updated_at", "-id")
     show_archived_flag = include_archived or show == "all"
     return render(
@@ -318,7 +325,7 @@ def panel_edit(request, pk):
         context = {
             "form": form,
             "prop": prop,
-            "photos": [],
+            "photos": list(prop.photos.all()),
             "subtypes_map_json": subtypes_map_json,
             "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
         }
@@ -343,16 +350,34 @@ def panel_edit(request, pk):
     return render_form(form)
 
 def panel_add_photo(request, pk):
-    # TODO: заменить на реальную загрузку (URL или FileField)
+    prop = get_object_or_404(Property, pk=pk)
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    form = PhotoForm(request.POST, request.FILES)
+    if form.is_valid():
+        photo = form.save(commit=False)
+        photo.prop = prop
+        if form.cleaned_data.get("is_default"):
+            Photo.objects.filter(prop=prop).update(is_default=False)
+            photo.is_default = True
+        photo.save()
     return HttpResponseRedirect(f"/panel/edit/{pk}/")
 
 
 def panel_delete_photo(request, photo_id):
-    return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/panel/"))
+    photo = get_object_or_404(Photo, pk=photo_id)
+    pk = photo.prop_id
+    photo.delete()
+    return HttpResponseRedirect(f"/panel/edit/{pk}/")
 
 
 def panel_toggle_main(request, photo_id):
-    return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/panel/"))
+    photo = get_object_or_404(Photo, pk=photo_id)
+    prop_id = photo.prop_id
+    Photo.objects.filter(prop_id=prop_id).update(is_default=False)
+    photo.is_default = True
+    photo.save(update_fields=["is_default"])
+    return HttpResponseRedirect(f"/panel/edit/{prop_id}/")
 
 # -------- Экспорт ЦИАН (Feed_Version=2) --------
 def _t(parent, tag, value, always=False):
@@ -474,7 +499,8 @@ def export_cian(request):
             photos_el = SubElement(obj, "Photos")
             for p in photos_qs.all():
                 ph = SubElement(photos_el, "PhotoSchema")
-                _t(ph, "FullUrl", getattr(p, "full_url", ""), always=True)
+                photo_url = getattr(p, "full_url", "") or (p.image.url if getattr(p, "image", None) else "")
+                _t(ph, "FullUrl", photo_url, always=True)
                 if getattr(p, "is_default", False):
                     _t(ph, "IsDefault", True, always=True)
 
