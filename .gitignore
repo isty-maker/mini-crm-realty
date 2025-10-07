@@ -24,6 +24,7 @@ staticfiles/
 
 # Logs
 *.log
+!docs/logs/latest-error.log
 
 # Raw snapshots / temp files
 *.raw.txt
