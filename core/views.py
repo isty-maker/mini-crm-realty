@@ -15,6 +15,7 @@ from django.utils.encoding import smart_str
 from .models import Property, Photo
 from .cian import build_cian_category
 from .forms import PropertyForm, PhotoForm, NewObjectStep1Form
+from .guards import shared_key_required
 
 
 
@@ -225,9 +226,9 @@ def panel_list(request):
 
     if q:
         props = props.filter(
-            Q(title__icontains=q) |
-            Q(city__icontains=q) |
-            Q(external_id__icontains=q)
+            Q(title__icontains=q)
+            | Q(address__icontains=q)
+            | Q(external_id__icontains=q)
         )
     props = props.order_by("-updated_at", "-id")
     show_archived_flag = include_archived or show == "all"
@@ -390,6 +391,7 @@ def _resolve_property_subtype(prop):
     )
 
 
+@shared_key_required
 def export_cian(request):
     root = Element("Feed")
     SubElement(root, "Feed_Version").text = "2"  # Спецификация ЦИАН, версия 2  (см. doc)  # noqa
@@ -515,6 +517,7 @@ def export_cian(request):
     return HttpResponse(xml_bytes, content_type="application/xml; charset=utf-8")
 
 
+@shared_key_required
 def export_cian_check(request):
     qs = (
         Property.objects.filter(export_to_cian=True, is_archived=False)

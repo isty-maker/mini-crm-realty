@@ -13,7 +13,7 @@
 
   <form method="get" action="/panel/" class="grid-2" style="align-items:end; gap:1rem;">
     <div>
-      <input type="text" name="q" value="{{ q }}" placeholder="Поиск: заголовок / город / ExternalId">
+      <input type="text" name="q" value="{{ q }}" placeholder="Поиск: заголовок / адрес / ExternalId">
       {% if show == "archived" %}
         <input type="hidden" name="show" value="archived">
       {% endif %}
@@ -33,8 +33,8 @@
       <div>
         <span class="muted">Фиды</span>
         <div style="display:flex; gap:.5rem; margin-top:.3rem; flex-wrap:wrap;">
-          <a role="button" class="secondary" href="/panel/export/cian/check">Проверить перед экспортом</a>
-          <a role="button" href="/panel/export/cian">Сгенерировать фид</a>
+          <a role="button" class="secondary" href="/panel/export/cian/check/">Проверить перед экспортом</a>
+          <a role="button" href="/panel/export/cian/">Сгенерировать фид</a>
         </div>
         <p class="muted" style="margin-top:.4rem;">Файл сохраняется в <code>media/feeds/cian.xml</code></p>
       </div>
@@ -46,7 +46,7 @@
         <tr>
           <th>ID</th>
           <th>Заголовок</th>
-          <th>Город</th>
+          <th>Адрес</th>
           <th>Обновлён</th>
           <th></th>
         </tr>
@@ -63,7 +63,7 @@
               {% if p.is_archived %}<span class="badge badge-archived">Архив</span>{% endif %}
             </div>
           </td>
-          <td>{{ p.city }}</td>
+          <td>{{ p.address }}</td>
           <td><span class="muted">{{ p.updated_at }}</span></td>
           <td style="display:flex; gap:.5rem;">
             <a href="/panel/edit/{{ p.pk }}/">Открыть</a>

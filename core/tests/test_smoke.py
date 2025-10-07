@@ -1,10 +1,11 @@
 from decimal import Decimal
 
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 
 from core.models import Property
 
 
+@override_settings(SHARED_KEY="kontinent")
 class Smoke(TestCase):
     def test_create_page_renders(self):
         c = Client()
@@ -47,7 +48,7 @@ class Smoke(TestCase):
             total_area=Decimal("120"),
             export_to_cian=True,
         )
-        response = self.client.get("/panel/export/cian/check")
+        response = self.client.get("/panel/export/cian/check/?key=kontinent")
         assert response.status_code == 200
         assert "Smoke House" in response.content.decode("utf-8")
 
@@ -61,7 +62,7 @@ class Smoke(TestCase):
             total_area=Decimal("45"),
             export_to_cian=True,
         )
-        response = self.client.get("/panel/export/cian")
+        response = self.client.get("/panel/export/cian/?key=kontinent")
         assert response.status_code == 200
         assert b"<Feed" in response.content
 
