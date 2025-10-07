@@ -22,7 +22,6 @@ from django.utils.encoding import smart_str
 
 from .cian import build_cian_category
 from .forms import PhotoForm, PropertyForm
-from .guards import shared_key_required
 from .models import Photo, Property
 
 
@@ -31,7 +30,6 @@ def healthz(request):
     return HttpResponse("ok", content_type="text/plain")
 
 
-@shared_key_required
 def dbinfo(request):
     """
     Диагностика: путь к БД, колонки core_photo, применённые/ожидающие миграции для core.
@@ -62,7 +60,6 @@ def dbinfo(request):
     return JsonResponse(info)
 
 
-@shared_key_required
 def logtail(request):
     """Return the tail of the production error log (200 lines)."""
 
@@ -445,7 +442,6 @@ def _resolve_property_subtype(prop):
     )
 
 
-@shared_key_required
 def export_cian(request):
     root = Element("Feed")
     SubElement(root, "Feed_Version").text = "2"  # Спецификация ЦИАН, версия 2  (см. doc)  # noqa
@@ -571,7 +567,6 @@ def export_cian(request):
     return HttpResponse(xml_bytes, content_type="application/xml; charset=utf-8")
 
 
-@shared_key_required
 def export_cian_check(request):
     qs = (
         Property.objects.filter(export_to_cian=True, is_archived=False)
