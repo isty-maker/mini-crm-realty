@@ -10,16 +10,19 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
 import requests
+import subprocess
 
 
 LOG_PATH = Path("/var/log/isty.pythonanywhere.com.error.log")
 TOKEN = os.getenv("GITHUB_GIST_TOKEN")
 GIST_ID_FILE = Path.home() / ".gist_id"
 GIST_FILENAME = "error.log"
+LOG_TARGET = "/home/isty/mini-crm-realty/docs/logs/latest-error.log"
 
 
 def _read_log_tail(path: Path, max_lines: int = 300) -> str:
@@ -101,6 +104,21 @@ def main() -> None:
             _create_gist(content, TOKEN)
     else:
         _create_gist(content, TOKEN)
+
+    os.makedirs(os.path.dirname(LOG_TARGET), exist_ok=True)
+    with open(LOG_TARGET, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    try:
+        subprocess.run(["git", "add", LOG_TARGET], check=True)
+        subprocess.run(
+            ["git", "commit", "-m", f"update log {datetime.now().isoformat()}"],
+            check=True,
+        )
+        subprocess.run(["git", "push", "origin", "main"], check=True)
+        print("✅ Лог обновлён и отправлен в репозиторий.")
+    except subprocess.CalledProcessError as e:
+        print("⚠️ Ошибка при git push:", e)
 
 
 if __name__ == "__main__":
