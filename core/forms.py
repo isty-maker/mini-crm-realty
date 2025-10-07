@@ -307,9 +307,21 @@ class PropertyForm(forms.ModelForm):
         }
 
 class PhotoForm(forms.ModelForm):
+    image = forms.FileField(required=False)
+
     class Meta:
         model = Photo
-        fields = ["full_url","is_default"]
+        fields = ["image", "url", "is_default"]
+
+    def clean(self):
+        cleaned = super().clean()
+        image = cleaned.get("image")
+        url = (cleaned.get("url") or "").strip()
+        if not image and not url:
+            raise forms.ValidationError(
+                "Необходимо загрузить файл или указать ссылку."
+            )
+        return cleaned
 
 
 class NewObjectStep1Form(forms.Form):
