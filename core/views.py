@@ -62,6 +62,23 @@ def dbinfo(request):
     return JsonResponse(info)
 
 
+@shared_key_required
+def logtail(request):
+    """Return the tail of the production error log (200 lines)."""
+
+    path = "/var/log/isty.pythonanywhere.com.error.log"
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            tail = "".join(f.readlines()[-200:])
+        return HttpResponse(tail, content_type="text/plain")
+    except Exception as e:  # pragma: no cover - diagnostics only
+        return HttpResponse(
+            f"cannot read log: {e}",
+            content_type="text/plain",
+            status=500,
+        )
+
+
 def _normalize_category(value):
     if not value:
         return None
