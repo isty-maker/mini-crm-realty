@@ -34,7 +34,17 @@ class Command(BaseCommand):
             SubElement(offer, "description").text = p.description or p.title
 
             for ph in p.photos.all():
-                SubElement(offer, "image").text = f"{settings.SITE_BASE_URL}{ph.image.url}"
+                url = ""
+                if getattr(ph, "image", None):
+                    try:
+                        url = f"{settings.SITE_BASE_URL}{ph.image.url}"
+                    except ValueError:
+                        url = ""
+                if not url:
+                    url = getattr(ph, "full_url", "")
+                if not url:
+                    continue
+                SubElement(offer, "image").text = url
 
         out_dir = Path(settings.MEDIA_ROOT) / "feeds"
         out_dir.mkdir(parents=True, exist_ok=True)

@@ -1,11 +1,13 @@
 # core/views.py
 import json
+import logging
 import os
 import re
 from functools import lru_cache
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from django.conf import settings
+from django.contrib import messages
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Q
 from django.http import (
@@ -20,9 +22,23 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.encoding import smart_str
 
+try:  # pragma: no cover - Pillow may be trimmed in some builds
+    from PIL import Image, UnidentifiedImageError
+except ImportError:  # pragma: no cover
+    try:
+        from PIL import Image  # type: ignore
+    except ImportError:
+        Image = None  # type: ignore
+
+    class UnidentifiedImageError(Exception):
+        pass
+
 from .cian import build_cian_category
-from .forms import PhotoForm, PropertyForm
+from .forms import PropertyForm
 from .models import Photo, Property
+
+
+log = logging.getLogger("upload")
 
 
 
@@ -386,16 +402,48 @@ def panel_edit(request, pk):
 def panel_add_photo(request, pk):
     prop = get_object_or_404(Property, pk=pk)
     if request.method != "POST":
-        return HttpResponseNotAllowed(["POST"])
-    form = PhotoForm(request.POST, request.FILES)
-    if form.is_valid():
-        ph = form.save(commit=False)
-        ph.prop = prop
-        if form.cleaned_data.get("is_default"):
-            Photo.objects.filter(prop=prop).update(is_default=False)
+        return redirect(f"/panel/edit/{pk}/")
+
+    file = request.FILES.get("image")
+    url = (request.POST.get("full_url") or "").strip()
+
+    if not file and not url:
+        messages.error(request, "Не выбрано ни файла, ни URL.")
+        return redirect(f"/panel/edit/{pk}/")
+
+    os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+    os.makedirs(os.path.join(settings.MEDIA_ROOT, "logs"), exist_ok=True)
+
+    try:
+        ph = Photo(property=prop)
+        if request.POST.get("is_default"):
+            Photo.objects.filter(property=prop).update(is_default=False)
             ph.is_default = True
+        if file:
+            if Image is not None:
+                try:
+                    file.seek(0)
+                except Exception:  # pragma: no cover - UploadedFile may not support seek
+                    pass
+                try:
+                    img = Image.open(file)
+                    img.verify()
+                except (UnidentifiedImageError, OSError, ValueError) as exc:
+                    raise ValueError("invalid image") from exc
+                finally:
+                    try:
+                        file.seek(0)
+                    except Exception:  # pragma: no cover
+                        pass
+            ph.image = file
+        if url:
+            ph.full_url = url
         ph.save()
-    return HttpResponseRedirect(reverse("panel_edit", kwargs={"pk": pk}))
+        messages.success(request, "Фото добавлено.")
+    except Exception:
+        log.exception("upload failed")
+        messages.error(request, "Не удалось загрузить фото (см. лог).")
+    return redirect(f"/panel/edit/{pk}/")
 
 
 def panel_delete_photo(request, photo_id):
@@ -524,7 +572,7 @@ def export_cian(request):
             photos_el = SubElement(obj, "Photos")
             for p in photos_qs.all():
                 ph = SubElement(photos_el, "PhotoSchema")
-                _t(ph, "FullUrl", getattr(p, "image_url", "") or getattr(p, "url", ""), always=True)
+                _t(ph, "FullUrl", getattr(p, "src", ""), always=True)
                 if getattr(p, "is_default", False):
                     _t(ph, "IsDefault", True, always=True)
 

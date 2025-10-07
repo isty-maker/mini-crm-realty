@@ -61,6 +61,13 @@
         <li><a href="/panel/new/">+ Создать объект</a></li>
       </ul>
     </nav>
+    {% if messages %}
+      <ul>
+        {% for m in messages %}
+          <li>{{ m }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
   {% block extra_scripts %}{% endblock %}
