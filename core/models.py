@@ -306,18 +306,18 @@ class Photo(models.Model):
             try:
                 if hasattr(self.image, "file"):
                     self.image.file.seek(0)
-                img = Image.open(self.image)
+                img = Image.open(self.image.file if hasattr(self.image, "file") else self.image)
                 img = img.convert("RGB")
-                max_side = 2560
                 w, h = img.size
+                max_side = 2560
                 if max(w, h) > max_side:
                     ratio = max_side / float(max(w, h))
                     img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
                 buf = BytesIO()
                 img.save(buf, format="JPEG", quality=85, optimize=True, progressive=True)
                 buf.seek(0)
-                filename = self.image.name.rsplit("/", 1)[-1].rsplit(".", 1)[0] + ".jpg"
-                self.image.save(filename, ContentFile(buf.read()), save=False)
+                base = self.image.name.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+                self.image.save(f"{base}.jpg", ContentFile(buf.read()), save=False)
             except (UnidentifiedImageError, OSError, ValueError):
                 pass
         super().save(*args, **kwargs)
