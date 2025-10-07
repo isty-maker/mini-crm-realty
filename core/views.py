@@ -8,7 +8,14 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 from django.conf import settings
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Q
-from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseRedirect
+from django.http import (
+    HttpResponse,
+    HttpResponseNotAllowed,
+    HttpResponseRedirect,
+    JsonResponse,
+)
+from django.db import connection
+from django.db.migrations.loader import MigrationLoader
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.encoding import smart_str
@@ -22,6 +29,37 @@ from .models import Photo, Property
 
 def healthz(request):
     return HttpResponse("ok", content_type="text/plain")
+
+
+@shared_key_required
+def dbinfo(request):
+    """
+    Диагностика: путь к БД, колонки core_photo, применённые/ожидающие миграции для core.
+    Закрыто @shared_key_required: GET /healthz/dbinfo/?key=kontinent
+    """
+
+    info = {}
+    info["db_path"] = str(settings.DATABASES["default"]["NAME"])
+    with connection.cursor() as cursor:
+        try:
+            desc = connection.introspection.get_table_description(cursor, "core_photo")
+            info["core_photo_columns"] = [c.name for c in desc]
+        except Exception as e:  # pragma: no cover - diagnostics only
+            info["core_photo_columns"] = f"error: {e}"
+    loader = MigrationLoader(connection, ignore_no_migrations=True)
+    applied = {f"{a}.{n}" for (a, n) in loader.applied_migrations}
+    nodes = set(loader.graph.nodes.keys())
+    info["applied_core_migrations"] = sorted(
+        [x for x in applied if x.startswith("core.")]
+    )
+    info["pending_core_migrations"] = sorted(
+        [
+            f"{a}.{n}"
+            for (a, n) in nodes
+            if a == "core" and (a, n) not in loader.applied_migrations
+        ]
+    )
+    return JsonResponse(info)
 
 
 def _normalize_category(value):
