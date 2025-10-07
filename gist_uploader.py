@@ -1,45 +1,107 @@
+"""Upload the latest project error log to a persistent GitHub Gist.
+
+This script is designed for the PythonAnywhere deployment where direct log
+downloads are not possible. It reads the last 300 lines from the project's
+error log, then creates or updates a public GitHub Gist whose raw URL can be
+shared with the team (and the assistant) for quick debugging.
+"""
+
+from __future__ import annotations
+
 import json
 import os
+from pathlib import Path
+from typing import Any, Dict
 
 import requests
 
-LOG_PATH = "/var/log/isty.pythonanywhere.com.error.log"
+
+LOG_PATH = Path("/var/log/isty.pythonanywhere.com.error.log")
 TOKEN = os.getenv("GITHUB_GIST_TOKEN")
-GIST_ID_FILE = os.path.expanduser("~/.gist_id")
+GIST_ID_FILE = Path.home() / ".gist_id"
+GIST_FILENAME = "error.log"
 
-if not TOKEN:
+
+def _read_log_tail(path: Path, max_lines: int = 300) -> str:
+    """Return the last *max_lines* of *path* joined into a single string."""
+
+    with path.open("r", encoding="utf-8") as f:
+        lines = f.readlines()[-max_lines:]
+    return "".join(lines)
+
+
+def _print_missing_token() -> None:
     print("❌ Нет токена (GITHUB_GIST_TOKEN).")
-    raise SystemExit(1)
 
-if not os.path.exists(LOG_PATH):
-    print(f"❌ Лог-файл не найден: {LOG_PATH}")
-    raise SystemExit(1)
 
-with open(LOG_PATH, "r", encoding="utf-8") as f:
-    lines = f.readlines()[-300:]
-content = "".join(lines)
-headers = {"Authorization": f"token {TOKEN}"}
+def _print_missing_log(path: Path) -> None:
+    print(f"❌ Лог-файл не найден: {path}")
 
-if os.path.exists(GIST_ID_FILE):
-    with open(GIST_ID_FILE, "r", encoding="utf-8") as f:
-        gist_id = f.read().strip()
+
+def _print_update_error(response: requests.Response) -> None:
+    print("❌ Ошибка обновления:", response.status_code, response.text)
+
+
+def _print_create_error(response: requests.Response) -> None:
+    print("❌ Ошибка создания:", response.status_code, response.text)
+
+
+def _headers(token: str) -> Dict[str, str]:
+    return {"Authorization": f"token {token}"}
+
+
+def _update_gist(gist_id: str, content: str, token: str) -> None:
     url = f"https://api.github.com/gists/{gist_id}"
-    payload = {"files": {"error.log": {"content": content}}}
-    r = requests.patch(url, headers=headers, data=json.dumps(payload))
-    if r.status_code == 200:
+    payload: Dict[str, Any] = {"files": {GIST_FILENAME: {"content": content}}}
+    response = requests.patch(url, headers=_headers(token), data=json.dumps(payload))
+    if response.status_code == 200:
         print("✅ Gist обновлён")
-        print("RAW_URL:", r.json()["files"]["error.log"]["raw_url"])
+        print("RAW_URL:", response.json()["files"][GIST_FILENAME]["raw_url"])
     else:
-        print("❌ Ошибка обновления:", r.status_code, r.text)
-else:
-    data = {"public": True, "files": {"error.log": {"content": content}}}
-    r = requests.post("https://api.github.com/gists", headers=headers, data=json.dumps(data))
-    if r.status_code == 201:
-        gist = r.json()
+        _print_update_error(response)
+
+
+def _create_gist(content: str, token: str) -> None:
+    payload: Dict[str, Any] = {
+        "public": True,
+        "files": {GIST_FILENAME: {"content": content}},
+    }
+    response = requests.post(
+        "https://api.github.com/gists",
+        headers=_headers(token),
+        data=json.dumps(payload),
+    )
+    if response.status_code == 201:
+        gist = response.json()
         gist_id = gist["id"]
-        with open(GIST_ID_FILE, "w", encoding="utf-8") as f:
-            f.write(gist_id)
+        GIST_ID_FILE.write_text(gist_id, encoding="utf-8")
         print("✅ Gist создан!")
-        print("RAW_URL:", gist["files"]["error.log"]["raw_url"])
+        print("RAW_URL:", gist["files"][GIST_FILENAME]["raw_url"])
     else:
-        print("❌ Ошибка создания:", r.status_code, r.text)
+        _print_create_error(response)
+
+
+def main() -> None:
+    if not TOKEN:
+        _print_missing_token()
+        raise SystemExit(1)
+
+    if not LOG_PATH.exists():
+        _print_missing_log(LOG_PATH)
+        raise SystemExit(1)
+
+    content = _read_log_tail(LOG_PATH)
+
+    if GIST_ID_FILE.exists():
+        gist_id = GIST_ID_FILE.read_text(encoding="utf-8").strip()
+        if gist_id:
+            _update_gist(gist_id, content, TOKEN)
+        else:
+            # No ID recorded yet, create a new gist instead of failing silently.
+            _create_gist(content, TOKEN)
+    else:
+        _create_gist(content, TOKEN)
+
+
+if __name__ == "__main__":
+    main()

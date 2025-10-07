@@ -31,6 +31,28 @@ CSRF_TRUSTED_ORIGINS=https://<login>.pythonanywhere.com
 SITE_BASE_URL=https://<login>.pythonanywhere.com
 ```
 
+## Автовыгрузка логов в GitHub Gist
+1. Добавьте токен в `~/.bashrc`:
+   ```bash
+   echo 'export GITHUB_GIST_TOKEN="ghp_ВАШ_ТОКЕН"' >> ~/.bashrc
+   source ~/.bashrc
+   ```
+2. Запустите скрипт один раз, чтобы создать Gist и получить постоянную ссылку:
+   ```bash
+   cd ~/mini-crm-realty
+   source venv/bin/activate
+   python gist_uploader.py
+   ```
+3. Настройте крон-задачу, которая будет обновлять Gist каждые 10 минут:
+   ```bash
+   crontab -e
+   ```
+   Добавьте строку:
+   ```
+   */10 * * * * cd /home/<login>/mini-crm-realty && source venv/bin/activate && python gist_uploader.py > /home/<login>/gist_update.log 2>&1
+   ```
+   В консоль будут выводиться сообщения вида `✅ Gist обновлён` и постоянный `RAW_URL`, который можно использовать для просмотра актуальных логов.
+
 ## Завершение
 1. Нажмите **Reload** на вкладке **Web**.
 2. Проверьте админку: `https://<login>.pythonanywhere.com/admin/`.
