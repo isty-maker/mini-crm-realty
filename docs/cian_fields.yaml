@@ -49,7 +49,7 @@ common:  # Поля, общие для всех категорий / сдело�
     model_field: object_tour_url
     status: optional
   - tag: Photos[].FullUrl
-    model_field: Photo.full_url
+    model_field: Photo.url
     status: recommended
   - tag: Photos[].IsDefault
     model_field: Photo.is_default

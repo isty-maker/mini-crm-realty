@@ -1,8 +1,12 @@
 # core/models.py
 import random
+from io import BytesIO
 
+from django.core.files.base import ContentFile
 from django.db import models
 from django.utils import timezone
+
+from PIL import Image
 
 
 def gen_external_id():
@@ -277,11 +281,46 @@ class Property(models.Model):
 
 class Photo(models.Model):
     prop = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="photos")
-    full_url = models.URLField("URL изображения")
-    is_default = models.BooleanField("Фото по умолчанию", default=False)
+    image = models.ImageField(upload_to="photos/%Y/%m/%d", blank=True, null=True)
+    url = models.URLField(blank=True, null=True)
+    is_default = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-is_default", "id"]
 
     def __str__(self):
-        return self.full_url
+        if self.url:
+            return self.url
+        if self.image:
+            return self.image.name
+        return f"Photo #{self.pk}" if self.pk else "Photo"
+
+    def save(self, *args, **kwargs):
+        if self.image and not self.url:
+            try:
+                img = Image.open(self.image)
+                img = img.convert("RGB")
+                max_side = 2560
+                w, h = img.size
+                if max(w, h) > max_side:
+                    ratio = max_side / float(max(w, h))
+                    img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+                buf = BytesIO()
+                img.save(buf, format="JPEG", quality=85, optimize=True, progressive=True)
+                buf.seek(0)
+                base_name = self.image.name.rsplit("/", 1)[-1]
+                name_wo_ext = base_name.rsplit(".", 1)[0]
+                filename = f"{name_wo_ext}.jpg"
+                self.image.save(filename, ContentFile(buf.read()), save=False)
+            except Exception:
+                pass
+        super().save(*args, **kwargs)
+
+    @property
+    def image_url(self):
+        if self.image:
+            try:
+                return self.image.url
+            except ValueError:
+                return ""
+        return self.url or ""

@@ -708,12 +708,16 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("full_url", models.URLField(verbose_name="URL изображения")),
+                (
+                    "image",
+                    models.ImageField(
+                        blank=True, null=True, upload_to="photos/%Y/%m/%d"
+                    ),
+                ),
+                ("url", models.URLField(blank=True, null=True)),
                 (
                     "is_default",
-                    models.BooleanField(
-                        default=False, verbose_name="Фото по умолчанию"
-                    ),
+                    models.BooleanField(default=False),
                 ),
                 (
                     "prop",

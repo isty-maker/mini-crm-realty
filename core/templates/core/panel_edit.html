@@ -774,7 +774,7 @@
     <form method="post" action="/panel/edit/{{ prop.pk }}/add-photo/" enctype="multipart/form-data">
       {% csrf_token %}
       <input type="file" name="image" required>
-      <label><input type="checkbox" name="is_main"> Сделать главной</label>
+      <label><input type="checkbox" name="is_default"> Сделать главной</label>
       <button>Загрузить</button>
     </form>
 
