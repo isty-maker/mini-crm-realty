@@ -5,7 +5,7 @@
   <a href="/panel/">&larr; к списку</a>
   <h1>{{ prop|default:"Новый объект" }}</h1>
 
-  <form id="prop-form" method="post" action="{% if prop %}{% url 'panel_edit' pk=prop.pk %}{% else %}{% url 'panel_create' %}{% endif %}">
+  <form id="prop-form" method="post" action="{% if prop %}{% url 'panel_edit' pk=prop.id %}{% else %}{% url 'panel_create' %}{% endif %}">
     {% csrf_token %}
     {{ form.non_field_errors }}
     {% if form.errors %}
@@ -771,6 +771,7 @@
   </form>
 
   {% if prop %}
+    <hr>
     <h3>Фотографии</h3>
     <form action="{% url 'panel_add_photo' pk=prop.id %}" method="post" enctype="multipart/form-data">
       {% csrf_token %}
@@ -789,7 +790,7 @@
       {% for ph in photos %}
         <li>
           {% if ph.is_default %}<strong>[главное]</strong>{% endif %}
-          {% if ph.image %}
+          {% if ph.image and ph.image.name %}
             <img src="{{ ph.image.url }}" style="max-width: 160px;">
           {% elif ph.url %}
             <img src="{{ ph.url }}" style="max-width: 160px;">

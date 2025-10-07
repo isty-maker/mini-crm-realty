@@ -274,14 +274,14 @@ def panel_restore(request, pk):
     return redirect("/panel/?show=archived")
 
 def panel_new(request):
-    if request.method == "GET":
-        form = PropertyForm()
-        return render(
-            request,
-            "core/panel_edit.html",
-            _panel_form_context(form, None, []),
-        )
-    return HttpResponseNotAllowed(["GET"])
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+    form = PropertyForm()
+    return render(
+        request,
+        "core/panel_edit.html",
+        _panel_form_context(form, None, []),
+    )
 
 
 def panel_create(request):
@@ -297,7 +297,7 @@ def panel_create(request):
             _panel_form_context(form, None, []),
         )
     if request.method != "POST":
-        return HttpResponseNotAllowed(["POST"])
+        return HttpResponseNotAllowed(["GET", "POST"])
     form = PropertyForm(request.POST, request.FILES or None)
     if form.is_valid():
         prop = form.save()

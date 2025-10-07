@@ -6,11 +6,11 @@ from django.core.files.base import ContentFile
 from django.db import models
 from django.utils import timezone
 
-from PIL import Image
+try:
+    from PIL import Image, UnidentifiedImageError
+except ImportError:  # pragma: no cover - compatibility with trimmed Pillow stub
+    from PIL import Image  # type: ignore
 
-try:  # Pillow < 7 compatibility
-    from PIL import UnidentifiedImageError
-except ImportError:  # pragma: no cover - fallback for old Pillow stub
     class UnidentifiedImageError(Exception):
         pass
 
@@ -302,26 +302,24 @@ class Photo(models.Model):
         return f"Photo #{self.pk}" if self.pk else "Photo"
 
     def save(self, *args, **kwargs):
-        try:
-            if self.image and getattr(self.image, "file", None):
-                self.image.file.seek(0)
-                img = Image.open(self.image.file)
+        if self.image and not self.url:
+            try:
+                if hasattr(self.image, "file"):
+                    self.image.file.seek(0)
+                img = Image.open(self.image)
                 img = img.convert("RGB")
-                w, h = img.size
                 max_side = 2560
+                w, h = img.size
                 if max(w, h) > max_side:
                     ratio = max_side / float(max(w, h))
                     img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
                 buf = BytesIO()
                 img.save(buf, format="JPEG", quality=85, optimize=True, progressive=True)
                 buf.seek(0)
-                base = self.image.name.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-                self.image.save(f"{base}.jpg", ContentFile(buf.read()), save=False)
-        except (UnidentifiedImageError, OSError, ValueError):
-            pass
-        except Exception:
-            pass
-
+                filename = self.image.name.rsplit("/", 1)[-1].rsplit(".", 1)[0] + ".jpg"
+                self.image.save(filename, ContentFile(buf.read()), save=False)
+            except (UnidentifiedImageError, OSError, ValueError):
+                pass
         super().save(*args, **kwargs)
 
     @property
