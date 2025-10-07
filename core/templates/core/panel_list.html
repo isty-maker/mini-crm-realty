@@ -57,6 +57,9 @@
           <td>{{ p.pk }}</td>
           <td>
             <div>{{ p.title }}</div>
+            {% if p.external_id %}
+              <div class="muted" style="font-size:.8rem;">External ID: {{ p.external_id }}</div>
+            {% endif %}
             <div class="badges">
               {% if p.export_to_cian %}<span class="badge badge-cian">CIAN</span>{% endif %}
               {% if p.export_to_domklik %}<span class="badge badge-domklik">DomClick</span>{% endif %}

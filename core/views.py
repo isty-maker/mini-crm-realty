@@ -1,16 +1,30 @@
 # core/views.py
 import json
 import os
+import re
+import uuid
+from io import BytesIO
 from functools import lru_cache
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from django.conf import settings
 from django.core.exceptions import FieldDoesNotExist
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.db.models import Q
 from django.forms.models import model_to_dict
 from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.encoding import smart_str
+
+try:
+    from PIL import Image, ImageOps, UnidentifiedImageError
+except ImportError:  # pragma: no cover - Pillow optional
+    Image = None
+    ImageOps = None
+
+    class UnidentifiedImageError(Exception):
+        pass
 
 from .models import Property, Photo
 from .cian import build_cian_category
@@ -225,11 +239,16 @@ def panel_list(request):
         props = props.filter(is_archived=False)
 
     if q:
-        props = props.filter(
-            Q(title__icontains=q)
-            | Q(address__icontains=q)
-            | Q(external_id__icontains=q)
-        )
+        tokens = [t for t in re.split(r"\s+", q.strip()) if t]
+        if tokens:
+            q_obj = Q()
+            for t in tokens:
+                q_obj |= (
+                    Q(title__icontains=t)
+                    | Q(address__icontains=t)
+                    | Q(external_id__icontains=t)
+                )
+            props = props.filter(q_obj)
     props = props.order_by("-updated_at", "-id")
     show_archived_flag = include_archived or show == "all"
     return render(
@@ -343,8 +362,62 @@ def panel_edit(request, pk):
     return render_form(form)
 
 def panel_add_photo(request, pk):
-    # TODO: заменить на реальную загрузку (URL или FileField)
-    return HttpResponseRedirect(f"/panel/edit/{pk}/")
+    prop = get_object_or_404(Property, pk=pk)
+    if request.method != "POST":
+        return redirect("panel_edit", pk=prop.pk)
+
+    upload = request.FILES.get("image") or request.POST.get("image")
+    if not upload:
+        return redirect("panel_edit", pk=prop.pk)
+
+    saved_name = None
+    original_ext = os.path.splitext(getattr(upload, "name", ""))[1].lower()
+
+    if Image is not None:
+        try:
+            image = Image.open(upload)
+            image.load()
+        except (UnidentifiedImageError, OSError, ValueError):
+            if hasattr(upload, "seek"):
+                upload.seek(0)
+        else:
+            if ImageOps is not None:
+                image = ImageOps.exif_transpose(image)
+            if image.mode not in ("RGB", "L"):
+                image = image.convert("RGB")
+            elif image.mode != "RGB":
+                image = image.convert("RGB")
+
+            max_side = 1600
+            image.thumbnail((max_side, max_side), Image.LANCZOS)
+
+            buffer = BytesIO()
+            image.save(buffer, format="JPEG", quality=85, optimize=True)
+            buffer.seek(0)
+            filename = f"photos/{uuid.uuid4().hex}.jpg"
+            saved_name = default_storage.save(filename, ContentFile(buffer.read()))
+
+    if saved_name is None:
+        if hasattr(upload, "seek"):
+            upload.seek(0)
+        fallback_ext = original_ext or ".bin"
+        filename = f"photos/{uuid.uuid4().hex}{fallback_ext}"
+        saved_name = default_storage.save(filename, upload)
+    relative_url = default_storage.url(saved_name)
+
+    if relative_url.startswith("/"):
+        full_url = request.build_absolute_uri(relative_url)
+    else:
+        full_url = relative_url
+
+    is_default = bool(request.POST.get("is_default"))
+
+    photo = Photo.objects.create(prop=prop, full_url=full_url, is_default=is_default)
+
+    if is_default:
+        prop.photos.exclude(pk=photo.pk).update(is_default=False)
+
+    return redirect("panel_edit", pk=prop.pk)
 
 
 def panel_delete_photo(request, photo_id):
