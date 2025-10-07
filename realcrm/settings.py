@@ -53,9 +53,12 @@ INSTALLED_APPS = [
     "django_filters",  # библиотека фильтров
 ]
 
-MIGRATION_MODULES = {
-    "core": "core.mig_current",
-}
+# По умолчанию используем стандартные миграции core.
+# Сквош включается только флажком USE_SQUASHED_MIGRATIONS=true
+if os.getenv("USE_SQUASHED_MIGRATIONS", "").lower() == "true":
+    MIGRATION_MODULES = {
+        "core": "core.mig_current",
+    }
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -144,4 +147,4 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Общий секретный ключ доступа к панели (НЕ публиковать)
-SHARED_KEY = os.getenv("SHARED_KEY", "kontinent")
+SHARED_KEY = os.getenv("SHARED_KEY", "")
