@@ -5,8 +5,9 @@
   <a href="/panel/">&larr; к списку</a>
   <h1>{{ prop|default:"Новый объект" }}</h1>
 
-  <form id="prop-form" method="post" action="{{ request.get_full_path }}">
+  <form id="prop-form" method="post" action="{% if prop %}{% url 'panel_edit' pk=prop.pk %}{% else %}{% url 'panel_create' %}{% endif %}">
     {% csrf_token %}
+    {{ form.non_field_errors }}
     {% if form.errors %}
       <div class="alert alert-danger">
         <strong>Исправьте ошибки:</strong>
@@ -771,38 +772,56 @@
 
   {% if prop %}
     <h3>Фотографии</h3>
-    <form method="post" action="/panel/edit/{{ prop.pk }}/add-photo/" enctype="multipart/form-data">
+    <form action="{% url 'panel_add_photo' pk=prop.id %}" method="post" enctype="multipart/form-data">
       {% csrf_token %}
-      <input type="file" name="image" required>
-      <label><input type="checkbox" name="is_default"> Сделать главной</label>
-      <button>Загрузить</button>
+      <input type="file" id="photo-input" name="image" accept="image/*">
+      <label style="margin-left:.5rem;">
+        <input type="checkbox" name="is_default"> Сделать главным
+      </label>
+      <button type="submit">Загрузить</button>
     </form>
 
-    <div class="photos" style="margin-top:1rem">
-      {% for ph in photos %}
-        <figure>
-          <img src="{{ ph.image_url }}" alt="photo {{ forloop.counter }}">
-          <figcaption>
-            {% if ph.is_main %}
-              <span class="tag">главное</span>
-            {% else %}
-              <form method="post" action="/panel/photo/{{ ph.pk }}/make-main/" style="display:inline">
-                {% csrf_token %}<button class="secondary">Сделать главным</button>
-              </form>
-            {% endif %}
-            <form method="post" action="/panel/photo/{{ ph.pk }}/delete/" style="display:inline">
-              {% csrf_token %}<button class="contrast">Удалить</button>
-            </form>
-          </figcaption>
-        </figure>
-      {% empty %}
-      <p class="muted">Фото пока нет</p>
-      {% endfor %}
+    <div id="photo-preview-wrapper">
+      <img id="photo-preview" style="max-width: 320px; display:none;" alt="preview">
     </div>
+
+    <ul>
+      {% for ph in photos %}
+        <li>
+          {% if ph.is_default %}<strong>[главное]</strong>{% endif %}
+          {% if ph.image %}
+            <img src="{{ ph.image.url }}" style="max-width: 160px;">
+          {% elif ph.url %}
+            <img src="{{ ph.url }}" style="max-width: 160px;">
+          {% endif %}
+          <a href="{% url 'panel_toggle_main' photo_id=ph.id %}">сделать главным</a>
+          <a href="{% url 'panel_delete_photo' photo_id=ph.id %}">удалить</a>
+        </li>
+      {% empty %}
+        <li>Фото пока нет</li>
+      {% endfor %}
+    </ul>
   {% endif %}
 {% endblock %}
 
 {% block extra_scripts %}
   {{ block.super }}
   <script src="{% static 'core/form.js' %}"></script>
+  <script>
+  document.addEventListener("DOMContentLoaded", function () {
+    var input = document.getElementById("photo-input");
+    var img = document.getElementById("photo-preview");
+    if (!input || !img) return;
+    input.addEventListener("change", function (e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) { img.style.display = "none"; return; }
+      const reader = new FileReader();
+      reader.onload = function (ev) {
+        img.src = ev.target.result;
+        img.style.display = "block";
+      };
+      reader.readAsDataURL(file);
+    });
+  });
+  </script>
 {% endblock %}

@@ -10,10 +10,11 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.encoding import smart_str
 
 from .cian import build_cian_category
-from .forms import NewObjectStep1Form, PhotoForm, PropertyForm
+from .forms import PhotoForm, PropertyForm
 from .guards import shared_key_required
 from .models import Photo, Property
 
@@ -200,34 +201,19 @@ def _collect_missing_fields(prop):
     return missing, category_key, operation_key
 
 
-def _enable_choice_fields(form, field_names):
-    for name in field_names:
-        field = form.fields.get(name)
-        if not field:
-            continue
-        field.disabled = False
-        if "disabled" in field.widget.attrs:
-            field.widget.attrs = {
-                key: value for key, value in field.widget.attrs.items() if key != "disabled"
-            }
+def _panel_form_context(form, prop, photos):
+    subtypes_map_json = json.dumps(
+        getattr(form, "subtypes_map", PropertyForm.SUBTYPE_CHOICES_MAP),
+        ensure_ascii=False,
+    )
+    return {
+        "form": form,
+        "prop": prop,
+        "photos": photos,
+        "subtypes_map_json": subtypes_map_json,
+        "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
+    }
 
-
-def _serialize_photos(prop):
-    if not prop:
-        return []
-    photos = []
-    qs = getattr(prop, "photos", None)
-    if not qs:
-        return photos
-    for photo in qs.all():
-        photos.append(
-            {
-                "pk": photo.pk,
-                "image_url": photo.image_url,
-                "is_main": photo.is_default,
-            }
-        )
-    return photos
 
 def panel_list(request):
     q = request.GET.get("q", "").strip()
@@ -244,19 +230,20 @@ def panel_list(request):
 
     if q:
         tokens = [t for t in re.split(r"\s+", q) if t]
-        q_obj = Q()
-        for t in tokens:
-            variants = {t}
-            if t:
-                cap = t[0].upper() + t[1:]
-                variants.add(cap)
-            for variant in variants:
-                q_obj |= (
-                    Q(title__icontains=variant)
-                    | Q(address__icontains=variant)
-                    | Q(external_id__icontains=variant)
-                )
-        props = props.filter(q_obj)
+        if tokens:
+            q_obj = Q()
+            for t in tokens:
+                variants = {t}
+                if t:
+                    cap = t[0].upper() + t[1:]
+                    variants.add(cap)
+                for variant in variants:
+                    q_obj |= (
+                        Q(title__icontains=variant)
+                        | Q(address__icontains=variant)
+                        | Q(external_id__icontains=variant)
+                    )
+            props = props.filter(q_obj)
     props = props.order_by("-updated_at", "-id")
     show_archived_flag = include_archived or show == "all"
     return render(
@@ -287,87 +274,62 @@ def panel_restore(request, pk):
     return redirect("/panel/?show=archived")
 
 def panel_new(request):
-    if request.method == "POST":
-        form = NewObjectStep1Form(request.POST)
-        if form.is_valid():
-            cat = form.cleaned_data.get("category","")
-            op  = form.cleaned_data.get("operation","")
-            return redirect(f"/panel/create/?category={cat}&operation={op}")
-    else:
-        form = NewObjectStep1Form()
-    return render(request, "core/panel_new_step1.html", {"form": form})
+    if request.method == "GET":
+        form = PropertyForm()
+        return render(
+            request,
+            "core/panel_edit.html",
+            _panel_form_context(form, None, []),
+        )
+    return HttpResponseNotAllowed(["GET"])
 
 
 def panel_create(request):
-    initial = {
-        "category": request.GET.get("category", ""),
-        "operation": request.GET.get("operation", ""),
-    }
-    def render_form(form):
-        subtypes_map_json = json.dumps(
-            getattr(form, "subtypes_map", PropertyForm.SUBTYPE_CHOICES_MAP),
-            ensure_ascii=False,
-        )
-        context = {
-            "form": form,
-            "prop": None,
-            "photos": _serialize_photos(None),
-            "subtypes_map_json": subtypes_map_json,
-            "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
+    if request.method == "GET":
+        initial = {
+            "category": request.GET.get("category", ""),
+            "operation": request.GET.get("operation", ""),
         }
-        return render(request, "core/panel_edit.html", context)
+        form = PropertyForm(initial=initial)
+        return render(
+            request,
+            "core/panel_edit.html",
+            _panel_form_context(form, None, []),
+        )
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    form = PropertyForm(request.POST, request.FILES or None)
+    if form.is_valid():
+        prop = form.save()
+        return redirect("panel_edit", pk=prop.pk)
+    return render(
+        request,
+        "core/panel_edit.html",
+        _panel_form_context(form, None, []),
+        status=200,
+    )
 
-    if request.method == "POST":
-        form = PropertyForm(request.POST)
-        if form.is_valid():
-            obj = form.save(commit=False)
-            if not getattr(obj, "status", None):
-                obj.status = "draft"
-            obj.save()
-            if hasattr(form, "save_m2m"):
-                form.save_m2m()
-            return redirect("panel_edit", pk=obj.pk)
-        return render_form(form)
-
-    form = PropertyForm(initial=initial)
-    return render_form(form)
 
 def panel_edit(request, pk):
-    """
-    Редактирование существующего объекта (без фото-логики).
-    """
     prop = get_object_or_404(Property, pk=pk)
-    def render_form(form):
-        subtypes_map_json = json.dumps(
-            getattr(form, "subtypes_map", PropertyForm.SUBTYPE_CHOICES_MAP),
-            ensure_ascii=False,
-        )
-        context = {
-            "form": form,
-            "prop": prop,
-            "photos": _serialize_photos(prop),
-            "subtypes_map_json": subtypes_map_json,
-            "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
-        }
-        return render(request, "core/panel_edit.html", context)
-
     if request.method == "POST":
-        form = PropertyForm(request.POST, instance=prop)
-        _enable_choice_fields(form, ["category", "operation"])
+        form = PropertyForm(request.POST, request.FILES or None, instance=prop)
         if form.is_valid():
-            obj = form.save(commit=False)
-            if not getattr(obj, "status", None):
-                obj.status = "draft"
-            obj.save()
-            if hasattr(form, "save_m2m"):
-                form.save_m2m()
-            # остаёмся на этой же странице
-            return redirect("panel_edit", pk=obj.pk)
-        return render_form(form)
-
+            form.save()
+            return redirect("panel_edit", pk=prop.pk)
+        return render(
+            request,
+            "core/panel_edit.html",
+            _panel_form_context(form, prop, list(prop.photos.all())),
+            status=200,
+        )
     form = PropertyForm(instance=prop)
-    _enable_choice_fields(form, ["category", "operation"])
-    return render_form(form)
+    return render(
+        request,
+        "core/panel_edit.html",
+        _panel_form_context(form, prop, list(prop.photos.all())),
+    )
+
 
 def panel_add_photo(request, pk):
     prop = get_object_or_404(Property, pk=pk)
@@ -375,13 +337,13 @@ def panel_add_photo(request, pk):
         return HttpResponseNotAllowed(["POST"])
     form = PhotoForm(request.POST, request.FILES)
     if form.is_valid():
-        photo = form.save(commit=False)
-        photo.prop = prop
+        ph = form.save(commit=False)
+        ph.prop = prop
         if form.cleaned_data.get("is_default"):
             Photo.objects.filter(prop=prop).update(is_default=False)
-            photo.is_default = True
-        photo.save()
-    return HttpResponseRedirect(f"/panel/edit/{pk}/")
+            ph.is_default = True
+        ph.save()
+    return HttpResponseRedirect(reverse("panel_edit", kwargs={"pk": pk}))
 
 
 def panel_delete_photo(request, photo_id):
