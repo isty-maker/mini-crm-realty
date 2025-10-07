@@ -39,6 +39,7 @@ Web → Environment variables:
   CSRF_TRUSTED_ORIGINS=https://<username>.pythonanywhere.com
   SITE_BASE_URL=https://<username>.pythonanywhere.com
   SHARED_KEY=kontinent  # замени при необходимости
+  GITHUB_GIST_TOKEN=<твой GitHub personal access token с правом gist>
 
 Static files:
   /static/ → /home/<username>/mini-crm-realty/staticfiles
@@ -97,3 +98,12 @@ Static files:
   ```
 - Во вкладке **Web** нажми **Reload**.
 - Готово — изменения на сайте.
+
+## 9. Автоэкспорт логов ошибок в GitHub Gist
+
+- Убедись, что переменная окружения `GITHUB_GIST_TOKEN` добавлена (см. раздел выше).
+- В Bash-консоли вручную запусти `python gist_uploader.py`, чтобы создать первый Gist и получить ссылку на `RAW_URL`.
+- На вкладке **Tasks** → **Add a new task** настрой задание:
+  - Command: `bash -lc "cd ~/mini-crm-realty && workon mini-crm-realty && python gist_uploader.py"`
+  - Schedule: every **10 minutes**.
+- После сохранения задание будет обновлять Gist свежими логами каждые 10 минут. Ссылка `RAW_URL` остаётся постоянной — её можно использовать для просмотра последних ошибок.
