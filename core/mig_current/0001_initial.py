@@ -708,12 +708,6 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                (
-                    "image",
-                    models.ImageField(
-                        blank=True, null=True, upload_to="photos/%Y/%m/%d"
-                    ),
-                ),
                 ("url", models.URLField(blank=True, null=True)),
                 (
                     "is_default",
