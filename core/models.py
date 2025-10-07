@@ -8,6 +8,12 @@ from django.utils import timezone
 
 from PIL import Image
 
+try:  # Pillow < 7 compatibility
+    from PIL import UnidentifiedImageError
+except ImportError:  # pragma: no cover - fallback for old Pillow stub
+    class UnidentifiedImageError(Exception):
+        pass
+
 
 def gen_external_id():
     """
@@ -296,24 +302,26 @@ class Photo(models.Model):
         return f"Photo #{self.pk}" if self.pk else "Photo"
 
     def save(self, *args, **kwargs):
-        if self.image and not self.url:
-            try:
-                img = Image.open(self.image)
+        try:
+            if self.image and getattr(self.image, "file", None):
+                self.image.file.seek(0)
+                img = Image.open(self.image.file)
                 img = img.convert("RGB")
-                max_side = 2560
                 w, h = img.size
+                max_side = 2560
                 if max(w, h) > max_side:
                     ratio = max_side / float(max(w, h))
                     img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
                 buf = BytesIO()
                 img.save(buf, format="JPEG", quality=85, optimize=True, progressive=True)
                 buf.seek(0)
-                base_name = self.image.name.rsplit("/", 1)[-1]
-                name_wo_ext = base_name.rsplit(".", 1)[0]
-                filename = f"{name_wo_ext}.jpg"
-                self.image.save(filename, ContentFile(buf.read()), save=False)
-            except Exception:
-                pass
+                base = self.image.name.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+                self.image.save(f"{base}.jpg", ContentFile(buf.read()), save=False)
+        except (UnidentifiedImageError, OSError, ValueError):
+            pass
+        except Exception:
+            pass
+
         super().save(*args, **kwargs)
 
     @property
