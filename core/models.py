@@ -1,18 +1,9 @@
 # core/models.py
+import builtins
 import random
-from io import BytesIO
 
-from django.core.files.base import ContentFile
 from django.db import models
 from django.utils import timezone
-
-try:
-    from PIL import Image, UnidentifiedImageError
-except ImportError:  # pragma: no cover - compatibility with trimmed Pillow stub
-    from PIL import Image  # type: ignore
-
-    class UnidentifiedImageError(Exception):
-        pass
 
 
 def gen_external_id():
@@ -285,48 +276,30 @@ class Property(models.Model):
                 raise ValueError("Не удалось сгенерировать уникальный external_id")
         super().save(*args, **kwargs)
 
+def photo_upload_to(instance, filename):
+    return f"photos/{instance.property_id}/{int(timezone.now().timestamp())}_{filename}"
+
+
 class Photo(models.Model):
-    prop = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="photos")
-    image = models.ImageField(upload_to="photos/%Y/%m/%d", blank=True, null=True)
-    url = models.URLField(blank=True, null=True)
+    property = models.ForeignKey("Property", related_name="photos", on_delete=models.CASCADE)
+    image = models.ImageField(upload_to=photo_upload_to, null=True, blank=True)
+    full_url = models.URLField(null=True, blank=True)
     is_default = models.BooleanField(default=False)
+    sort = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-is_default", "id"]
+        ordering = ["-is_default", "sort", "id"]
 
     def __str__(self):
-        if self.url:
-            return self.url
-        if self.image:
-            return self.image.name
-        return f"Photo #{self.pk}" if self.pk else "Photo"
+        return f"Photo({self.id}) of {self.property_id}"
 
-    def save(self, *args, **kwargs):
-        if self.image and not self.url:
-            try:
-                if hasattr(self.image, "file"):
-                    self.image.file.seek(0)
-                img = Image.open(self.image.file if hasattr(self.image, "file") else self.image)
-                img = img.convert("RGB")
-                w, h = img.size
-                max_side = 2560
-                if max(w, h) > max_side:
-                    ratio = max_side / float(max(w, h))
-                    img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
-                buf = BytesIO()
-                img.save(buf, format="JPEG", quality=85, optimize=True, progressive=True)
-                buf.seek(0)
-                base = self.image.name.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-                self.image.save(f"{base}.jpg", ContentFile(buf.read()), save=False)
-            except (UnidentifiedImageError, OSError, ValueError):
-                pass
-        super().save(*args, **kwargs)
-
-    @property
-    def image_url(self):
-        if self.image:
-            try:
+    @builtins.property
+    def src(self) -> str:
+        # единая точка для шаблонов: либо локальный файл, либо внешний URL
+        try:
+            if self.image:
                 return self.image.url
-            except ValueError:
-                return ""
-        return self.url or ""
+        except Exception:
+            pass
+        return self.full_url or ""

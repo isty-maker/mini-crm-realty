@@ -776,6 +776,7 @@
     <form action="{% url 'panel_add_photo' pk=prop.id %}" method="post" enctype="multipart/form-data">
       {% csrf_token %}
       <input type="file" id="photo-input" name="image" accept="image/*">
+      <input type="url" name="full_url" placeholder="https://example.com/photo.jpg" style="max-width:260px;">
       <label style="margin-left:.5rem;">
         <input type="checkbox" name="is_default"> Сделать главным
       </label>
@@ -790,10 +791,8 @@
       {% for ph in photos %}
         <li>
           {% if ph.is_default %}<strong>[главное]</strong>{% endif %}
-          {% if ph.image and ph.image.name %}
-            <img src="{{ ph.image.url }}" style="max-width: 160px;">
-          {% elif ph.url %}
-            <img src="{{ ph.url }}" style="max-width: 160px;">
+          {% if ph.src %}
+            <img src="{{ ph.src }}" style="max-width: 160px;">
           {% endif %}
           <a href="{% url 'panel_toggle_main' photo_id=ph.id %}">сделать главным</a>
           <a href="{% url 'panel_delete_photo' photo_id=ph.id %}">удалить</a>

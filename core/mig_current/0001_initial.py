@@ -3,6 +3,8 @@
 import django.db.models.deletion
 from django.db import migrations, models
 
+import core.models
+
 
 class Migration(migrations.Migration):
 
@@ -708,13 +710,23 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("url", models.URLField(blank=True, null=True)),
                 (
-                    "is_default",
-                    models.BooleanField(default=False),
+                    "image",
+                    models.ImageField(
+                        blank=True,
+                        null=True,
+                        upload_to=core.models.photo_upload_to,
+                    ),
+                ),
+                ("full_url", models.URLField(blank=True, null=True)),
+                ("is_default", models.BooleanField(default=False)),
+                ("sort", models.PositiveIntegerField(default=0)),
+                (
+                    "created_at",
+                    models.DateTimeField(auto_now_add=True),
                 ),
                 (
-                    "prop",
+                    "property",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="photos",
@@ -723,7 +735,7 @@ class Migration(migrations.Migration):
                 ),
             ],
             options={
-                "ordering": ["-is_default", "id"],
+                "ordering": ["-is_default", "sort", "id"],
             },
         ),
     ]
