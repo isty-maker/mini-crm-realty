@@ -61,6 +61,13 @@
         <li><a href="/panel/new/">+ Создать объект</a></li>
       </ul>
     </nav>
+    {% if messages %}
+      <div class="messages" style="margin: 1rem 0; display: grid; gap: .5rem;">
+        {% for message in messages %}
+          <div class="alert {{ message.tags }}" role="alert">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
   {% block extra_scripts %}{% endblock %}
