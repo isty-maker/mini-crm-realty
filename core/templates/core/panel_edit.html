@@ -787,20 +787,35 @@
       <img id="photo-preview" style="max-width: 320px; display:none;" alt="preview">
     </div>
 
-    <ul>
+    <div id="photos" class="panel-photos" style="display:flex; flex-wrap:wrap; gap:1rem; margin-top:1rem;">
       {% for ph in photos %}
-        <li>
-          {% if ph.is_default %}<strong>[главное]</strong>{% endif %}
+        <div class="panel-photo" data-photo-id="{{ ph.id }}" style="border:1px solid #ddd; padding:.5rem; max-width:200px;">
+          {% if ph.is_default %}<div style="font-weight:bold; margin-bottom:.25rem;">[главное]</div>{% endif %}
           {% if ph.src %}
-            <img src="{{ ph.src }}" style="max-width: 160px;">
+            <img src="{{ ph.src }}" alt="" style="max-width: 100%; height:auto; display:block;">
           {% endif %}
-          <a href="{% url 'panel_toggle_main' photo_id=ph.id %}">сделать главным</a>
-          <a href="{% url 'panel_delete_photo' photo_id=ph.id %}">удалить</a>
-        </li>
+          <div class="photo-actions" style="display:flex; gap:.4rem; flex-wrap:wrap; margin-top:.5rem;">
+            <button type="button" class="photo-move" data-action="up" title="Переместить вверх">↑</button>
+            <button type="button" class="photo-move" data-action="down" title="Переместить вниз">↓</button>
+            <a href="{% url 'panel_toggle_main' photo_id=ph.id %}">сделать главным</a>
+            <form method="post" action="{% url 'panel_photo_delete' pk=ph.id %}" style="margin:0;">
+              {% csrf_token %}
+              <button class="secondary" type="submit">Удалить</button>
+            </form>
+          </div>
+        </div>
       {% empty %}
-        <li>Фото пока нет</li>
+        <p>Фото пока нет</p>
       {% endfor %}
-    </ul>
+    </div>
+
+    {% if photos %}
+    <form id="reorderForm" method="post" action="{% url 'panel_photos_reorder' prop_id=prop.id %}" style="margin-top:1rem;">
+      {% csrf_token %}
+      <input type="hidden" name="order" id="orderInput">
+      <button type="submit">Сохранить порядок</button>
+    </form>
+    {% endif %}
   {% endif %}
 {% endblock %}
 
@@ -822,6 +837,37 @@
       };
       reader.readAsDataURL(file);
     });
+    const photosContainer = document.getElementById('photos');
+    if (photosContainer) {
+      photosContainer.addEventListener('click', function (event) {
+        const btn = event.target.closest('button.photo-move');
+        if (!btn) return;
+        event.preventDefault();
+        const card = btn.closest('.panel-photo');
+        if (!card) return;
+        if (btn.dataset.action === 'up') {
+          const prev = card.previousElementSibling;
+          if (prev) {
+            photosContainer.insertBefore(card, prev);
+          }
+        } else if (btn.dataset.action === 'down') {
+          const next = card.nextElementSibling;
+          if (next) {
+            photosContainer.insertBefore(next, card);
+          }
+        }
+      });
+    }
+
+    const reorderForm = document.getElementById('reorderForm');
+    if (reorderForm) {
+      reorderForm.addEventListener('submit', function (e) {
+        const ids = Array.from(document.querySelectorAll('#photos .panel-photo'))
+          .map(function (el) { return el.dataset.photoId; })
+          .filter(function (id) { return id; });
+        document.getElementById('orderInput').value = ids.join(',');
+      });
+    }
   });
   </script>
 {% endblock %}

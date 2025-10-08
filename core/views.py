@@ -11,9 +11,9 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import FieldDoesNotExist
 from django.core.files.base import ContentFile
-from django.db import connection
+from django.db import connection, transaction
 from django.db.migrations.loader import MigrationLoader
-from django.db.models import Q
+from django.db.models import Max, Q
 from django.http import (
     HttpResponse,
     HttpResponseNotAllowed,
@@ -21,6 +21,7 @@ from django.http import (
     JsonResponse,
 )
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 from django.utils.encoding import smart_str
 
 try:
@@ -61,6 +62,28 @@ def _sniff(head: bytes) -> str:
     return "unknown"
 
 
+def encode_jpeg_to_target(img, base_name: str, orig_bytes: bytes) -> ContentFile:
+    target = max(150 * 1024, (len(orig_bytes) // 5) if orig_bytes else 150 * 1024)
+    lo, hi = 65, 90
+    best_buf = None
+    while lo <= hi:
+        q = (lo + hi) // 2
+        buf = BytesIO()
+        img.save(buf, format="JPEG", quality=q, optimize=True, progressive=True)
+        size = buf.tell()
+        if size <= target:
+            best_buf = buf
+            lo = q + 1
+        else:
+            hi = q - 1
+    if best_buf is None:
+        best_buf = BytesIO()
+        img.save(best_buf, format="JPEG", quality=75, optimize=True, progressive=True)
+    best_buf.seek(0)
+    safe_base = base_name or "photo"
+    return ContentFile(best_buf.read(), name=f"{safe_base}.jpg")
+
+
 def _process_or_fallback(uploaded_file):
     """
     Возвращает ContentFile — либо сжатый JPEG, либо исходник «как есть»,
@@ -99,31 +122,37 @@ def _process_or_fallback(uploaded_file):
         pass
 
     try:
-        img = Image.open(uploaded_file)
+        orig_bytes = uploaded_file.read()
+    except Exception:
+        orig_bytes = b""
+
+    try:
+        uploaded_file.seek(0)
+    except Exception:
+        pass
+
+    try:
+        source = BytesIO(orig_bytes) if orig_bytes else uploaded_file
+        img = Image.open(source)
         img.load()
         img = img.convert("RGB")
         w, h = img.size
         if max(w, h) > 2560:
             r = 2560 / float(max(w, h))
             img = img.resize((int(w * r), int(h * r)), Image.LANCZOS)
-        buf = BytesIO()
-        img.save(buf, format="JPEG", quality=85, optimize=True, progressive=True)
-        if buf.tell() > 15 * 1024 * 1024:
-            buf = BytesIO()
-            img.save(buf, format="JPEG", quality=75, optimize=True, progressive=True)
-        buf.seek(0)
-        base = name_l.rsplit("/", 1)[-1].rsplit(".", 1)[0] or "photo"
-        return ContentFile(buf.read(), name=f"{base}.jpg")
+        base = name_l.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+        return encode_jpeg_to_target(img, base, orig_bytes)
     except (UnidentifiedImageError, OSError, ValueError):
         if kind in {"jpeg", "png", "webp"}:
             try:
                 uploaded_file.seek(0)
             except Exception:
                 pass
-            raw = uploaded_file.read()
+            raw = orig_bytes or uploaded_file.read()
             base = name.rsplit("/", 1)[-1] or "photo.bin"
             return ContentFile(raw, name=base)
         raise ValueError("Неподдерживаемый формат или повреждённое изображение.")
+
 def healthz(request):
     return HttpResponse("ok", content_type="text/plain")
 
@@ -491,14 +520,22 @@ def panel_edit(request, pk):
         return render(
             request,
             "core/panel_edit.html",
-            _panel_form_context(form, prop, list(prop.photos.all())),
+            _panel_form_context(
+                form,
+                prop,
+                list(prop.photos.order_by("-is_default", "sort", "id")),
+            ),
             status=200,
         )
     form = PropertyForm(instance=prop)
     return render(
         request,
         "core/panel_edit.html",
-        _panel_form_context(form, prop, list(prop.photos.all())),
+        _panel_form_context(
+            form,
+            prop,
+            list(prop.photos.order_by("-is_default", "sort", "id")),
+        ),
     )
 
 
@@ -542,6 +579,12 @@ def panel_add_photo(request, pk):
         Photo.objects.filter(property=prop).update(is_default=False)
         ph.is_default = True
 
+    max_sort = (
+        Photo.objects.filter(property=prop).aggregate(Max("sort")).get("sort__max")
+        or 0
+    )
+    ph.sort = max_sort + 10
+
     try:
         ph.save()
         messages.success(request, "Фото добавлено.")
@@ -551,8 +594,48 @@ def panel_add_photo(request, pk):
     return redirect(f"/panel/edit/{pk}/")
 
 
-def panel_delete_photo(request, photo_id):
-    return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/panel/"))
+@require_POST
+def panel_photo_delete(request, pk):
+    ph = get_object_or_404(Photo, pk=pk)
+    prop_id = ph.property_id
+    try:
+        ph.delete()
+        messages.success(request, "Фото удалено.")
+    except Exception:
+        messages.error(request, "Не удалось удалить фото.")
+    return redirect(f"/panel/edit/{prop_id}/")
+
+
+@require_POST
+@transaction.atomic
+def panel_photos_reorder(request, prop_id):
+    """
+    Принимает order="3,1,2" — список photo.id в новом порядке.
+    Все фото должны принадлежать property=prop_id.
+    """
+
+    order = (request.POST.get("order") or "").strip()
+    if not order:
+        messages.error(request, "Не передан порядок.")
+        return redirect(f"/panel/edit/{prop_id}/")
+
+    ids = [int(x) for x in order.split(",") if x.strip().isdigit()]
+    if not ids:
+        messages.error(request, "Не передан порядок.")
+        return redirect(f"/panel/edit/{prop_id}/")
+
+    photos = list(Photo.objects.filter(property_id=prop_id, id__in=ids))
+    by_id = {p.id: p for p in photos}
+    pos = 10
+    for pid in ids:
+        p = by_id.get(pid)
+        if p:
+            p.sort = pos
+            p.save(update_fields=["sort"])
+            pos += 10
+
+    messages.success(request, "Порядок фото сохранён.")
+    return redirect(f"/panel/edit/{prop_id}/")
 
 
 def panel_toggle_main(request, photo_id):
@@ -675,7 +758,8 @@ def export_cian(request):
         photos_qs = getattr(prop, "photos", None)
         if photos_qs and photos_qs.exists():
             photos_el = SubElement(obj, "Photos")
-            for p in photos_qs.all():
+            ordered_photos = photos_qs.order_by("-is_default", "sort", "id")
+            for p in ordered_photos:
                 ph = SubElement(photos_el, "PhotoSchema")
                 _t(ph, "FullUrl", getattr(p, "src", ""), always=True)
                 if getattr(p, "is_default", False):

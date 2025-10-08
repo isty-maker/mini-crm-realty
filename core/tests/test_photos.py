@@ -1,3 +1,5 @@
+import os
+import xml.etree.ElementTree as ET
 from io import BytesIO
 from pathlib import Path
 
@@ -83,6 +85,85 @@ class PhotoUploadTest(TestCase):
         msgs = [m.message for m in get_messages(resp.wsgi_request)]
         self.assertIn("Неподдерживаемый формат или повреждённое изображение.", msgs)
         self.assertFalse(Photo.objects.filter(property=self.prop).exists())
+
+
+class PhotoManagementTest(TestCase):
+    def setUp(self):
+        self.prop = Property.objects.create(title="Test", address="Москва")
+        self.upload_url = reverse("panel_add_photo", kwargs={"pk": self.prop.id})
+
+    def _upload_photo(self, name="test.jpg"):
+        file = SimpleUploadedFile(name, make_img_bytes(), content_type="image/jpeg")
+        response = self.client.post(self.upload_url, {"image": file})
+        self.assertIn(response.status_code, (302, 303))
+        return Photo.objects.get(property=self.prop)
+
+    def test_delete_photo_removes_file(self):
+        photo = self._upload_photo()
+        path = photo.image.path
+        self.assertTrue(os.path.exists(path))
+
+        url = reverse("panel_photo_delete", kwargs={"pk": photo.id})
+        response = self.client.post(url)
+
+        self.assertIn(response.status_code, (302, 303))
+        self.assertFalse(Photo.objects.filter(id=photo.id).exists())
+        self.assertFalse(os.path.exists(path))
+        msgs = [m.message for m in get_messages(response.wsgi_request)]
+        self.assertIn("Фото удалено.", msgs)
+
+    def test_reorder_photos_updates_sort(self):
+        p1 = Photo.objects.create(property=self.prop, full_url="http://example.com/1.jpg", sort=10)
+        p2 = Photo.objects.create(property=self.prop, full_url="http://example.com/2.jpg", sort=20)
+        p3 = Photo.objects.create(property=self.prop, full_url="http://example.com/3.jpg", sort=30)
+
+        url = reverse("panel_photos_reorder", kwargs={"prop_id": self.prop.id})
+        order = f"{p3.id},{p1.id},{p2.id}"
+        response = self.client.post(url, {"order": order})
+
+        self.assertIn(response.status_code, (302, 303))
+        ordered_ids = list(
+            Photo.objects.filter(property=self.prop)
+            .order_by("sort")
+            .values_list("id", flat=True)
+        )
+        self.assertEqual(ordered_ids, [p3.id, p1.id, p2.id])
+
+        self.assertEqual(Photo.objects.get(id=p3.id).sort, 10)
+        self.assertEqual(Photo.objects.get(id=p1.id).sort, 20)
+        self.assertEqual(Photo.objects.get(id=p2.id).sort, 30)
+
+        msgs = [m.message for m in get_messages(response.wsgi_request)]
+        self.assertIn("Порядок фото сохранён.", msgs)
+
+    def test_feed_uses_saved_order(self):
+        prop = Property.objects.create(
+            title="Feed", address="Москва", category="flat", operation="sale",
+            external_id="AG-FEED", export_to_cian=True, total_area=42,
+        )
+        p1 = Photo.objects.create(property=prop, full_url="http://example.com/1.jpg", sort=20)
+        p2 = Photo.objects.create(property=prop, full_url="http://example.com/2.jpg", sort=10)
+        p3 = Photo.objects.create(
+            property=prop,
+            full_url="http://example.com/3.jpg",
+            sort=30,
+            is_default=True,
+        )
+
+        response = self.client.get(reverse("export_cian"))
+        self.assertEqual(response.status_code, 200)
+
+        root = ET.fromstring(response.content)
+        target = None
+        for obj in root.findall("Object"):
+            if obj.findtext("ExternalId") == prop.external_id:
+                target = obj
+                break
+        self.assertIsNotNone(target)
+        photos_el = target.find("Photos")
+        self.assertIsNotNone(photos_el)
+        urls = [node.findtext("FullUrl") for node in photos_el.findall("PhotoSchema")]
+        self.assertEqual(urls, [p3.full_url, p2.full_url, p1.full_url])
 
 
 class MediaInfoHealthCheckTest(TestCase):
