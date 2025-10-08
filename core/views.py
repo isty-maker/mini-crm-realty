@@ -49,23 +49,24 @@ INVALID_IMAGE_MESSAGE = "Неподдерживаемый формат или п
 
 
 def _check_decoder_available(kind: str) -> bool:
-    """Return True if Pillow reports decoder support for *kind* ("jpeg"/"webp")."""
+    """Return True if Pillow reports decoder support for *kind* ("jpeg"/"webp"/"png")."""
 
     # Try Pillow's features API first
     try:  # pragma: no branch - optional dependency
         from PIL import features as pil_features  # type: ignore
 
-        probes = {
+        probes_map = {
             "jpeg": ("jpeg", "jpg", "libjpeg", "libjpeg_turbo"),
             "webp": ("webp",),
-        }.get(kind, ())
-        for probe in probes:
+            "png": ("zlib", "libpng", "png"),
+        }
+        for probe in probes_map.get(kind, ()):  # pragma: no branch - small tuple
             try:
                 if pil_features.check(probe):
                     return True
             except Exception:  # pragma: no cover - defensive
                 continue
-        if probes:
+        if kind in probes_map:
             return False
     except ImportError:  # pragma: no cover - stub Pillow shipped in tests
         pass
@@ -81,6 +82,8 @@ def _check_decoder_available(kind: str) -> bool:
                 return any(ext in mapping for ext in (".jpg", ".jpeg"))
             if kind == "webp":
                 return ".webp" in mapping
+            if kind == "png":
+                return ".png" in mapping
         except Exception:  # pragma: no cover - defensive
             pass
 
@@ -91,10 +94,13 @@ def _check_decoder_available(kind: str) -> bool:
 def _guess_decoder_kind(name_l: str, ct_l: str) -> Optional[str]:
     jpeg_exts = (".jpg", ".jpeg")
     webp_exts = (".webp",)
+    png_exts = (".png",)
     if name_l.endswith(webp_exts) or ct_l in {"image/webp", "image/x-webp"}:
         return "webp"
     if name_l.endswith(jpeg_exts) or ct_l in {"image/jpeg", "image/pjpeg"}:
         return "jpeg"
+    if name_l.endswith(png_exts) or ct_l == "image/png":
+        return "png"
     return None
 
 
@@ -102,16 +108,23 @@ def _looks_like_image(kind: str, payload: bytes) -> bool:
     if not payload:
         return False
     if kind == "jpeg":
-        return payload.startswith(b"\xFF\xD8") and payload.rstrip(b"\0\r\n").endswith(b"\xFF\xD9")
+        return payload.startswith(b"\xFF\xD8")
     if kind == "webp":
         return len(payload) >= 12 and payload[:4] == b"RIFF" and payload[8:12] == b"WEBP"
+    if kind == "png":
+        return payload.startswith(b"\x89PNG\r\n\x1a\n")
     return True
 
 
 def _fallback_file_name(original: Optional[str], kind: str) -> str:
     if original:
         return original
-    suffix = ".webp" if kind == "webp" else ".jpg"
+    if kind == "webp":
+        suffix = ".webp"
+    elif kind == "png":
+        suffix = ".png"
+    else:
+        suffix = ".jpg"
     return f"photo{suffix}"
 
 
@@ -170,8 +183,34 @@ def _process_one_file(uploaded_file):
                 name=_fallback_file_name(getattr(uploaded_file, "name", None), decoder_kind),
             )
 
-        img = Image.open(uploaded_file)
-        img.load()
+        try:
+            img = Image.open(uploaded_file)
+            img.load()
+        except (UnidentifiedImageError, OSError, ValueError) as e:
+            _, ext = os.path.splitext(name_l)
+            kind = _guess_decoder_kind(name_l, ct_l) or (
+                "jpeg"
+                if ext.lower() in {".jpg", ".jpeg"}
+                else "webp"
+                if ext.lower() == ".webp"
+                else "png"
+                if ext.lower() == ".png"
+                else None
+            )
+            if kind and _looks_like_image(kind, orig):
+                if orig:
+                    log.warning(
+                        "fallback_save_as_is (post-open) filename=%s reason=%s",
+                        name_l,
+                        e,
+                    )
+                    return ContentFile(
+                        orig,
+                        name=_fallback_file_name(
+                            getattr(uploaded_file, "name", None), kind
+                        ),
+                    )
+            raise ValueError(INVALID_IMAGE_MESSAGE)
         img = img.convert("RGB")
         w, h = img.size
         if max(w, h) > 2560:
