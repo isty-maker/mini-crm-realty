@@ -1,5 +1,6 @@
 # core/models.py
 import builtins
+import os
 import random
 from io import BytesIO
 
@@ -309,36 +310,38 @@ class Photo(models.Model):
         return f"Photo #{self.pk}" if self.pk else "Photo"
 
     def save(self, *args, **kwargs):
-        if self.image:
+        if self.image and getattr(self.image, "name", None):
             try:
-                if hasattr(self.image, "file"):
-                    self.image.file.seek(0)
-                img = Image.open(
-                    self.image.file if hasattr(self.image, "file") else self.image
-                )
+                file_obj = self.image.file if hasattr(self.image, "file") else self.image
+                if hasattr(file_obj, "seek"):
+                    file_obj.seek(0)
+                img = Image.open(file_obj)
                 img = img.convert("RGB")
-                w, h = img.size
                 max_side = 2560
-                if max(w, h) > max_side:
-                    ratio = max_side / float(max(w, h))
-                    img = img.resize(
-                        (int(w * ratio), int(h * ratio)), Image.LANCZOS
+                width, height = img.size
+                if max(width, height) > max_side:
+                    ratio = max_side / float(max(width, height))
+                    new_size = (int(width * ratio), int(height * ratio))
+                    img = img.resize(new_size, Image.LANCZOS)
+
+                def _compress(quality: int) -> bytes:
+                    buf = BytesIO()
+                    img.save(
+                        buf,
+                        format="JPEG",
+                        quality=quality,
+                        optimize=True,
+                        progressive=True,
                     )
-                buf = BytesIO()
-                img.save(
-                    buf,
-                    format="JPEG",
-                    quality=85,
-                    optimize=True,
-                    progressive=True,
-                )
-                buf.seek(0)
-                base = (
-                    self.image.name.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-                    if self.image.name
-                    else "photo"
-                )
-                self.image.save(f"{base}.jpg", ContentFile(buf.read()), save=False)
+                    return buf.getvalue()
+
+                data = _compress(85)
+                if len(data) > 15 * 1024 * 1024:
+                    data = _compress(75)
+
+                original_name = getattr(self.image, "name", "") or "photo"
+                base = os.path.splitext(os.path.basename(original_name))[0] or "photo"
+                self.image.save(f"{base}.jpg", ContentFile(data), save=False)
             except (UnidentifiedImageError, OSError, ValueError):
                 pass
         super().save(*args, **kwargs)

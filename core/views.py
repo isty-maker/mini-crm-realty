@@ -1,11 +1,13 @@
 # core/views.py
 import json
+import logging
 import os
 import re
 from functools import lru_cache
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from django.conf import settings
+from django.contrib import messages
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Q
 from django.http import (
@@ -20,9 +22,16 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.encoding import smart_str
 
+from PIL import Image
+
 from .cian import build_cian_category
 from .forms import PhotoForm, PropertyForm
-from .models import Photo, Property
+from .models import Photo, Property, UnidentifiedImageError
+
+
+os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+os.makedirs(settings.MEDIA_ROOT / "logs", exist_ok=True)
+log = logging.getLogger("upload")
 
 
 
@@ -282,20 +291,16 @@ def panel_list(request):
 
     if q:
         tokens = [t for t in re.split(r"\s+", q) if t]
-        if tokens:
-            q_obj = Q()
-            for t in tokens:
-                variants = {t}
-                if t:
-                    cap = t[0].upper() + t[1:]
-                    variants.add(cap)
-                for variant in variants:
-                    q_obj |= (
-                        Q(title__icontains=variant)
-                        | Q(address__icontains=variant)
-                        | Q(external_id__icontains=variant)
-                    )
-            props = props.filter(q_obj)
+        for tok in tokens:
+            variants = {tok, tok.lower(), tok.upper(), tok.capitalize()}
+            token_q = Q()
+            for variant in variants:
+                token_q |= (
+                    Q(title__icontains=variant)
+                    | Q(address__icontains=variant)
+                    | Q(external_id__icontains=variant)
+                )
+            props = props.filter(token_q)
     props = props.order_by("-updated_at", "-id")
     show_archived_flag = include_archived or show == "all"
     return render(
@@ -387,15 +392,42 @@ def panel_add_photo(request, pk):
     prop = get_object_or_404(Property, pk=pk)
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
+    file_obj = request.FILES.get("image")
+    url = (request.POST.get("full_url") or "").strip()
+    redirect_response = HttpResponseRedirect(reverse("panel_edit", kwargs={"pk": pk}))
+    if not file_obj and not url:
+        messages.error(request, "Не выбрано ни файла, ни URL.")
+        return redirect_response
+
+    if file_obj:
+        try:
+            if hasattr(file_obj, "seek"):
+                file_obj.seek(0)
+            Image.open(file_obj)
+        except (UnidentifiedImageError, OSError, ValueError):
+            messages.error(request, "Не удалось загрузить фото")
+            return redirect_response
+        finally:
+            if hasattr(file_obj, "seek"):
+                file_obj.seek(0)
+
     form = PhotoForm(request.POST, request.FILES)
-    if form.is_valid():
-        ph = form.save(commit=False)
-        ph.property = prop
+    if not form.is_valid():
+        messages.error(request, "Не удалось загрузить фото")
+        return redirect_response
+
+    try:
+        os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+        photo = form.save(commit=False)
+        photo.property = prop
         if form.cleaned_data.get("is_default"):
             Photo.objects.filter(property=prop).update(is_default=False)
-            ph.is_default = True
-        ph.save()
-    return HttpResponseRedirect(reverse("panel_edit", kwargs={"pk": pk}))
+            photo.is_default = True
+        photo.save()
+    except Exception:
+        messages.error(request, "Не удалось загрузить фото")
+        log.exception("upload failed")
+    return redirect_response
 
 
 def panel_delete_photo(request, photo_id):

@@ -140,6 +140,8 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+(MEDIA_ROOT).mkdir(parents=True, exist_ok=True)
+(MEDIA_ROOT / "logs").mkdir(parents=True, exist_ok=True)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -148,3 +150,22 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Общий секретный ключ доступа к панели (НЕ публиковать)
 SHARED_KEY = os.getenv("SHARED_KEY", "")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "upload_file": {
+            "class": "logging.FileHandler",
+            "filename": str(MEDIA_ROOT / "logs" / "upload_errors.log"),
+            "encoding": "utf-8",
+        },
+    },
+    "loggers": {
+        "upload": {
+            "handlers": ["upload_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
