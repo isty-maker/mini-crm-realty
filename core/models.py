@@ -311,6 +311,17 @@ class Photo(models.Model):
         except Exception:
             pass
 
+    def human_size(self):
+        try:
+            size = self.image.size
+        except Exception:
+            return ""
+        for unit in ["Б", "КБ", "МБ"]:
+            if size < 1024 or unit == "МБ":
+                return f"{size:.0f} {unit}" if unit == "Б" else f"{size / 1024:.1f} {unit}"
+            size /= 1024
+        return ""
+
     @builtins.property
     def src(self):
         try:
