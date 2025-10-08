@@ -17,7 +17,6 @@ from django.db.models import Max, Q
 from django.http import (
     HttpResponse,
     HttpResponseNotAllowed,
-    HttpResponseRedirect,
     JsonResponse,
 )
 from django.shortcuts import get_object_or_404, redirect, render
@@ -44,10 +43,11 @@ from .models import Photo, Property
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
+log = logging.getLogger("upload")
+
 JPEG_SIG = b"\xFF\xD8\xFF"
 PNG_SIG = b"\x89PNG\r\n\x1a\n"
 WEBP_SIG = b"RIFF"
-HEIC_MARKERS = (b"ftypheic", b"ftypheix", b"ftyphevc", b"ftypmif1", b"ftypmsf1")
 
 
 def _sniff(head: bytes) -> str:
@@ -57,12 +57,10 @@ def _sniff(head: bytes) -> str:
         return "png"
     if head.startswith(WEBP_SIG) and head[8:12] == b"WEBP":
         return "webp"
-    if any(m in head[:64] for m in HEIC_MARKERS):
-        return "heic"
     return "unknown"
 
 
-def encode_jpeg_to_target(img, base_name: str, orig_bytes: bytes) -> ContentFile:
+def _encode_jpeg_to_target(img, base_name: str, orig_bytes: bytes) -> ContentFile:
     target = max(150 * 1024, (len(orig_bytes) // 5) if orig_bytes else 150 * 1024)
     lo, hi = 65, 90
     best_buf = None
@@ -85,16 +83,11 @@ def encode_jpeg_to_target(img, base_name: str, orig_bytes: bytes) -> ContentFile
 
 
 def _process_or_fallback(uploaded_file):
-    """
-    Возвращает ContentFile — либо сжатый JPEG, либо исходник «как есть»,
-    если Pillow не справился, но сигнатура допустимая.
-    Бросает ValueError для HEIC/HEIF и заведомо мусорных файлов.
-    """
-
     try:
         pos = uploaded_file.tell()
     except Exception:
         pos = None
+
     head = uploaded_file.read(64)
     try:
         if pos is not None:
@@ -105,51 +98,33 @@ def _process_or_fallback(uploaded_file):
         pass
 
     kind = _sniff(head)
-    name = uploaded_file.name or "photo"
-    name_l = name.lower()
-    ct_l = (getattr(uploaded_file, "content_type", "") or "").lower()
+    name_l = (uploaded_file.name or "photo").lower()
+    content_type = (getattr(uploaded_file, "content_type", "") or "").lower()
 
-    if (
-        kind == "heic"
-        or name_l.endswith((".heic", ".heif"))
-        or ct_l in {"image/heic", "image/heif"}
-    ):
+    if name_l.endswith((".heic", ".heif")) or content_type in {"image/heic", "image/heif"}:
         raise ValueError("HEIC/HEIF пока не поддерживается — сохраните как JPG/PNG/WebP.")
 
     try:
         uploaded_file.seek(0)
-    except Exception:
-        pass
-
-    try:
-        orig_bytes = uploaded_file.read()
-    except Exception:
-        orig_bytes = b""
-
-    try:
+        orig = uploaded_file.read()
         uploaded_file.seek(0)
-    except Exception:
-        pass
-
-    try:
-        source = BytesIO(orig_bytes) if orig_bytes else uploaded_file
-        img = Image.open(source)
+        img = Image.open(uploaded_file)
         img.load()
         img = img.convert("RGB")
         w, h = img.size
         if max(w, h) > 2560:
-            r = 2560 / float(max(w, h))
-            img = img.resize((int(w * r), int(h * r)), Image.LANCZOS)
-        base = name_l.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-        return encode_jpeg_to_target(img, base, orig_bytes)
+            ratio = 2560 / float(max(w, h))
+            img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+        base = name_l.rsplit("/", 1)[-1].rsplit(".", 1)[0] or "photo"
+        return _encode_jpeg_to_target(img, base, orig)
     except (UnidentifiedImageError, OSError, ValueError):
         if kind in {"jpeg", "png", "webp"}:
             try:
                 uploaded_file.seek(0)
             except Exception:
                 pass
-            raw = orig_bytes or uploaded_file.read()
-            base = name.rsplit("/", 1)[-1] or "photo.bin"
+            raw = uploaded_file.read()
+            base = name_l.rsplit("/", 1)[-1] or "photo.bin"
             return ContentFile(raw, name=base)
         raise ValueError("Неподдерживаемый формат или повреждённое изображение.")
 
@@ -547,50 +522,70 @@ def panel_add_photo(request, pk):
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
     os.makedirs(settings.MEDIA_ROOT / "logs", exist_ok=True)
 
-    log = logging.getLogger("upload")
+    files = request.FILES.getlist("images")
+    single = request.FILES.get("image")
+    if single and not files:
+        files = [single]
 
-    file = request.FILES.get("image")
     url = (request.POST.get("full_url") or "").strip()
     make_default = bool(request.POST.get("is_default"))
 
-    if not file and not url:
+    if not files and not url:
         messages.error(request, "Не выбрано ни файла, ни URL.")
         return redirect(f"/panel/edit/{pk}/")
 
-    ph = Photo(property=prop)
-
-    if file:
-        try:
-            processed = _process_or_fallback(file)
-            ph.image = processed
-        except ValueError as e:
-            log.warning("upload rejected: %s", e)
-            messages.error(request, str(e))
-            return redirect(f"/panel/edit/{pk}/")
-        except Exception:
-            log.exception("upload failed (unexpected)")
-            messages.error(request, "Не удалось загрузить фото (код: UnexpectedError)")
-            return redirect(f"/panel/edit/{pk}/")
-
-    if url:
-        ph.full_url = url
-
-    if make_default:
-        Photo.objects.filter(property=prop).update(is_default=False)
-        ph.is_default = True
-
+    created = 0
+    default_set = False
     max_sort = (
         Photo.objects.filter(property=prop).aggregate(Max("sort")).get("sort__max")
         or 0
     )
-    ph.sort = max_sort + 10
 
-    try:
-        ph.save()
-        messages.success(request, "Фото добавлено.")
-    except Exception:
-        log.exception("upload failed (save)")
-        messages.error(request, "Не удалось загрузить фото (код: SaveError)")
+    files = files or []
+    for uploaded in files:
+        try:
+            processed = _process_or_fallback(uploaded)
+            ph = Photo(property=prop)
+            ph.image = processed
+            if make_default and not default_set:
+                Photo.objects.filter(property=prop).update(is_default=False)
+                ph.is_default = True
+                ph.sort = 0
+                default_set = True
+            else:
+                max_sort += 10
+                ph.sort = max_sort
+            ph.save()
+            created += 1
+        except ValueError as e:
+            log.warning("upload rejected: %s", e)
+            messages.error(request, str(e))
+        except Exception:
+            log.exception("upload failed")
+            messages.error(
+                request,
+                "Не удалось загрузить одно из фото (код: UnexpectedError)",
+            )
+
+    if url:
+        try:
+            ph = Photo(property=prop, full_url=url)
+            if make_default and not default_set:
+                Photo.objects.filter(property=prop).update(is_default=False)
+                ph.is_default = True
+                ph.sort = 0
+                default_set = True
+            else:
+                max_sort += 10
+                ph.sort = max_sort
+            ph.save()
+            created += 1
+        except Exception:
+            log.exception("upload failed (url)")
+            messages.error(request, "Не удалось добавить фото по ссылке.")
+
+    if created:
+        messages.success(request, f"Добавлено фото: {created} шт.")
     return redirect(f"/panel/edit/{pk}/")
 
 
@@ -607,6 +602,17 @@ def panel_photo_delete(request, pk):
 
 
 @require_POST
+def panel_photo_set_default(request, pk):
+    ph = get_object_or_404(Photo, pk=pk)
+    Photo.objects.filter(property=ph.property).update(is_default=False)
+    ph.is_default = True
+    ph.sort = 0
+    ph.save(update_fields=["is_default", "sort"])
+    messages.success(request, "Фото помечено как главное.")
+    return redirect(f"/panel/edit/{ph.property_id}/")
+
+
+@require_POST
 @transaction.atomic
 def panel_photos_reorder(request, prop_id):
     """
@@ -620,15 +626,12 @@ def panel_photos_reorder(request, prop_id):
         return redirect(f"/panel/edit/{prop_id}/")
 
     ids = [int(x) for x in order.split(",") if x.strip().isdigit()]
-    if not ids:
-        messages.error(request, "Не передан порядок.")
-        return redirect(f"/panel/edit/{prop_id}/")
-
-    photos = list(Photo.objects.filter(property_id=prop_id, id__in=ids))
-    by_id = {p.id: p for p in photos}
+    photos = {
+        p.id: p for p in Photo.objects.filter(property_id=prop_id, id__in=ids)
+    }
     pos = 10
     for pid in ids:
-        p = by_id.get(pid)
+        p = photos.get(pid)
         if p:
             p.sort = pos
             p.save(update_fields=["sort"])
@@ -636,10 +639,6 @@ def panel_photos_reorder(request, prop_id):
 
     messages.success(request, "Порядок фото сохранён.")
     return redirect(f"/panel/edit/{prop_id}/")
-
-
-def panel_toggle_main(request, photo_id):
-    return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/panel/"))
 
 # -------- Экспорт ЦИАН (Feed_Version=2) --------
 def _t(parent, tag, value, always=False):
