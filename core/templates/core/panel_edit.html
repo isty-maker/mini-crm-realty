@@ -789,26 +789,110 @@
       <button type="submit">Загрузить</button>
     </form>
 
-    <div id="photos" class="photos" style="display:flex; flex-wrap:wrap; gap:1rem; margin-top:1rem;">
+    <style>
+      .photos {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+
+      .photo-card {
+        position: relative;
+        background: #1b1e27;
+        padding: .5rem;
+        border-radius: 8px;
+        width: 200px;
+      }
+
+      .photo-card img {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        border-radius: 6px;
+      }
+
+      .drag-handle {
+        position: absolute;
+        top: 6px;
+        right: 8px;
+        cursor: grab;
+        opacity: .6;
+        user-select: none;
+      }
+
+      .drag-handle:active {
+        cursor: grabbing;
+      }
+
+      .badge-default {
+        position: absolute;
+        top: 6px;
+        left: 8px;
+        background: #dff4df;
+        color: #1c6724;
+        padding: .1rem .4rem;
+        border-radius: .4rem;
+        font-size: .75rem;
+        font-weight: 600;
+      }
+
+      .meta {
+        margin-top: .35rem;
+        font-size: .85rem;
+        color: #99a;
+      }
+
+      .actions {
+        display: flex;
+        gap: .4rem;
+        margin-top: .35rem;
+      }
+
+      .icon-btn {
+        background: none;
+        border: none;
+        padding: .15rem .4rem;
+        font-size: 1.1rem;
+        line-height: 1;
+        cursor: pointer;
+        color: #cfe;
+      }
+
+      .icon-btn:hover {
+        opacity: .85;
+      }
+
+      .icon-btn.danger {
+        color: #d66;
+      }
+    </style>
+
+    <div id="photos" class="photos">
       {% for ph in photos %}
-        <div class="photo" data-photo-id="{{ ph.id }}" style="position:relative; border:1px solid #ddd; padding:.5rem; max-width:200px;">
+        <div class="photo-card" data-photo-id="{{ ph.id }}">
+          <div class="drag-handle" title="Перетащить">⋮⋮</div>
+
           {% if ph.is_default %}
-            <span class="badge" style="position:absolute;top:6px;left:6px;background:#dff4df;color:#1c6724;">Главное</span>
+            <span class="badge-default">Главное</span>
           {% endif %}
-          {% if ph.src %}
-            <img src="{{ ph.src }}" alt="" style="max-width: 100%; height:auto; display:block;">
-          {% endif %}
-          <div class="muted" style="margin-top:.3rem;">
-            {{ ph.human_size }}
+
+          <img src="{{ ph.src }}" alt="" />
+
+          <div class="meta">
+            <span class="size">{{ ph.human_size }}</span>
           </div>
-          <div style="display:flex;gap:.4rem;margin-top:.3rem;">
-            <form method="post" action="{% url 'panel_photo_set_default' ph.id %}">
+
+          <div class="actions">
+            <form class="no-drag" method="post" action="{% url 'panel_photo_set_default' ph.id %}">
               {% csrf_token %}
-              <button type="submit">Сделать главным</button>
+              <button type="submit" class="icon-btn" title="Сделать главным">
+                {% if ph.is_default %}★{% else %}☆{% endif %}
+              </button>
             </form>
-            <form method="post" action="{% url 'panel_photo_delete' ph.id %}">
+            <form class="no-drag" method="post" action="{% url 'panel_photo_delete' ph.id %}">
               {% csrf_token %}
-              <button class="secondary" type="submit">Удалить</button>
+              <button type="submit" class="icon-btn danger" title="Удалить">✖</button>
             </form>
           </div>
         </div>
@@ -818,7 +902,7 @@
     </div>
 
     {% if photos %}
-    <form id="reorderForm" method="post" action="{% url 'panel_photos_reorder' prop_id=prop.id %}" style="margin-top:1rem;">
+    <form id="reorderForm" method="post" action="{% url 'panel_photos_reorder' prop.id %}" style="margin-top:1rem;">
       {% csrf_token %}
       <input type="hidden" name="order" id="orderInput">
       <button type="submit">Сохранить порядок</button>
@@ -832,37 +916,31 @@
   <script src="{% static 'core/form.js' %}"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <script>
-  document.addEventListener("DOMContentLoaded", function () {
+  document.addEventListener('DOMContentLoaded', function () {
     const list = document.getElementById('photos');
-    const form = document.getElementById('reorderForm');
-    if (!list || !form) return;
-
-    function getCSRF() {
-      const m = document.cookie.match(/csrftoken=([^;]+)/);
-      return m ? m[1] : "";
+    if (!list) {
+      return;
     }
 
     new Sortable(list, {
+      handle: '.drag-handle',
       animation: 150,
-      ghostClass: 'drag',
-      onEnd() {
-        const ids = Array.from(document.querySelectorAll('#photos .photo')).map(
-          (el) => el.dataset.photoId
-        );
-        document.getElementById('orderInput').value = ids.join(',');
-        fetch(form.action, {
-          method: 'POST',
-          headers: { 'X-CSRFToken': getCSRF() },
-          body: new FormData(form),
-        }).catch(() => {});
-      },
+      fallbackTolerance: 5,
     });
 
-    form.addEventListener('submit', function () {
-      const ids = Array.from(document.querySelectorAll('#photos .photo')).map(
+    const reorderForm = document.getElementById('reorderForm');
+    if (!reorderForm) {
+      return;
+    }
+
+    reorderForm.addEventListener('submit', function () {
+      const ids = Array.from(document.querySelectorAll('#photos .photo-card')).map(
         (el) => el.dataset.photoId
       );
-      document.getElementById('orderInput').value = ids.join(',');
+      const orderInput = document.getElementById('orderInput');
+      if (orderInput) {
+        orderInput.value = ids.join(',');
+      }
     });
   });
   </script>
