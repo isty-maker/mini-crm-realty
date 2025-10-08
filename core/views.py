@@ -4,6 +4,7 @@ import logging
 import os
 import re
 from functools import lru_cache
+from typing import Optional
 from io import BytesIO
 from xml.etree.ElementTree import Element, SubElement, tostring
 
@@ -43,6 +44,75 @@ from .models import Photo, Property
 
 log = logging.getLogger("upload")
 ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+INVALID_IMAGE_MESSAGE = "Неподдерживаемый формат или повреждённое изображение."
+
+
+def _check_decoder_available(kind: str) -> bool:
+    """Return True if Pillow reports decoder support for *kind* ("jpeg"/"webp")."""
+
+    # Try Pillow's features API first
+    try:  # pragma: no branch - optional dependency
+        from PIL import features as pil_features  # type: ignore
+
+        probes = {
+            "jpeg": ("jpeg", "jpg", "libjpeg", "libjpeg_turbo"),
+            "webp": ("webp",),
+        }.get(kind, ())
+        for probe in probes:
+            try:
+                if pil_features.check(probe):
+                    return True
+            except Exception:  # pragma: no cover - defensive
+                continue
+        if probes:
+            return False
+    except ImportError:  # pragma: no cover - stub Pillow shipped in tests
+        pass
+
+    # Fall back to registered extensions when features API is unavailable
+    registered = getattr(Image, "registered_extensions", None)
+    if callable(registered):
+        try:
+            mapping = {
+                ext.lower(): handler for ext, handler in registered().items()  # type: ignore[arg-type]
+            }
+            if kind == "jpeg":
+                return any(ext in mapping for ext in (".jpg", ".jpeg"))
+            if kind == "webp":
+                return ".webp" in mapping
+        except Exception:  # pragma: no cover - defensive
+            pass
+
+    # Assume supported when we cannot determine availability explicitly
+    return True
+
+
+def _guess_decoder_kind(name_l: str, ct_l: str) -> Optional[str]:
+    jpeg_exts = (".jpg", ".jpeg")
+    webp_exts = (".webp",)
+    if name_l.endswith(webp_exts) or ct_l in {"image/webp", "image/x-webp"}:
+        return "webp"
+    if name_l.endswith(jpeg_exts) or ct_l in {"image/jpeg", "image/pjpeg"}:
+        return "jpeg"
+    return None
+
+
+def _looks_like_image(kind: str, payload: bytes) -> bool:
+    if not payload:
+        return False
+    if kind == "jpeg":
+        return payload.startswith(b"\xFF\xD8") and payload.rstrip(b"\0\r\n").endswith(b"\xFF\xD9")
+    if kind == "webp":
+        return len(payload) >= 12 and payload[:4] == b"RIFF" and payload[8:12] == b"WEBP"
+    return True
+
+
+def _fallback_file_name(original: Optional[str], kind: str) -> str:
+    if original:
+        return original
+    suffix = ".webp" if kind == "webp" else ".jpg"
+    return f"photo{suffix}"
 
 
 def _encode_jpeg_to_target(img, base_name, orig_bytes):
@@ -85,6 +155,21 @@ def _process_one_file(uploaded_file):
             uploaded_file.seek(0)
         except Exception:
             pass
+
+        decoder_kind = _guess_decoder_kind(name_l, ct_l)
+        if decoder_kind and not _check_decoder_available(decoder_kind):
+            if not _looks_like_image(decoder_kind, orig):
+                raise ValueError(INVALID_IMAGE_MESSAGE)
+            log.warning(
+                "Missing Pillow decoder for %s — storing original upload (%s)",
+                decoder_kind,
+                uploaded_file.name,
+            )
+            return ContentFile(
+                orig,
+                name=_fallback_file_name(getattr(uploaded_file, "name", None), decoder_kind),
+            )
+
         img = Image.open(uploaded_file)
         img.load()
         img = img.convert("RGB")
@@ -96,7 +181,7 @@ def _process_one_file(uploaded_file):
         return _encode_jpeg_to_target(img, base, orig)
     except (UnidentifiedImageError, OSError, ValueError):
         # мусор или неподдержанный
-        raise ValueError("Неподдерживаемый формат или повреждённое изображение.")
+        raise ValueError(INVALID_IMAGE_MESSAGE)
 
 def healthz(request):
     return HttpResponse("ok", content_type="text/plain")
