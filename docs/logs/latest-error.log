@@ -1,4 +1,3 @@
-    response = get_response(request)
                ^^^^^^^^^^^^^^^^^^^^^
   File "/home/isty/mini-crm-realty/venv/lib/python3.12/site-packages/django/core/handlers/base.py", line 197, in _get_response
     response = wrapped_callback(request, *callback_args, **callback_kwargs)
@@ -298,3 +297,4 @@ Traceback (most recent call last):
 django.db.utils.IntegrityError: NOT NULL constraint failed: core_photo.full_url
 2025-10-07 19:38:41,341: Not Found: /
 2025-10-07 19:40:49,129: Not Found: /robots.txt
+2025-10-08 05:50:35,502: Not Found: /
