@@ -4,11 +4,15 @@ import logging
 import os
 import re
 from functools import lru_cache
+from io import BytesIO
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import FieldDoesNotExist
+from django.core.files.base import ContentFile
+from django.db import connection
+from django.db.migrations.loader import MigrationLoader
 from django.db.models import Q
 from django.http import (
     HttpResponse,
@@ -16,27 +20,96 @@ from django.http import (
     HttpResponseRedirect,
     JsonResponse,
 )
-from django.db import connection
-from django.db.migrations.loader import MigrationLoader
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 from django.utils.encoding import smart_str
 
 from PIL import Image
 
 from .cian import build_cian_category
-from .forms import PhotoForm, PropertyForm
+from .forms import PropertyForm
 from .models import Photo, Property, UnidentifiedImageError
 
 
-os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
-os.makedirs(settings.MEDIA_ROOT / "logs", exist_ok=True)
 log = logging.getLogger("upload")
+
+ALLOWED_CT = {"image/jpeg", "image/png", "image/webp"}
+MAX_SIDE = 2560
+
+
+def _process_to_jpeg(uploaded_file):
+    if uploaded_file.content_type not in ALLOWED_CT:
+        if uploaded_file.content_type in {"image/heic", "image/heif"}:
+            raise ValueError(
+                "HEIC/HEIF пока не поддерживается — сохраните как JPG/PNG/WebP."
+            )
+        raise ValueError(
+            f"Неподдерживаемый формат: {uploaded_file.content_type or 'unknown'}"
+        )
+
+    try:
+        image = Image.open(uploaded_file)
+    except (UnidentifiedImageError, OSError) as exc:
+        raise ValueError("Неподдерживаемый формат или повреждённое изображение.") from exc
+
+    image = image.convert("RGB")
+    width, height = image.size
+    if max(width, height) > MAX_SIDE:
+        ratio = MAX_SIDE / float(max(width, height))
+        new_size = (int(width * ratio), int(height * ratio))
+        image = image.resize(new_size, Image.LANCZOS)
+
+    buffer = BytesIO()
+    image.save(
+        buffer,
+        format="JPEG",
+        quality=85,
+        optimize=True,
+        progressive=True,
+    )
+    if buffer.tell() > 15 * 1024 * 1024:
+        buffer = BytesIO()
+        image.save(
+            buffer,
+            format="JPEG",
+            quality=75,
+            optimize=True,
+            progressive=True,
+        )
+    buffer.seek(0)
+
+    original_name = uploaded_file.name.rsplit("/", 1)[-1]
+    base = (original_name.rsplit(".", 1)[0] or "photo") if original_name else "photo"
+    return ContentFile(buffer.read(), name=f"{base}.jpg")
 
 
 
 def healthz(request):
     return HttpResponse("ok", content_type="text/plain")
+
+
+def healthz_mediainfo(request):
+    media_root = settings.MEDIA_ROOT
+    tmp_dir = media_root / "tmp"
+    probe_path = tmp_dir / "probe.txt"
+    writable = False
+    try:
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        probe_path.write_text("ok", encoding="utf-8")
+        writable = probe_path.read_text(encoding="utf-8") == "ok"
+    except Exception:
+        writable = False
+    finally:
+        try:
+            probe_path.unlink()
+        except Exception:
+            pass
+
+    info = {
+        "media_root": str(media_root),
+        "writable": writable,
+        "exists_images_dir": (media_root / "photos").exists(),
+    }
+    return JsonResponse(info)
 
 
 def dbinfo(request):
@@ -391,43 +464,50 @@ def panel_edit(request, pk):
 def panel_add_photo(request, pk):
     prop = get_object_or_404(Property, pk=pk)
     if request.method != "POST":
-        return HttpResponseNotAllowed(["POST"])
+        return redirect(f"/panel/edit/{pk}/")
+
+    os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+    os.makedirs(settings.MEDIA_ROOT / "logs", exist_ok=True)
+
     file_obj = request.FILES.get("image")
     url = (request.POST.get("full_url") or "").strip()
-    redirect_response = HttpResponseRedirect(reverse("panel_edit", kwargs={"pk": pk}))
+    make_default = bool(request.POST.get("is_default"))
+
     if not file_obj and not url:
         messages.error(request, "Не выбрано ни файла, ни URL.")
-        return redirect_response
-
-    if file_obj:
-        try:
-            if hasattr(file_obj, "seek"):
-                file_obj.seek(0)
-            Image.open(file_obj)
-        except (UnidentifiedImageError, OSError, ValueError):
-            messages.error(request, "Не удалось загрузить фото")
-            return redirect_response
-        finally:
-            if hasattr(file_obj, "seek"):
-                file_obj.seek(0)
-
-    form = PhotoForm(request.POST, request.FILES)
-    if not form.is_valid():
-        messages.error(request, "Не удалось загрузить фото")
-        return redirect_response
+        return redirect(f"/panel/edit/{pk}/")
 
     try:
-        os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
-        photo = form.save(commit=False)
-        photo.property = prop
-        if form.cleaned_data.get("is_default"):
+        photo = Photo(property=prop)
+        if file_obj:
+            try:
+                processed = _process_to_jpeg(file_obj)
+                photo.image = processed
+            except (UnidentifiedImageError, ValueError) as exc:
+                log.exception("upload failed (decode)")
+                messages.error(request, str(exc))
+                return redirect(f"/panel/edit/{pk}/")
+            except Exception:
+                log.exception("upload failed (unexpected)")
+                messages.error(request, "Не удалось обработать изображение.")
+                return redirect(f"/panel/edit/{pk}/")
+
+        if url:
+            photo.full_url = url
+
+        if make_default:
             Photo.objects.filter(property=prop).update(is_default=False)
             photo.is_default = True
+
         photo.save()
-    except Exception:
-        messages.error(request, "Не удалось загрузить фото")
-        log.exception("upload failed")
-    return redirect_response
+        messages.success(request, "Фото добавлено.")
+    except Exception as exc:
+        log.exception("upload failed (save)")
+        messages.error(
+            request,
+            f"Не удалось загрузить фото (код: {exc.__class__.__name__})",
+        )
+    return redirect(f"/panel/edit/{pk}/")
 
 
 def panel_delete_photo(request, photo_id):
