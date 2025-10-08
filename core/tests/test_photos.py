@@ -23,7 +23,7 @@ class PhotoUploadTest(TestCase):
         url = reverse("panel_add_photo", kwargs={"pk": self.prop.id})
         resp = self.client.post(url, {"is_default": "on", "image": file})
         self.assertIn(resp.status_code, (302, 303))
-        ph = Photo.objects.filter(prop=self.prop).first()
+        ph = Photo.objects.filter(property=self.prop).first()
         self.assertTrue(ph and ph.image)
         from PIL import Image as PILImage
 
