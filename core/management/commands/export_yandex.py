@@ -34,7 +34,14 @@ class Command(BaseCommand):
             SubElement(offer, "description").text = p.description or p.title
 
             for ph in p.photos.all():
-                SubElement(offer, "image").text = f"{settings.SITE_BASE_URL}{ph.image.url}"
+                src = ph.src
+                if not src:
+                    continue
+                if src.startswith("http://") or src.startswith("https://"):
+                    url = src
+                else:
+                    url = f"{settings.SITE_BASE_URL}{src}"
+                SubElement(offer, "image").text = url
 
         out_dir = Path(settings.MEDIA_ROOT) / "feeds"
         out_dir.mkdir(parents=True, exist_ok=True)

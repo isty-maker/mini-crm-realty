@@ -1,4 +1,5 @@
 # core/models.py
+import builtins
 import random
 from io import BytesIO
 
@@ -286,47 +287,67 @@ class Property(models.Model):
         super().save(*args, **kwargs)
 
 class Photo(models.Model):
-    prop = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="photos")
-    image = models.ImageField(upload_to="photos/%Y/%m/%d", blank=True, null=True)
-    url = models.URLField(blank=True, null=True)
+    property = models.ForeignKey(
+        "Property", related_name="photos", on_delete=models.CASCADE
+    )
+    image = models.ImageField(
+        upload_to="photos/%Y/%m/%d", null=True, blank=True
+    )
+    full_url = models.URLField(null=True, blank=True)
     is_default = models.BooleanField(default=False)
+    sort = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-is_default", "id"]
+        ordering = ["-is_default", "sort", "id"]
 
     def __str__(self):
-        if self.url:
-            return self.url
         if self.image:
             return self.image.name
+        if self.full_url:
+            return self.full_url
         return f"Photo #{self.pk}" if self.pk else "Photo"
 
     def save(self, *args, **kwargs):
-        if self.image and not self.url:
+        if self.image:
             try:
                 if hasattr(self.image, "file"):
                     self.image.file.seek(0)
-                img = Image.open(self.image.file if hasattr(self.image, "file") else self.image)
+                img = Image.open(
+                    self.image.file if hasattr(self.image, "file") else self.image
+                )
                 img = img.convert("RGB")
                 w, h = img.size
                 max_side = 2560
                 if max(w, h) > max_side:
                     ratio = max_side / float(max(w, h))
-                    img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+                    img = img.resize(
+                        (int(w * ratio), int(h * ratio)), Image.LANCZOS
+                    )
                 buf = BytesIO()
-                img.save(buf, format="JPEG", quality=85, optimize=True, progressive=True)
+                img.save(
+                    buf,
+                    format="JPEG",
+                    quality=85,
+                    optimize=True,
+                    progressive=True,
+                )
                 buf.seek(0)
-                base = self.image.name.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+                base = (
+                    self.image.name.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+                    if self.image.name
+                    else "photo"
+                )
                 self.image.save(f"{base}.jpg", ContentFile(buf.read()), save=False)
             except (UnidentifiedImageError, OSError, ValueError):
                 pass
         super().save(*args, **kwargs)
 
-    @property
-    def image_url(self):
-        if self.image:
-            try:
+    @builtins.property
+    def src(self):
+        try:
+            if self.image:
                 return self.image.url
-            except ValueError:
-                return ""
-        return self.url or ""
+        except Exception:
+            pass
+        return self.full_url or ""

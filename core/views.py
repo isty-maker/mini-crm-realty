@@ -390,9 +390,9 @@ def panel_add_photo(request, pk):
     form = PhotoForm(request.POST, request.FILES)
     if form.is_valid():
         ph = form.save(commit=False)
-        ph.prop = prop
+        ph.property = prop
         if form.cleaned_data.get("is_default"):
-            Photo.objects.filter(prop=prop).update(is_default=False)
+            Photo.objects.filter(property=prop).update(is_default=False)
             ph.is_default = True
         ph.save()
     return HttpResponseRedirect(reverse("panel_edit", kwargs={"pk": pk}))
@@ -524,7 +524,7 @@ def export_cian(request):
             photos_el = SubElement(obj, "Photos")
             for p in photos_qs.all():
                 ph = SubElement(photos_el, "PhotoSchema")
-                _t(ph, "FullUrl", getattr(p, "image_url", "") or getattr(p, "url", ""), always=True)
+                _t(ph, "FullUrl", getattr(p, "src", ""), always=True)
                 if getattr(p, "is_default", False):
                     _t(ph, "IsDefault", True, always=True)
 

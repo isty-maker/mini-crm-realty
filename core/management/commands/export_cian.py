@@ -54,7 +54,14 @@ class Command(BaseCommand):
 
             pics = SubElement(o, "photos")
             for ph in p.photos.all():
-                add(pics, "photo", f"{settings.SITE_BASE_URL}{ph.image.url}")
+                src = ph.src
+                if not src:
+                    continue
+                if src.startswith("http://") or src.startswith("https://"):
+                    url = src
+                else:
+                    url = f"{settings.SITE_BASE_URL}{src}"
+                add(pics, "photo", url)
 
         out_dir = Path(settings.MEDIA_ROOT) / "feeds"
         out_dir.mkdir(parents=True, exist_ok=True)

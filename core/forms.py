@@ -311,16 +311,17 @@ class PhotoForm(forms.ModelForm):
 
     class Meta:
         model = Photo
-        fields = ["image", "url", "is_default"]
+        fields = ["image", "full_url", "is_default"]
 
     def clean(self):
         cleaned = super().clean()
         image = cleaned.get("image")
-        url = (cleaned.get("url") or "").strip()
-        if not image and not url:
+        full_url = (cleaned.get("full_url") or "").strip()
+        if not image and not full_url:
             raise forms.ValidationError(
                 "Необходимо загрузить файл или указать ссылку."
             )
+        cleaned["full_url"] = full_url
         return cleaned
 
 
