@@ -23,66 +23,107 @@ from django.http import (
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.encoding import smart_str
 
-from PIL import Image
+try:
+    from PIL import Image, ImageFile, UnidentifiedImageError
+except ImportError:  # pragma: no cover - support for trimmed Pillow stub
+    from PIL import Image  # type: ignore
+
+    class _StubImageFile:  # pragma: no cover - minimal stub
+        LOAD_TRUNCATED_IMAGES = False
+
+    ImageFile = _StubImageFile  # type: ignore
+
+    class UnidentifiedImageError(Exception):
+        pass
 
 from .cian import build_cian_category
 from .forms import PropertyForm
-from .models import Photo, Property, UnidentifiedImageError
+from .models import Photo, Property
 
 
-log = logging.getLogger("upload")
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-ALLOWED_CT = {"image/jpeg", "image/png", "image/webp"}
-MAX_SIDE = 2560
+JPEG_SIG = b"\xFF\xD8\xFF"
+PNG_SIG = b"\x89PNG\r\n\x1a\n"
+WEBP_SIG = b"RIFF"
+HEIC_MARKERS = (b"ftypheic", b"ftypheix", b"ftyphevc", b"ftypmif1", b"ftypmsf1")
 
 
-def _process_to_jpeg(uploaded_file):
-    if uploaded_file.content_type not in ALLOWED_CT:
-        if uploaded_file.content_type in {"image/heic", "image/heif"}:
-            raise ValueError(
-                "HEIC/HEIF пока не поддерживается — сохраните как JPG/PNG/WebP."
-            )
-        raise ValueError(
-            f"Неподдерживаемый формат: {uploaded_file.content_type or 'unknown'}"
-        )
+def _sniff(head: bytes) -> str:
+    if head.startswith(JPEG_SIG):
+        return "jpeg"
+    if head.startswith(PNG_SIG):
+        return "png"
+    if head.startswith(WEBP_SIG) and head[8:12] == b"WEBP":
+        return "webp"
+    if any(m in head[:64] for m in HEIC_MARKERS):
+        return "heic"
+    return "unknown"
+
+
+def _process_or_fallback(uploaded_file):
+    """
+    Возвращает ContentFile — либо сжатый JPEG, либо исходник «как есть»,
+    если Pillow не справился, но сигнатура допустимая.
+    Бросает ValueError для HEIC/HEIF и заведомо мусорных файлов.
+    """
 
     try:
-        image = Image.open(uploaded_file)
-    except (UnidentifiedImageError, OSError) as exc:
-        raise ValueError("Неподдерживаемый формат или повреждённое изображение.") from exc
+        pos = uploaded_file.tell()
+    except Exception:
+        pos = None
+    head = uploaded_file.read(64)
+    try:
+        if pos is not None:
+            uploaded_file.seek(pos)
+        else:
+            uploaded_file.seek(0)
+    except Exception:
+        pass
 
-    image = image.convert("RGB")
-    width, height = image.size
-    if max(width, height) > MAX_SIDE:
-        ratio = MAX_SIDE / float(max(width, height))
-        new_size = (int(width * ratio), int(height * ratio))
-        image = image.resize(new_size, Image.LANCZOS)
+    kind = _sniff(head)
+    name = uploaded_file.name or "photo"
+    name_l = name.lower()
+    ct_l = (getattr(uploaded_file, "content_type", "") or "").lower()
 
-    buffer = BytesIO()
-    image.save(
-        buffer,
-        format="JPEG",
-        quality=85,
-        optimize=True,
-        progressive=True,
-    )
-    if buffer.tell() > 15 * 1024 * 1024:
-        buffer = BytesIO()
-        image.save(
-            buffer,
-            format="JPEG",
-            quality=75,
-            optimize=True,
-            progressive=True,
-        )
-    buffer.seek(0)
+    if (
+        kind == "heic"
+        or name_l.endswith((".heic", ".heif"))
+        or ct_l in {"image/heic", "image/heif"}
+    ):
+        raise ValueError("HEIC/HEIF пока не поддерживается — сохраните как JPG/PNG/WebP.")
 
-    original_name = uploaded_file.name.rsplit("/", 1)[-1]
-    base = (original_name.rsplit(".", 1)[0] or "photo") if original_name else "photo"
-    return ContentFile(buffer.read(), name=f"{base}.jpg")
+    try:
+        uploaded_file.seek(0)
+    except Exception:
+        pass
 
-
-
+    try:
+        img = Image.open(uploaded_file)
+        img.load()
+        img = img.convert("RGB")
+        w, h = img.size
+        if max(w, h) > 2560:
+            r = 2560 / float(max(w, h))
+            img = img.resize((int(w * r), int(h * r)), Image.LANCZOS)
+        buf = BytesIO()
+        img.save(buf, format="JPEG", quality=85, optimize=True, progressive=True)
+        if buf.tell() > 15 * 1024 * 1024:
+            buf = BytesIO()
+            img.save(buf, format="JPEG", quality=75, optimize=True, progressive=True)
+        buf.seek(0)
+        base = name_l.rsplit("/", 1)[-1].rsplit(".", 1)[0] or "photo"
+        return ContentFile(buf.read(), name=f"{base}.jpg")
+    except (UnidentifiedImageError, OSError, ValueError):
+        if kind in {"jpeg", "png", "webp"}:
+            try:
+                uploaded_file.seek(0)
+            except Exception:
+                pass
+            raw = uploaded_file.read()
+            base = name.rsplit("/", 1)[-1] or "photo.bin"
+            return ContentFile(raw, name=base)
+        raise ValueError("Неподдерживаемый формат или повреждённое изображение.")
 def healthz(request):
     return HttpResponse("ok", content_type="text/plain")
 
@@ -469,44 +510,44 @@ def panel_add_photo(request, pk):
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
     os.makedirs(settings.MEDIA_ROOT / "logs", exist_ok=True)
 
-    file_obj = request.FILES.get("image")
+    log = logging.getLogger("upload")
+
+    file = request.FILES.get("image")
     url = (request.POST.get("full_url") or "").strip()
     make_default = bool(request.POST.get("is_default"))
 
-    if not file_obj and not url:
+    if not file and not url:
         messages.error(request, "Не выбрано ни файла, ни URL.")
         return redirect(f"/panel/edit/{pk}/")
 
+    ph = Photo(property=prop)
+
+    if file:
+        try:
+            processed = _process_or_fallback(file)
+            ph.image = processed
+        except ValueError as e:
+            log.warning("upload rejected: %s", e)
+            messages.error(request, str(e))
+            return redirect(f"/panel/edit/{pk}/")
+        except Exception:
+            log.exception("upload failed (unexpected)")
+            messages.error(request, "Не удалось загрузить фото (код: UnexpectedError)")
+            return redirect(f"/panel/edit/{pk}/")
+
+    if url:
+        ph.full_url = url
+
+    if make_default:
+        Photo.objects.filter(property=prop).update(is_default=False)
+        ph.is_default = True
+
     try:
-        photo = Photo(property=prop)
-        if file_obj:
-            try:
-                processed = _process_to_jpeg(file_obj)
-                photo.image = processed
-            except (UnidentifiedImageError, ValueError) as exc:
-                log.exception("upload failed (decode)")
-                messages.error(request, str(exc))
-                return redirect(f"/panel/edit/{pk}/")
-            except Exception:
-                log.exception("upload failed (unexpected)")
-                messages.error(request, "Не удалось обработать изображение.")
-                return redirect(f"/panel/edit/{pk}/")
-
-        if url:
-            photo.full_url = url
-
-        if make_default:
-            Photo.objects.filter(property=prop).update(is_default=False)
-            photo.is_default = True
-
-        photo.save()
+        ph.save()
         messages.success(request, "Фото добавлено.")
-    except Exception as exc:
+    except Exception:
         log.exception("upload failed (save)")
-        messages.error(
-            request,
-            f"Не удалось загрузить фото (код: {exc.__class__.__name__})",
-        )
+        messages.error(request, "Не удалось загрузить фото (код: SaveError)")
     return redirect(f"/panel/edit/{pk}/")
 
 
