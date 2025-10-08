@@ -312,33 +312,26 @@ class Photo(models.Model):
             pass
 
     def file_size_bytes(self):
-        try:
-            f = self.image
-            if not f:
-                return None
-            size = getattr(f, "size", None)
-            if size is None:
-                try:
-                    f.open("rb")
-                    size = f.size
-                finally:
-                    try:
-                        f.close()
-                    except Exception:
-                        pass
-            return int(size) if size is not None else None
-        except Exception:
+        f = self.image
+        if not f:
             return None
+        try:
+            return int(f.size)
+        except Exception:
+            try:
+                return int(f.storage.size(f.name))
+            except Exception:
+                return None
 
     def human_size(self):
         size = self.file_size_bytes()
         if not size:
             return "URL" if self.full_url and not self.image else ""
         units = ["Б", "КБ", "МБ", "ГБ"]
-        for unit in units:
-            if size < 1024 or unit == units[-1]:
-                return f"{size:.0f} Б" if unit == "Б" else f"{size:.1f} {unit}"
-            size = size / 1024
+        for u in units:
+            if size < 1024 or u == "ГБ":
+                return f"{size:.0f} Б" if u == "Б" else f"{size/1024:.1f} {u}"
+            size /= 1024
 
     @builtins.property
     def src(self):
