@@ -9,6 +9,15 @@ urlpatterns = [
     path("new/", views.panel_edit, name="panel_new"),      # «новый» = panel_edit без pk
     path("<int:pk>/", views.panel_edit, name="panel_edit"),
     path("<int:pk>/photo/add/", views.photo_add, name="photo_add"),
-    path("<int:pk>/photo/<int:photo_id>/delete/", views.photo_delete, name="photo_delete"),
+    path(
+        "panel/photo/<int:pk>/delete/",
+        views.panel_photo_delete,
+        name="panel_photo_delete",
+    ),
+    path(
+        "panel/<int:prop_id>/photos/reorder/",
+        views.panel_photos_reorder,
+        name="panel_photos_reorder",
+    ),
     path("feed/cian.xml", views.export_cian, name="export_cian"),
 ]

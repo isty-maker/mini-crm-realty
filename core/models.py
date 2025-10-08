@@ -285,7 +285,7 @@ class Photo(models.Model):
     )
     full_url = models.URLField(null=True, blank=True)
     is_default = models.BooleanField(default=False)
-    sort = models.PositiveIntegerField(default=0)
+    sort = models.PositiveIntegerField(default=0, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -300,6 +300,16 @@ class Photo(models.Model):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
+
+    def delete(self, using=None, keep_parents=False):
+        storage = getattr(self.image, "storage", None)
+        name = getattr(self.image, "name", None)
+        super().delete(using=using, keep_parents=keep_parents)
+        try:
+            if storage and name:
+                storage.delete(name)
+        except Exception:
+            pass
 
     @builtins.property
     def src(self):
