@@ -35,4 +35,4 @@ jobs:
         run: python manage.py makemigrations --check --dry-run --noinput
 
       - name: Tests
-        run: python manage.py test -q
+        run: python manage.py test -v 1
