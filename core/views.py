@@ -86,14 +86,31 @@ def _process_one_file(uploaded_file):
             uploaded_file.seek(0)
         except Exception:
             pass
+
+        # PRE-OPEN fallback: missing decoder in environment
+        _, ext = os.path.splitext(name_l)
+        ext = ext.lower()
+        if (
+            ext == ".webp"
+            and hasattr(globals().get("PIL_features", None), "check")
+            and not PIL_features.check("webp")
+        ):
+            log.warning(
+                "fallback_save_as_is (missing webp decoder) filename=%s", name_l
+            )
+            return ContentFile(orig, name=os.path.basename(uploaded_file.name))
+        if (
+            ext in {".jpg", ".jpeg"}
+            and hasattr(globals().get("PIL_features", None), "check")
+            and not PIL_features.check("jpg")
+        ):
+            log.warning(
+                "fallback_save_as_is (missing jpeg decoder) filename=%s", name_l
+            )
+            return ContentFile(orig, name=os.path.basename(uploaded_file.name))
+
         img = Image.open(uploaded_file)
         img.load()
-        # decoder sanity-checks (server may lack jpeg/webp decoders)
-        fmt = (getattr(img, "format", "") or "").upper()
-        if fmt == "JPEG" and hasattr(globals().get("PIL_features", None), "check") and not PIL_features.check("jpg"):
-            raise OSError("jpeg decoder missing")
-        if fmt == "WEBP" and hasattr(globals().get("PIL_features", None), "check") and not PIL_features.check("webp"):
-            raise OSError("webp decoder missing")
 
         img = img.convert("RGB")
         w, h = img.size
@@ -102,13 +119,9 @@ def _process_one_file(uploaded_file):
             img = img.resize((int(w * r), int(h * r)), Image.LANCZOS)
         base = name_l.rsplit("/", 1)[-1].rsplit(".", 1)[0] or "photo"
         return _encode_jpeg_to_target(img, base, orig)
-    except (UnidentifiedImageError, OSError, ValueError) as e:
-        # Fallback: if extension is typical and bytes exist — save as-is (no re-encode), don’t break UX
-        _, ext = os.path.splitext(name_l)
-        if ext in {".jpg", ".jpeg", ".png", ".webp"} and orig:
-            log.warning("fallback_save_as_is filename=%s reason=%s", name_l, e)
-            return ContentFile(orig, name=os.path.basename(uploaded_file.name))
-        # Otherwise show the existing user-facing validation error
+    except UnidentifiedImageError:
+        raise ValueError("Неподдерживаемый формат или повреждённое изображение.")
+    except (OSError, ValueError):
         raise ValueError("Неподдерживаемый формат или повреждённое изображение.")
 
 def healthz(request):
