@@ -777,7 +777,27 @@
       {% csrf_token %}
       <div class="form-row">
         <label>Файлы (можно выбрать несколько)</label>
-        <input type="file" name="images" multiple accept="image/*">
+        <input type="file" id="images-input" name="images" multiple accept="image/*">
+        <div id="images-preview" class="photos" style="margin-top:.5rem;"></div>
+        <script>
+          const input = document.getElementById('images-input');
+          const box   = document.getElementById('images-preview');
+          if (input && box) {
+            input.addEventListener('change', () => {
+              box.innerHTML = '';
+              Array.from(input.files || []).forEach(f => {
+                const url = URL.createObjectURL(f);
+                const img = document.createElement('img');
+                img.src = url;
+                img.style.width='100%'; img.style.height='140px';
+                img.style.objectFit='cover'; img.style.borderRadius='6px';
+                img.onload = () => URL.revokeObjectURL(url);
+                const wrap = document.createElement('div'); wrap.style.padding='.25rem 0';
+                wrap.appendChild(img); box.appendChild(wrap);
+              });
+            });
+          }
+        </script>
       </div>
       <div class="form-row row-2">
         <div><input type="url" name="full_url" placeholder="или URL изображения"></div>
