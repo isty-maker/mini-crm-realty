@@ -20,8 +20,8 @@ from django.http import (
     JsonResponse,
 )
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
 from django.utils.encoding import smart_str
+from django.views.decorators.http import require_POST
 
 try:
     from PIL import Image, ImageFile, UnidentifiedImageError
@@ -41,91 +41,61 @@ from .forms import PropertyForm
 from .models import Photo, Property
 
 
+log = logging.getLogger("upload")
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-log = logging.getLogger("upload")
 
-JPEG_SIG = b"\xFF\xD8\xFF"
-PNG_SIG = b"\x89PNG\r\n\x1a\n"
-WEBP_SIG = b"RIFF"
-
-
-def _sniff(head: bytes) -> str:
-    if head.startswith(JPEG_SIG):
-        return "jpeg"
-    if head.startswith(PNG_SIG):
-        return "png"
-    if head.startswith(WEBP_SIG) and head[8:12] == b"WEBP":
-        return "webp"
-    return "unknown"
-
-
-def _encode_jpeg_to_target(img, base_name: str, orig_bytes: bytes) -> ContentFile:
-    target = max(150 * 1024, (len(orig_bytes) // 5) if orig_bytes else 150 * 1024)
-    lo, hi = 65, 90
-    best_buf = None
+def _encode_jpeg_to_target(img, base_name, orig_bytes):
+    target = max(150 * 1024, len(orig_bytes) // 5)  # ≈×5, но не меньше ~150KB
+    lo, hi, best = 65, 90, None
     while lo <= hi:
         q = (lo + hi) // 2
         buf = BytesIO()
         img.save(buf, format="JPEG", quality=q, optimize=True, progressive=True)
-        size = buf.tell()
-        if size <= target:
-            best_buf = buf
-            lo = q + 1
+        if buf.tell() <= target:
+            best, lo = buf, q + 1
         else:
             hi = q - 1
-    if best_buf is None:
-        best_buf = BytesIO()
-        img.save(best_buf, format="JPEG", quality=75, optimize=True, progressive=True)
-    best_buf.seek(0)
-    safe_base = base_name or "photo"
-    return ContentFile(best_buf.read(), name=f"{safe_base}.jpg")
+    if best is None:
+        best = BytesIO()
+        img.save(best, format="JPEG", quality=75, optimize=True, progressive=True)
+    best.seek(0)
+    return ContentFile(best.read(), name=f"{base_name}.jpg")
 
 
-def _process_or_fallback(uploaded_file):
-    try:
-        pos = uploaded_file.tell()
-    except Exception:
-        pos = None
-
-    head = uploaded_file.read(64)
-    try:
-        if pos is not None:
-            uploaded_file.seek(pos)
-        else:
-            uploaded_file.seek(0)
-    except Exception:
-        pass
-
-    kind = _sniff(head)
+def _process_one_file(uploaded_file):
+    """
+    Для JPEG/PNG/WEBP: всегда раскодировать через Pillow и перекодировать в JPEG с целевым размером.
+    Для HEIC/HEIF — вернуть явную ошибка-строку (требуется тестами).
+    Для совсем мусора/битого — тоже явная ошибка-строку.
+    """
     name_l = (uploaded_file.name or "photo").lower()
-    content_type = (getattr(uploaded_file, "content_type", "") or "").lower()
-
-    if name_l.endswith((".heic", ".heif")) or content_type in {"image/heic", "image/heif"}:
+    ct_l = (getattr(uploaded_file, "content_type", "") or "").lower()
+    # HEIC/HEIF — сразу отказ с нужной формулировкой
+    if name_l.endswith((".heic", ".heif")) or ct_l in {"image/heic", "image/heif"}:
         raise ValueError("HEIC/HEIF пока не поддерживается — сохраните как JPG/PNG/WebP.")
-
+    # Pillow → JPEG
     try:
-        uploaded_file.seek(0)
+        try:
+            uploaded_file.seek(0)
+        except Exception:
+            pass
         orig = uploaded_file.read()
-        uploaded_file.seek(0)
+        try:
+            uploaded_file.seek(0)
+        except Exception:
+            pass
         img = Image.open(uploaded_file)
         img.load()
         img = img.convert("RGB")
         w, h = img.size
         if max(w, h) > 2560:
-            ratio = 2560 / float(max(w, h))
-            img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+            r = 2560 / float(max(w, h))
+            img = img.resize((int(w * r), int(h * r)), Image.LANCZOS)
         base = name_l.rsplit("/", 1)[-1].rsplit(".", 1)[0] or "photo"
         return _encode_jpeg_to_target(img, base, orig)
     except (UnidentifiedImageError, OSError, ValueError):
-        if kind in {"jpeg", "png", "webp"}:
-            try:
-                uploaded_file.seek(0)
-            except Exception:
-                pass
-            raw = uploaded_file.read()
-            base = name_l.rsplit("/", 1)[-1] or "photo.bin"
-            return ContentFile(raw, name=base)
+        # мусор или неподдержанный
         raise ValueError("Неподдерживаемый формат или повреждённое изображение.")
 
 def healthz(request):
@@ -522,10 +492,10 @@ def panel_add_photo(request, pk):
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
     os.makedirs(settings.MEDIA_ROOT / "logs", exist_ok=True)
 
-    files = request.FILES.getlist("images")
+    files = list(request.FILES.getlist("images") or [])
     single = request.FILES.get("image")
-    if single and not files:
-        files = [single]
+    if single:
+        files.append(single)
 
     url = (request.POST.get("full_url") or "").strip()
     make_default = bool(request.POST.get("is_default"))
@@ -541,13 +511,12 @@ def panel_add_photo(request, pk):
         or 0
     )
 
-    files = files or []
-    for uploaded in files:
+    for idx, uploaded in enumerate(files):
         try:
-            processed = _process_or_fallback(uploaded)
+            processed = _process_one_file(uploaded)
             ph = Photo(property=prop)
             ph.image = processed
-            if make_default and not default_set:
+            if make_default and not default_set and idx == 0:
                 Photo.objects.filter(property=prop).update(is_default=False)
                 ph.is_default = True
                 ph.sort = 0
@@ -585,7 +554,7 @@ def panel_add_photo(request, pk):
             messages.error(request, "Не удалось добавить фото по ссылке.")
 
     if created:
-        messages.success(request, f"Добавлено фото: {created} шт.")
+        messages.success(request, "Фото добавлено.")
     return redirect(f"/panel/edit/{pk}/")
 
 
