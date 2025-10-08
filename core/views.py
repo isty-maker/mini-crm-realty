@@ -24,7 +24,7 @@ from django.utils.encoding import smart_str
 from django.views.decorators.http import require_POST
 
 try:
-    from PIL import Image, ImageFile, UnidentifiedImageError
+    from PIL import Image, ImageFile, UnidentifiedImageError, features as PIL_features
 except ImportError:  # pragma: no cover - support for trimmed Pillow stub
     from PIL import Image  # type: ignore
 
@@ -75,6 +75,7 @@ def _process_one_file(uploaded_file):
     if name_l.endswith((".heic", ".heif")) or ct_l in {"image/heic", "image/heif"}:
         raise ValueError("HEIC/HEIF пока не поддерживается — сохраните как JPG/PNG/WebP.")
     # Pillow → JPEG
+    orig = b""
     try:
         try:
             uploaded_file.seek(0)
@@ -87,6 +88,13 @@ def _process_one_file(uploaded_file):
             pass
         img = Image.open(uploaded_file)
         img.load()
+        # decoder sanity-checks (server may lack jpeg/webp decoders)
+        fmt = (getattr(img, "format", "") or "").upper()
+        if fmt == "JPEG" and hasattr(globals().get("PIL_features", None), "check") and not PIL_features.check("jpg"):
+            raise OSError("jpeg decoder missing")
+        if fmt == "WEBP" and hasattr(globals().get("PIL_features", None), "check") and not PIL_features.check("webp"):
+            raise OSError("webp decoder missing")
+
         img = img.convert("RGB")
         w, h = img.size
         if max(w, h) > 2560:
@@ -94,8 +102,13 @@ def _process_one_file(uploaded_file):
             img = img.resize((int(w * r), int(h * r)), Image.LANCZOS)
         base = name_l.rsplit("/", 1)[-1].rsplit(".", 1)[0] or "photo"
         return _encode_jpeg_to_target(img, base, orig)
-    except (UnidentifiedImageError, OSError, ValueError):
-        # мусор или неподдержанный
+    except (UnidentifiedImageError, OSError, ValueError) as e:
+        # Fallback: if extension is typical and bytes exist — save as-is (no re-encode), don’t break UX
+        _, ext = os.path.splitext(name_l)
+        if ext in {".jpg", ".jpeg", ".png", ".webp"} and orig:
+            log.warning("fallback_save_as_is filename=%s reason=%s", name_l, e)
+            return ContentFile(orig, name=os.path.basename(uploaded_file.name))
+        # Otherwise show the existing user-facing validation error
         raise ValueError("Неподдерживаемый формат или повреждённое изображение.")
 
 def healthz(request):
