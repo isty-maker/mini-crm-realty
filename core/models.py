@@ -1,5 +1,6 @@
 # core/models.py
 import builtins
+import logging
 import os
 import random
 from io import BytesIO
@@ -15,6 +16,9 @@ except ImportError:  # pragma: no cover - compatibility with trimmed Pillow stub
 
     class UnidentifiedImageError(Exception):
         pass
+
+
+log = logging.getLogger("upload")
 
 
 def gen_external_id():
@@ -311,8 +315,8 @@ class Photo(models.Model):
 
     def save(self, *args, **kwargs):
         if self.image and getattr(self.image, "name", None):
+            file_obj = self.image.file if hasattr(self.image, "file") else self.image
             try:
-                file_obj = self.image.file if hasattr(self.image, "file") else self.image
                 if hasattr(file_obj, "seek"):
                     file_obj.seek(0)
                 img = Image.open(file_obj)
@@ -343,7 +347,24 @@ class Photo(models.Model):
                 base = os.path.splitext(os.path.basename(original_name))[0] or "photo"
                 self.image.save(f"{base}.jpg", ContentFile(data), save=False)
             except (UnidentifiedImageError, OSError, ValueError):
-                pass
+                try:
+                    if hasattr(file_obj, "seek"):
+                        file_obj.seek(0)
+                except Exception:  # pragma: no cover - defensive
+                    pass
+            except Exception:  # pragma: no cover - defensive
+                log.exception("unexpected error during image processing")
+                try:
+                    if hasattr(file_obj, "seek"):
+                        file_obj.seek(0)
+                except Exception:
+                    pass
+            else:
+                try:
+                    if hasattr(file_obj, "seek"):
+                        file_obj.seek(0)
+                except Exception:  # pragma: no cover - defensive
+                    pass
         super().save(*args, **kwargs)
 
     @builtins.property
