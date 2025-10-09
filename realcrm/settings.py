@@ -38,6 +38,7 @@ CSRF_TRUSTED_ORIGINS = _env_list("CSRF_TRUSTED_ORIGINS")
 
 # Абсолютные ссылки в фидах (на локалке так и оставь):
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "http://127.0.0.1:8000")
+FEED_PUBLIC_BASE_URL = os.getenv("FEED_PUBLIC_BASE_URL", "").rstrip("/")
 
 
 # Application definition

@@ -155,14 +155,14 @@ class PhotoManagementTest(TestCase):
 
         root = ET.fromstring(response.content)
         target = None
-        for obj in root.findall("Object"):
+        for obj in root.findall("object"):
             if obj.findtext("ExternalId") == prop.external_id:
                 target = obj
                 break
         self.assertIsNotNone(target)
         photos_el = target.find("Photos")
         self.assertIsNotNone(photos_el)
-        urls = [node.findtext("FullUrl") for node in photos_el.findall("PhotoSchema")]
+        urls = [node.findtext("FullUrl") for node in photos_el.findall("Photo")]
         self.assertEqual(urls, [p3.full_url, p2.full_url, p1.full_url])
 
 

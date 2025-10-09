@@ -27,4 +27,4 @@ class ExportTests(TestCase):
         )
         response = Client().get("/panel/export/cian/?key=kontinent")
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"<Feed", response.content)
+        self.assertIn(b"<feed", response.content)

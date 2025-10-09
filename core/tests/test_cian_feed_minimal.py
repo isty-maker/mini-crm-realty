@@ -30,8 +30,8 @@ class TestCianFeedMinimal(TestCase):
         self.assertEqual(resp.status_code, 200)
         xml = resp.content
         root = ET.fromstring(xml)
-        self.assertEqual(root.findtext("Feed_Version"), "2")
-        objs = root.findall("Object")
+        self.assertEqual(root.findtext("feed_version"), "2")
+        objs = root.findall("object")
         self.assertTrue(objs, "at least one object expected")
         obj = objs[0]
         self.assertEqual(obj.findtext("Category"), "flatSale")

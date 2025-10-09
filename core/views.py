@@ -6,7 +6,6 @@ import re
 from functools import lru_cache
 from typing import Optional
 from io import BytesIO
-from xml.etree.ElementTree import Element, SubElement, tostring
 
 from django.conf import settings
 from django.contrib import messages
@@ -21,7 +20,6 @@ from django.http import (
     JsonResponse,
 )
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils.encoding import smart_str
 from django.views.decorators.http import require_POST
 
 try:
@@ -37,7 +35,7 @@ except ImportError:  # pragma: no cover - support for trimmed Pillow stub
     class UnidentifiedImageError(Exception):
         pass
 
-from .cian import build_cian_category
+from .cian import build_cian_category, build_cian_feed_xml, _resolve_property_subtype
 from .forms import PropertyForm
 from .models import Photo, Property
 from .utils.image_pipeline import InvalidImage, compress_to_jpeg
@@ -685,275 +683,14 @@ def panel_photos_reorder(request, prop_id):
     messages.success(request, "Порядок фото сохранён.")
     return redirect(f"/panel/edit/{prop_id}/")
 
-# -------- Экспорт ЦИАН (Feed_Version=2) --------
-def _t(parent, tag, value, always=False):
-    if value in (None, "", False) and not always:
-        return None
-    el = SubElement(parent, tag)
-    if value is True:
-        el.text = "true"
-    elif value is False:
-        el.text = "false"
-    else:
-        el.text = smart_str(value)
-    return el
-
-
-def _dec(parent, tag, value):
-    if value is None:
-        return None
-    el = SubElement(parent, tag)
-    el.text = str(value).replace(",", ".")
-    return el
-
-
-def _digits_only(s):
-    if not s:
-        return ""
-    return "".join(ch for ch in str(s) if ch.isdigit())
-
-
-def _resolve_property_subtype(prop):
-    return (
-        getattr(prop, "subtype", None)
-        or getattr(prop, "house_type", None)
-        or getattr(prop, "commercial_type", None)
-        or getattr(prop, "land_type", None)
-    )
-
-
 def export_cian(request):
-    root = Element("Feed")
-    SubElement(root, "Feed_Version").text = "2"  # Спецификация ЦИАН, версия 2  (см. doc)  # noqa
-
     # В фид попадают только отмеченные для выгрузки
     qs = (
         Property.objects.filter(export_to_cian=True, is_archived=False)
         .order_by("id")
+        .prefetch_related("photos")
     )
-
-    for prop in qs:
-        subtype_value = _resolve_property_subtype(prop)
-        category_str = build_cian_category(prop.category, prop.operation, subtype_value)
-        if not category_str:
-            # пропускаем объект без валидной категории
-            continue
-
-        obj = SubElement(root, "Object")
-        _t(obj, "Category", category_str, always=True)  # например flatSale/houseRent ...
-        _t(obj, "ExternalId", getattr(prop, "external_id", "") or "", always=True)
-
-        # Базовые поля
-        _t(obj, "Description", getattr(prop, "description", ""))
-        _t(obj, "Address", getattr(prop, "address", ""))
-        lat = getattr(prop, "lat", None)
-        lng = getattr(prop, "lng", None)
-        if lat is not None and lng is not None:
-            coords = SubElement(obj, "Coordinates")
-            _dec(coords, "Lat", lat)
-            _dec(coords, "Lng", lng)
-        _t(obj, "CadastralNumber", getattr(prop, "cadastral_number", ""))
-
-        # Телефоны (Phones → PhoneSchema → CountryCode/Number)
-        phones_added = False
-        phones = SubElement(obj, "Phones")
-        phone_country = getattr(prop, "phone_country", None) or "7"
-        num1 = _digits_only(getattr(prop, "phone_number", ""))
-        num2 = _digits_only(getattr(prop, "phone_number2", ""))
-        if num1:
-            ph = SubElement(phones, "PhoneSchema")
-            _t(ph, "CountryCode", phone_country, always=True)
-            _t(ph, "Number", num1, always=True)
-            phones_added = True
-        if num2:
-            ph = SubElement(phones, "PhoneSchema")
-            _t(ph, "CountryCode", phone_country, always=True)
-            _t(ph, "Number", num2, always=True)
-            phones_added = True
-        if not phones_added:
-            obj.remove(phones)  # не шумим пустым контейнером
-
-        # Общие площади
-        total_area = getattr(prop, "total_area", None)
-        _dec(obj, "TotalArea", total_area)
-
-        # Квартиры/комнаты (добавляем при наличии значений)
-        _t(obj, "FlatRoomsCount", getattr(prop, "flat_rooms_count", None))
-        _t(obj, "Rooms", getattr(prop, "rooms", None))
-        _dec(obj, "LivingArea", getattr(prop, "living_area", None))
-        _dec(obj, "KitchenArea", getattr(prop, "kitchen_area", None))
-        _t(obj, "FloorNumber", getattr(prop, "floor_number", None))
-        _t(obj, "WindowsViewType", getattr(prop, "windows_view_type", None))
-        _t(obj, "SeparateWcsCount", getattr(prop, "separate_wcs_count", None))
-        _t(obj, "CombinedWcsCount", getattr(prop, "combined_wcs_count", None))
-        _t(obj, "RepairType", getattr(prop, "repair_type", None))
-        _t(obj, "IsEuroFlat", bool(getattr(prop, "is_euro_flat", False)) or None)
-        _t(obj, "IsApartments", bool(getattr(prop, "is_apartments", False)) or None)
-        _t(obj, "IsPenthouse", bool(getattr(prop, "is_penthouse", False)) or None)
-
-        # ЖК/корпус (опционально)
-        jk_related_values = {
-            "jk_id": getattr(prop, "jk_id", None),
-            "jk_name": getattr(prop, "jk_name", None),
-            "house_id": getattr(prop, "house_id", None),
-            "house_name": getattr(prop, "house_name", None),
-            "flat_number": getattr(prop, "flat_number", None),
-            "section_number": getattr(prop, "section_number", None),
-        }
-        if any(jk_related_values.values()):
-            jk = SubElement(obj, "JK")
-            _t(jk, "Id", jk_related_values["jk_id"])
-            _t(jk, "Name", jk_related_values["jk_name"])
-            house_id = jk_related_values["house_id"]
-            house_name = jk_related_values["house_name"]
-            if house_id or house_name:
-                house = SubElement(obj, "House")
-                _t(house, "Id", house_id)
-                _t(house, "Name", house_name)
-            _t(obj, "FlatNumber", jk_related_values["flat_number"])
-            _t(obj, "SectionNumber", jk_related_values["section_number"])
-
-        # Загородное — домовские поля
-        if getattr(prop, "category", "") == "house":
-            # Отметка дачи — если подтип dacha
-            if getattr(prop, "house_type", "") == "dacha":
-                _t(obj, "IsDacha", True, always=True)
-
-            land_area = getattr(prop, "land_area", None)
-            land_area_unit = getattr(prop, "land_area_unit", "")
-            permitted_land_use = getattr(prop, "permitted_land_use", "")
-            is_land_with_contract = getattr(prop, "is_land_with_contract", None)
-            land_category = getattr(prop, "land_category", "")
-            if any([land_area, land_area_unit, permitted_land_use, is_land_with_contract]):
-                land = SubElement(obj, "Land")
-                _dec(land, "Area", land_area)
-                _t(land, "AreaUnitType", land_area_unit)
-                _t(land, "PermittedLandUseType", permitted_land_use)
-                if is_land_with_contract is not None:
-                    _t(land, "IsLandWithContract", bool(is_land_with_contract), always=True)
-            _t(obj, "LandCategory", land_category)
-            _t(obj, "HeatingType", getattr(prop, "heating_type", ""))
-
-        # Фото
-        photos_qs = getattr(prop, "photos", None)
-        if photos_qs and photos_qs.exists():
-            photos_el = SubElement(obj, "Photos")
-            ordered_photos = photos_qs.order_by("-is_default", "sort", "id")
-            for p in ordered_photos:
-                ph = SubElement(photos_el, "PhotoSchema")
-                _t(ph, "FullUrl", getattr(p, "src", ""), always=True)
-                if getattr(p, "is_default", False):
-                    _t(ph, "IsDefault", True, always=True)
-
-        # Условия сделки (BargainTerms)
-        bt = None
-        price = getattr(prop, "price", None)
-        if (
-            price is not None
-            or getattr(prop, "mortgage_allowed", None) is not None
-            or getattr(prop, "agent_bonus_value", None) is not None
-            or getattr(prop, "security_deposit", None) is not None
-            or getattr(prop, "min_rent_term_months", None) is not None
-        ):
-            bt = SubElement(obj, "BargainTerms")
-            _dec(bt, "Price", price)
-            _t(bt, "Currency", getattr(prop, "currency", None) or "rur")
-            if getattr(prop, "mortgage_allowed", None) is not None:
-                _t(bt, "MortgageAllowed", bool(getattr(prop, "mortgage_allowed")), always=True)
-            # AgentBonus
-            abv = getattr(prop, "agent_bonus_value", None)
-            if abv is not None:
-                ab = SubElement(bt, "AgentBonus")
-                _dec(ab, "Value", abv)
-                is_percent = bool(getattr(prop, "agent_bonus_is_percent", False))
-                _t(ab, "PaymentType", "percent" if is_percent else "fixed", always=True)
-                if not is_percent:
-                    _t(ab, "Currency", getattr(prop, "currency", None) or "rur")
-            # Аренда:
-            if getattr(prop, "security_deposit", None) is not None:
-                _dec(bt, "SecurityDeposit", getattr(prop, "security_deposit"))
-            if getattr(prop, "min_rent_term_months", None) is not None:
-                _t(bt, "MinRentTerm", getattr(prop, "min_rent_term_months"))
-
-        if getattr(prop, "sale_type", "") == "alternative":
-            if bt is None:
-                bt = SubElement(obj, "BargainTerms")
-            _t(bt, "IsAlternative", True, always=True)
-
-        # === ADDED: optional CIAN fields when present ===
-        # комнаты/планировка
-        _t(obj, "LoggiasCount", getattr(prop, "loggias_count", None))
-        _t(obj, "BalconiesCount", getattr(prop, "balconies_count", None))
-        _t(obj, "RoomType", getattr(prop, "room_type", None))  # separate/combined/both
-        _t(obj, "IsEuroFlat", True if getattr(prop, "is_euro_flat", False) else None)
-        _t(obj, "IsApartments", True if getattr(prop, "is_apartments", False) else None)
-        _t(obj, "IsPenthouse", True if getattr(prop, "is_penthouse", False) else None)
-
-        # планировка отдельным блоком
-        if getattr(prop, "layout_photo_url", None):
-            lp = SubElement(obj, "LayoutPhoto")
-            _t(lp, "FullUrl", getattr(prop, "layout_photo_url", None))
-
-        # дом/здание
-        _t(obj, "FloorsCount", getattr(prop, "building_floors", None))
-        _t(obj, "BuildYear", getattr(prop, "building_build_year", None))
-        if getattr(prop, "building_material", None):
-            _t(obj, "MaterialType", getattr(prop, "building_material", None))
-        _t(
-            obj,
-            "CeilingHeight",
-            getattr(prop, "building_ceiling_height", None)
-            or getattr(prop, "ceiling_height", None),
-        )
-        _t(obj, "PassengerLiftsCount", getattr(prop, "building_passenger_lifts", None))
-        _t(obj, "CargoLiftsCount", getattr(prop, "building_cargo_lifts", None))
-
-        # окна/санузлы/ремонт (если вдруг отсутствуют)
-        _t(obj, "WindowsViewType", getattr(prop, "windows_view_type", None))
-        _t(obj, "SeparateWcsCount", getattr(prop, "separate_wcs_count", None))
-        _t(obj, "CombinedWcsCount", getattr(prop, "combined_wcs_count", None))
-        _t(obj, "RepairType", getattr(prop, "repair_type", None))
-
-        # участок (если есть число)
-        if getattr(prop, "land_area", None):
-            land = SubElement(obj, "Land")
-            _t(land, "Area", getattr(prop, "land_area", None))
-            # AreaUnitType уже обрабатывается выше (если у вас есть), иначе пропустить
-
-        # отопление
-        _t(obj, "HeatingType", getattr(prop, "heating_type", None))
-
-        # коммерция
-        _t(obj, "Power", getattr(prop, "power", None))  # кВт
-        _t(obj, "ParkingPlacesCount", getattr(prop, "parking_places", None))
-        if getattr(prop, "has_parking", False):
-            _t(obj, "HasParking", True)
-
-        # удобства — булевы флаги → CamelCase теги со значением True
-        for name in [
-            "has_internet",
-            "has_furniture",
-            "has_kitchen_furniture",
-            "has_tv",
-            "has_washer",
-            "has_conditioner",
-            "has_refrigerator",
-            "has_dishwasher",
-            "has_shower",
-            "has_phone",
-            "has_ramp",
-            "has_bathtub",
-        ]:
-            if getattr(prop, name, None):
-                _t(obj, "".join([p.capitalize() for p in name.split("_")]), True)
-
-        # сдача по частям (коммерция)
-        if getattr(prop, "is_rent_by_parts", False):
-            _t(obj, "IsRentByParts", True)
-            _t(obj, "RentByPartsDescription", getattr(prop, "rent_by_parts_desc", None))
-        # === END ADDED ===
-
-    xml_bytes = tostring(root, encoding="utf-8", xml_declaration=True)
+    xml_bytes = build_cian_feed_xml(qs, request=request)
     feeds_dir = os.path.join(settings.MEDIA_ROOT, "feeds")
     os.makedirs(feeds_dir, exist_ok=True)
     out_path = os.path.join(feeds_dir, "cian.xml")
