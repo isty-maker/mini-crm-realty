@@ -33,14 +33,14 @@ def build_cian_category(category: Optional[str], operation: Optional[str], subty
             "retail": "retailSale",
             "warehouse": "warehouseSale",
             "production": "productionSale",
-            "free_use": "freeUseSale",
+            "free_purpose": "freeUseSale",
         }
         rent_map = {
             "office": "officeRent",
             "retail": "retailRent",
             "warehouse": "warehouseRent",
             "production": "productionRent",
-            "free_use": "freeUseRent",
+            "free_purpose": "freeUseRent",
         }
         if _is_rent(op):
             return rent_map.get(sub, "commercialRent")

@@ -6,52 +6,54 @@
   <h1>Проверка перед экспортом в ЦИАН</h1>
 
   <div style="margin:1rem 0; display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
-    <a role="button" class="secondary" href="/panel/export/cian/check">Обновить</a>
-    <a role="button" href="/panel/export/cian">Сгенерировать фид</a>
+    <a role="button" class="secondary" href="{% url 'export_cian_check' %}">Обновить</a>
+    <a role="button" href="{% url 'export_cian' %}">Сгенерировать фид</a>
     <span class="muted">Файл сохраняется в <code>media/feeds/cian.xml</code></span>
   </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>External ID</th>
-        <th>Заголовок</th>
-        <th>Категория</th>
-        <th>Проблемы</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for item in items %}
-      <tr>
-        <td>{{ item.prop.pk }}</td>
-        <td>{{ item.prop.external_id|default:"—" }}</td>
-        <td>
-          <div>
-            <a href="/panel/edit/{{ item.prop.pk }}/">{{ item.prop.title|default:"(без названия)" }}</a>
-          </div>
-          <div class="muted">
-            {{ item.prop.category|default:"—" }} / {{ item.prop.operation|default:"—" }}
-          </div>
-        </td>
-        <td>{{ item.category|default:"—" }}</td>
-        <td>
-          {% if item.missing %}
-            <ul style="margin:0; padding-left:1.2rem;">
-            {% for field in item.missing %}
-              <li>{{ field }}</li>
-            {% endfor %}
-            </ul>
-          {% else %}
-            <span class="muted">Готов к экспорту</span>
-          {% endif %}
-        </td>
-      </tr>
-    {% empty %}
-      <tr>
-        <td colspan="5">Нет объектов, отмеченных для экспорта.</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  {% if items %}
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>External ID</th>
+          <th>Заголовок</th>
+          <th>Категория</th>
+          <th>CIAN Category</th>
+          <th>Проблемы</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in items %}
+        <tr>
+          <td>{{ item.prop.pk }}</td>
+          <td>{{ item.prop.external_id|default:"—" }}</td>
+          <td>
+            <div>
+              <a href="/panel/edit/{{ item.prop.pk }}/">{{ item.prop.title|default:"(без названия)" }}</a>
+            </div>
+            <div class="muted">
+              {{ item.prop.address|default:"(адрес не заполнен)" }}
+            </div>
+          </td>
+          <td>{{ item.prop.category|default:"—" }}/{{ item.prop.operation|default:"—" }}</td>
+          <td>{{ item.category|default:"—" }}</td>
+          <td>
+            {% if item.missing %}
+              <ul style="margin:0; padding-left:1.2rem;">
+              {% for field in item.missing %}
+                <li>{{ field }}</li>
+              {% endfor %}
+              </ul>
+            {% else %}
+              <span class="muted">Готов к экспорту</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>Нет объектов, отмеченных для экспорта.</p>
+  {% endif %}
 {% endblock %}

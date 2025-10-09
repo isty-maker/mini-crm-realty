@@ -777,6 +777,42 @@ def export_cian(request):
         total_area = getattr(prop, "total_area", None)
         _dec(obj, "TotalArea", total_area)
 
+        # Квартиры/комнаты (добавляем при наличии значений)
+        _t(obj, "FlatRoomsCount", getattr(prop, "flat_rooms_count", None))
+        _t(obj, "Rooms", getattr(prop, "rooms", None))
+        _dec(obj, "LivingArea", getattr(prop, "living_area", None))
+        _dec(obj, "KitchenArea", getattr(prop, "kitchen_area", None))
+        _t(obj, "FloorNumber", getattr(prop, "floor_number", None))
+        _t(obj, "WindowsViewType", getattr(prop, "windows_view_type", None))
+        _t(obj, "SeparateWcsCount", getattr(prop, "separate_wcs_count", None))
+        _t(obj, "CombinedWcsCount", getattr(prop, "combined_wcs_count", None))
+        _t(obj, "RepairType", getattr(prop, "repair_type", None))
+        _t(obj, "IsEuroFlat", bool(getattr(prop, "is_euro_flat", False)) or None)
+        _t(obj, "IsApartments", bool(getattr(prop, "is_apartments", False)) or None)
+        _t(obj, "IsPenthouse", bool(getattr(prop, "is_penthouse", False)) or None)
+
+        # ЖК/корпус (опционально)
+        jk_related_values = {
+            "jk_id": getattr(prop, "jk_id", None),
+            "jk_name": getattr(prop, "jk_name", None),
+            "house_id": getattr(prop, "house_id", None),
+            "house_name": getattr(prop, "house_name", None),
+            "flat_number": getattr(prop, "flat_number", None),
+            "section_number": getattr(prop, "section_number", None),
+        }
+        if any(jk_related_values.values()):
+            jk = SubElement(obj, "JK")
+            _t(jk, "Id", jk_related_values["jk_id"])
+            _t(jk, "Name", jk_related_values["jk_name"])
+            house_id = jk_related_values["house_id"]
+            house_name = jk_related_values["house_name"]
+            if house_id or house_name:
+                house = SubElement(obj, "House")
+                _t(house, "Id", house_id)
+                _t(house, "Name", house_name)
+            _t(obj, "FlatNumber", jk_related_values["flat_number"])
+            _t(obj, "SectionNumber", jk_related_values["section_number"])
+
         # Загородное — домовские поля
         if getattr(prop, "category", "") == "house":
             # Отметка дачи — если подтип dacha
@@ -885,6 +921,22 @@ def export_cian_check(request):
             land_area = getattr(prop, "land_area", None)
             if land_area in (None, "", 0):
                 missing.append("LandArea")
+
+        # Новые проверки
+        # хотя бы один телефон
+        num1 = (getattr(prop, "phone_number", "") or "").strip()
+        num2 = (getattr(prop, "phone_number2", "") or "").strip()
+        if not (num1 or num2):
+            missing.append("Phone (at least one)")
+        # хотя бы одно фото
+        photos_qs = getattr(prop, "photos", None)
+        if not (photos_qs and photos_qs.exists()):
+            missing.append("Photo (at least one)")
+        # цена обязательна для продажи
+        if (getattr(prop, "operation", "") or "").strip() == "sale":
+            price = getattr(prop, "price", None)
+            if price in (None, "", 0):
+                missing.append("Price")
 
         items.append(
             {
