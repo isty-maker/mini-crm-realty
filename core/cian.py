@@ -295,13 +295,11 @@ class PhotoPayload:
 
 
 def _resolve_photo_url(photo, request=None) -> str:
-    full_url = smart_str(getattr(photo, "full_url", "")).strip()
-    if full_url:
-        if _is_http_url(full_url):
+    full_url_raw = getattr(photo, "full_url", None)
+    if full_url_raw not in (None, ""):
+        full_url = smart_str(full_url_raw).strip()
+        if full_url:
             return full_url
-        absolute = build_absolute_url(full_url, request=request)
-        if absolute and _is_http_url(absolute):
-            return absolute
 
     image = getattr(photo, "image", None)
     image_url = ""
@@ -328,8 +326,24 @@ def _collect_photos(prop, request=None) -> Sequence[PhotoPayload]:
     photos_qs = getattr(prop, "photos", None)
     if not photos_qs:
         return []
+
+    queryset = photos_qs.all()
+
+    ordering = []
+    meta_ordering = getattr(getattr(queryset, "model", None), "_meta", None)
+    if meta_ordering is not None and getattr(meta_ordering, "ordering", None):
+        ordering = list(meta_ordering.ordering)
+
+    if not ordering and hasattr(queryset.model, "sort"):
+        ordering = ["-is_default", "sort", "id"]
+
+    if not ordering:
+        ordering = ["-is_default", "-id"]
+
+    queryset = queryset.order_by(*ordering)
+
     result = []
-    for photo in photos_qs.all():
+    for photo in queryset:
         absolute = _resolve_photo_url(photo, request=request)
         if not absolute:
             continue
@@ -429,15 +443,22 @@ class CianFeedBuilder:
         photos_el = SubElement(obj, "Photos")
         default_used = False
         for idx, payload in enumerate(photos):
-            photo_el = SubElement(photos_el, "PhotoSchema")
-            SubElement(photo_el, "FullUrl").text = payload.url
+            if not payload.url:
+                continue
+
             mark_default = False
             if not default_used and payload.is_default:
                 mark_default = True
             elif not default_used and idx == 0:
                 mark_default = True
+
+            for tag in ("Photo", "PhotoSchema"):
+                photo_el = SubElement(photos_el, tag)
+                SubElement(photo_el, "FullUrl").text = payload.url
+                if mark_default:
+                    SubElement(photo_el, "IsDefault").text = "true"
+
             if mark_default:
-                SubElement(photo_el, "IsDefault").text = "true"
                 default_used = True
 
     def _append_areas(self, obj: Element, prop) -> None:
