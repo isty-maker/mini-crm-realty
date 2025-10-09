@@ -161,7 +161,7 @@
       </div>
     </section>
 
-    <section class="group">
+    <section class="group" data-category="flat room commercial garage">
       <h3>Здание</h3>
       <div class="form-row">
         {{ form.building_name.label_tag }}
@@ -198,14 +198,7 @@
     </section>
 
     <div class="group category-section category-section--house" data-section="house" data-category="house">
-      <h3>Параметры дома</h3>
-      {% if form.fields.house_type %}
-      <div class="form-row">
-        <label for="{{ form.house_type.id_for_label }}">{{ form.house_type.label }}</label>
-        {{ form.house_type }}
-        {% if form.house_type.errors %}<div class="field-error">{{ form.house_type.errors|join:", " }}</div>{% endif %}
-      </div>
-      {% endif %}
+      <h3>О доме</h3>
       {% with field=form.total_area %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
@@ -213,50 +206,67 @@
         {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
-      {% with field=form.living_area %}
+      {% with field=form.bedrooms_count %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
         {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
-      {% with field=form.kitchen_area %}
+      {% with field=form.building_floors %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
         {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
-      {% with field=form.land_area %}
+      {% with field=form.building_build_year %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
         {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
-      {% with field=form.land_area_unit %}
+      {% with field=form.building_material %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
         {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
-      {% with field=form.permitted_land_use %}
+      {% with field=form.house_condition %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
         {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
-      {% with field=form.is_land_with_contract %}
+    </div>
+
+    <div class="group category-section category-section--house" data-section="house" data-category="house">
+      <h3>Коммуникации и удобства</h3>
+      {% with field=form.wc_location %}
       <div class="form-row">
-        <label>
-          {{ field }} {{ field.label }}
-        </label>
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
         {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
-      {% with field=form.land_category %}
+      {% with field=form.sewerage_type %}
+      <div class="form-row">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% include "core/includes/field_errors.html" %}
+      </div>
+      {% endwith %}
+      {% with field=form.water_supply_type %}
+      <div class="form-row">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% include "core/includes/field_errors.html" %}
+      </div>
+      {% endwith %}
+      {% with field=form.gas_supply_type %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
@@ -270,73 +280,41 @@
         {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
-      {% with field=form.has_terrace %}
+      {% with field=form.has_electricity %}
       <div class="form-row">
         <label>{{ field }} {{ field.label }}</label>
         {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
-      {% with field=form.has_cellar %}
-      <div class="form-row">
-        <label>{{ field }} {{ field.label }}</label>
-        {% include "core/includes/field_errors.html" %}
+      <div class="form-row form-row--checkboxes">
+        <div class="checkboxes-title">Дополнительно</div>
+        <div class="checkboxes">
+          {% with field=form.has_garage %}
+          <label>{{ field }} {{ field.label }}</label>
+          {% include "core/includes/field_errors.html" %}
+          {% endwith %}
+          {% with field=form.has_terrace %}
+          <label>{{ field }} {{ field.label }}</label>
+          {% include "core/includes/field_errors.html" %}
+          {% endwith %}
+          {% with field=form.has_cellar %}
+          <label>{{ field }} {{ field.label }}</label>
+          {% include "core/includes/field_errors.html" %}
+          {% endwith %}
+          {% with field=form.has_pool %}
+          <label>{{ field }} {{ field.label }}</label>
+          {% include "core/includes/field_errors.html" %}
+          {% endwith %}
+          {% with field=form.has_bathhouse %}
+          <label>{{ field }} {{ field.label }}</label>
+          {% include "core/includes/field_errors.html" %}
+          {% endwith %}
+          {% with field=form.has_security %}
+          <label>{{ field }} {{ field.label }}</label>
+          {% include "core/includes/field_errors.html" %}
+          {% endwith %}
+        </div>
       </div>
-      {% endwith %}
-      {% with field=form.rooms %}
-      <div class="form-row">
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% include "core/includes/field_errors.html" %}
-      </div>
-      {% endwith %}
-      {% with field=form.repair_type %}
-      <div class="form-row">
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% include "core/includes/field_errors.html" %}
-      </div>
-      {% endwith %}
-      {% with field=form.separate_wcs_count %}
-      <div class="form-row">
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% include "core/includes/field_errors.html" %}
-      </div>
-      {% endwith %}
-      {% with field=form.combined_wcs_count %}
-      <div class="form-row">
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% include "core/includes/field_errors.html" %}
-      </div>
-      {% endwith %}
-      {% with field=form.ceiling_height %}
-      <div class="form-row">
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% include "core/includes/field_errors.html" %}
-      </div>
-      {% endwith %}
-      {% with field=form.power %}
-      <div class="form-row">
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% include "core/includes/field_errors.html" %}
-      </div>
-      {% endwith %}
-      {% with field=form.has_parking %}
-      <div class="form-row">
-        <label>{{ field }} {{ field.label }}</label>
-        {% include "core/includes/field_errors.html" %}
-      </div>
-      {% endwith %}
-      {% with field=form.parking_places %}
-      <div class="form-row">
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% include "core/includes/field_errors.html" %}
-      </div>
-      {% endwith %}
     </div>
 
     <div class="group category-section category-section--flat" data-section="flat" data-category="flat">

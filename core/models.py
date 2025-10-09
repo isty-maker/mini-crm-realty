@@ -80,6 +80,31 @@ HEATING_TYPE_CHOICES = [
     ("electric", "Электро"),
     ("solid", "Твёрдое топливо"),
 ]
+WC_LOCATION_CHOICES = [("outside", "На улице"), ("inside", "В доме")]
+SEWERAGE_TYPE_CHOICES = [
+    ("central", "Центральная"),
+    ("septic", "Септик"),
+    ("cesspool", "Выгребная яма"),
+    ("none", "Нет"),
+]
+WATER_SUPPLY_TYPE_CHOICES = [
+    ("central", "Центральное"),
+    ("borehole", "Скважина"),
+    ("well", "Колодец"),
+    ("none", "Нет"),
+]
+GAS_SUPPLY_TYPE_CHOICES = [
+    ("main_on_plot", "Магистральный в доме или на участке"),
+    ("border", "По границе участка"),
+    ("gasholder", "Газгольдер"),
+    ("none", "Нет"),
+]
+HOUSE_CONDITION_CHOICES = [
+    ("ready", "Можно жить"),
+    ("needs_repair", "Нужен ремонт"),
+    ("need_finish", "Нужно достроить"),
+    ("needs_capital_or_demolition", "Нужен капремонт или под снос"),
+]
 LAND_AREA_UNIT_CHOICES = [("sotka", "Сотка"), ("sqm", "м²")]
 PERMITTED_LAND_USE_CHOICES = [
     ("individualHousingConstruction","ИЖС"),("privateFarm","ЛПХ"),
@@ -201,6 +226,14 @@ class Property(models.Model):
 
     # Загород / участок
     house_type = models.CharField(max_length=20, choices=HOUSE_TYPE_CHOICES, null=True, blank=True, verbose_name="Подтип дома")
+    bedrooms_count = models.PositiveSmallIntegerField("Количество спален", null=True, blank=True)
+    wc_location = models.CharField("Санузел", max_length=12, choices=WC_LOCATION_CHOICES, blank=True)
+    sewerage_type = models.CharField("Канализация", max_length=12, choices=SEWERAGE_TYPE_CHOICES, blank=True)
+    water_supply_type = models.CharField("Водоснабжение", max_length=12, choices=WATER_SUPPLY_TYPE_CHOICES, blank=True)
+    gas_supply_type = models.CharField("Газ", max_length=16, choices=GAS_SUPPLY_TYPE_CHOICES, blank=True)
+    has_electricity = models.BooleanField("Электричество", default=False)
+    house_condition = models.CharField("Состояние дома", max_length=32, choices=HOUSE_CONDITION_CHOICES, blank=True)
+    has_garage = models.BooleanField("Гараж", default=False)
     heating_type = models.CharField("Отопление", max_length=20, choices=HEATING_TYPE_CHOICES, blank=True)
     land_area = models.DecimalField("Площадь участка", max_digits=8, decimal_places=2, null=True, blank=True)
     land_area_unit = models.CharField("Единица участка", max_length=10, choices=LAND_AREA_UNIT_CHOICES, blank=True)
@@ -210,6 +243,9 @@ class Property(models.Model):
     land_type = models.CharField(max_length=20, choices=LAND_SUBTYPE_CHOICES, null=True, blank=True, verbose_name="Подтип земельного участка")
     has_terrace = models.BooleanField("Есть терраса", default=False)
     has_cellar = models.BooleanField("Есть погреб", default=False)
+    has_pool = models.BooleanField("Бассейн", default=False)
+    has_bathhouse = models.BooleanField("Баня", default=False)
+    has_security = models.BooleanField("Охрана", default=False)
 
     # Коммерция / дом (частые)
     commercial_type = models.CharField(max_length=20, choices=COMMERCIAL_SUBTYPE_CHOICES, null=True, blank=True, verbose_name="Подтип коммерции")

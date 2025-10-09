@@ -89,12 +89,23 @@ class PropertyForm(forms.ModelForm):
         "house_name",
         "flat_number",
         "section_number",
-        "land_area",
+        "land_area", 
         "land_area_unit",
+        "bedrooms_count",
+        "wc_location",
+        "sewerage_type",
+        "water_supply_type",
+        "gas_supply_type",
+        "has_electricity",
+        "house_condition",
+        "has_garage",
         "heating_type",
         "power",
         "parking_places",
         "has_parking",
+        "has_pool",
+        "has_bathhouse",
+        "has_security",
         "has_internet",
         "has_furniture",
         "has_kitchen_furniture",
@@ -282,12 +293,6 @@ class PropertyForm(forms.ModelForm):
 
         def need(field_name):
             return field_name in self.fields
-
-        if category == "house" and need("house_type") and not cleaned_data.get("house_type"):
-            self.add_error(
-                "house_type",
-                "Выберите подтип дома (дом/дача/коттедж/таунхаус/доля).",
-            )
 
         if category == "commercial" and need("commercial_type") and not cleaned_data.get("commercial_type"):
             self.add_error(
