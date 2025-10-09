@@ -363,7 +363,7 @@
       {% endwith %}
       {% with field=form.room_type %}
       <div class="form-row">
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        <label for="{{ field.id_for_label }}">Планировка</label>
         {{ field }}
         {% include "core/includes/field_errors.html" %}
       </div>
@@ -415,6 +415,13 @@
         {% endwith %}
       </div>
       {% with field=form.repair_type %}
+      <div class="form-row">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% include "core/includes/field_errors.html" %}
+      </div>
+      {% endwith %}
+      {% with field=form.sale_type %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}

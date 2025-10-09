@@ -846,6 +846,7 @@ def export_cian(request):
                     _t(ph, "IsDefault", True, always=True)
 
         # Условия сделки (BargainTerms)
+        bt = None
         price = getattr(prop, "price", None)
         if (
             price is not None
@@ -873,6 +874,11 @@ def export_cian(request):
                 _dec(bt, "SecurityDeposit", getattr(prop, "security_deposit"))
             if getattr(prop, "min_rent_term_months", None) is not None:
                 _t(bt, "MinRentTerm", getattr(prop, "min_rent_term_months"))
+
+        if getattr(prop, "sale_type", "") == "alternative":
+            if bt is None:
+                bt = SubElement(obj, "BargainTerms")
+            _t(bt, "IsAlternative", True, always=True)
 
         # === ADDED: optional CIAN fields when present ===
         # комнаты/планировка
