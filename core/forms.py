@@ -65,9 +65,84 @@ def _build_choices(model_attr_name, fallback_values, field_name=None):
 class PropertyForm(forms.ModelForm):
     SUBTYPE_CHOICES_MAP = PROPERTY_SUBTYPE_CHOICES
     SUBTYPE_PLACEHOLDER = "— не выбрано —"
+    FEED_RELATED_FIELDS = (
+        "loggias_count",
+        "balconies_count",
+        "room_type",
+        "is_euro_flat",
+        "is_apartments",
+        "is_penthouse",
+        "layout_photo_url",
+        "building_floors",
+        "building_build_year",
+        "building_material",
+        "building_ceiling_height",
+        "building_passenger_lifts",
+        "building_cargo_lifts",
+        "windows_view_type",
+        "separate_wcs_count",
+        "combined_wcs_count",
+        "repair_type",
+        "jk_id",
+        "jk_name",
+        "house_id",
+        "house_name",
+        "flat_number",
+        "section_number",
+        "land_area",
+        "land_area_unit",
+        "heating_type",
+        "power",
+        "parking_places",
+        "has_parking",
+        "has_internet",
+        "has_furniture",
+        "has_kitchen_furniture",
+        "has_tv",
+        "has_washer",
+        "has_conditioner",
+        "has_refrigerator",
+        "has_dishwasher",
+        "has_shower",
+        "has_phone",
+        "has_ramp",
+        "has_bathtub",
+        "is_rent_by_parts",
+        "rent_by_parts_desc",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        meta_fields = getattr(self._meta, "fields", None)
+        if meta_fields and meta_fields != "__all__":
+            if isinstance(meta_fields, str):
+                current_fields = [meta_fields]
+            else:
+                current_fields = list(meta_fields)
+
+            missing_fields = [
+                field_name
+                for field_name in self.FEED_RELATED_FIELDS
+                if field_name not in current_fields
+            ]
+
+            if missing_fields:
+                current_fields.extend(missing_fields)
+                self._meta.fields = tuple(current_fields)
+
+            for field_name in missing_fields:
+                if field_name in self.fields:
+                    continue
+                try:
+                    model_field = self._meta.model._meta.get_field(field_name)
+                except FieldDoesNotExist:
+                    continue
+                form_field = model_field.formfield()
+                if not form_field:
+                    continue
+                self.fields[field_name] = form_field
+                self.base_fields[field_name] = form_field
 
         # Убираем легаси-поля с комбинированными категориями (mega-select)
         legacy_category_fields = (
