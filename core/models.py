@@ -114,7 +114,15 @@ PERMITTED_LAND_USE_CHOICES = [
 ]
 LAND_CATEGORY_CHOICES = [("settlements","Земли населенных пунктов"),("forAgriculturalPurposes","С/Х назначения"),("other","Иное")]
 CURRENCY_CHOICES = [("rur","RUB"),("usd","USD"),("eur","EUR")]
-ROOM_TYPE_CHOICES = [("separate","Изолированная"),("combined","Совмещенная"),("both","Оба варианта")]
+ROOM_TYPE_CHOICES = [
+    ("separate", "Изолированная"),
+    ("combined", "Смежная"),
+    ("both", "Смежно‑изолированная"),
+]
+SALE_TYPE_CHOICES = [
+    ("free", "Свободная"),
+    ("alternative", "Альтернативная"),
+]
 STATUS_CHOICES = [("active", "Активен"), ("archived", "В архиве")]
 
 class Property(models.Model):
@@ -181,6 +189,7 @@ class Property(models.Model):
     # Квартира
     flat_type = models.CharField(max_length=20, choices=FLAT_SUBTYPE_CHOICES, null=True, blank=True, verbose_name="Подтип квартиры")
     room_type = models.CharField("Тип комнат", max_length=16, choices=ROOM_TYPE_CHOICES, blank=True)
+    sale_type = models.CharField("Тип продажи", max_length=12, choices=SALE_TYPE_CHOICES, blank=True)
     flat_rooms_count = models.PositiveSmallIntegerField("Кол-во комнат (кв.)", null=True, blank=True)
     room_type_ext = models.CharField(max_length=30, choices=ROOM_SUBTYPE_CHOICES, null=True, blank=True, verbose_name="Подтип комнаты")
     is_euro_flat = models.BooleanField("Европланировка", default=False)
