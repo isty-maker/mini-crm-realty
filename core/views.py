@@ -874,6 +874,79 @@ def export_cian(request):
             if getattr(prop, "min_rent_term_months", None) is not None:
                 _t(bt, "MinRentTerm", getattr(prop, "min_rent_term_months"))
 
+        # === ADDED: optional CIAN fields when present ===
+        # комнаты/планировка
+        _t(obj, "LoggiasCount", getattr(prop, "loggias_count", None))
+        _t(obj, "BalconiesCount", getattr(prop, "balconies_count", None))
+        _t(obj, "RoomType", getattr(prop, "room_type", None))  # separate/combined/both
+        _t(obj, "IsEuroFlat", True if getattr(prop, "is_euro_flat", False) else None)
+        _t(obj, "IsApartments", True if getattr(prop, "is_apartments", False) else None)
+        _t(obj, "IsPenthouse", True if getattr(prop, "is_penthouse", False) else None)
+
+        # планировка отдельным блоком
+        if getattr(prop, "layout_photo_url", None):
+            lp = SubElement(obj, "LayoutPhoto")
+            _t(lp, "FullUrl", getattr(prop, "layout_photo_url", None))
+
+        # дом/здание
+        _t(obj, "FloorsCount", getattr(prop, "building_floors", None))
+        _t(obj, "BuildYear", getattr(prop, "building_build_year", None))
+        if getattr(prop, "building_material", None):
+            _t(obj, "MaterialType", getattr(prop, "building_material", None))
+        _t(
+            obj,
+            "CeilingHeight",
+            getattr(prop, "building_ceiling_height", None)
+            or getattr(prop, "ceiling_height", None),
+        )
+        _t(obj, "PassengerLiftsCount", getattr(prop, "building_passenger_lifts", None))
+        _t(obj, "CargoLiftsCount", getattr(prop, "building_cargo_lifts", None))
+
+        # окна/санузлы/ремонт (если вдруг отсутствуют)
+        _t(obj, "WindowsViewType", getattr(prop, "windows_view_type", None))
+        _t(obj, "SeparateWcsCount", getattr(prop, "separate_wcs_count", None))
+        _t(obj, "CombinedWcsCount", getattr(prop, "combined_wcs_count", None))
+        _t(obj, "RepairType", getattr(prop, "repair_type", None))
+
+        # участок (если есть число)
+        if getattr(prop, "land_area", None):
+            land = SubElement(obj, "Land")
+            _t(land, "Area", getattr(prop, "land_area", None))
+            # AreaUnitType уже обрабатывается выше (если у вас есть), иначе пропустить
+
+        # отопление
+        _t(obj, "HeatingType", getattr(prop, "heating_type", None))
+
+        # коммерция
+        _t(obj, "Power", getattr(prop, "power", None))  # кВт
+        _t(obj, "ParkingPlacesCount", getattr(prop, "parking_places", None))
+        if getattr(prop, "has_parking", False):
+            _t(obj, "HasParking", True)
+
+        # удобства — булевы флаги → CamelCase теги со значением True
+        for name in [
+            "has_internet",
+            "has_furniture",
+            "has_kitchen_furniture",
+            "has_tv",
+            "has_washer",
+            "has_conditioner",
+            "has_refrigerator",
+            "has_dishwasher",
+            "has_shower",
+            "has_phone",
+            "has_ramp",
+            "has_bathtub",
+        ]:
+            if getattr(prop, name, None):
+                _t(obj, "".join([p.capitalize() for p in name.split("_")]), True)
+
+        # сдача по частям (коммерция)
+        if getattr(prop, "is_rent_by_parts", False):
+            _t(obj, "IsRentByParts", True)
+            _t(obj, "RentByPartsDescription", getattr(prop, "rent_by_parts_desc", None))
+        # === END ADDED ===
+
     xml_bytes = tostring(root, encoding="utf-8", xml_declaration=True)
     feeds_dir = os.path.join(settings.MEDIA_ROOT, "feeds")
     os.makedirs(feeds_dir, exist_ok=True)
