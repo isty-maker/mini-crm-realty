@@ -60,7 +60,7 @@ class CianFeedStructureTests(TestCase):
         obj = _find_object(root, "PHOTO-ABS")
         photos = obj.find("Photos")
         self.assertIsNotNone(photos)
-        urls = [node.findtext("FullUrl") for node in photos.findall("Photo")]
+        urls = [node.findtext("FullUrl") for node in photos.findall("PhotoSchema")]
         self.assertTrue(urls)
         for url in urls:
             self.assertTrue(url.startswith("http"))
@@ -111,8 +111,10 @@ class CianFeedStructureTests(TestCase):
         root = _export_feed(self.client)
         obj = _find_object(root, "HOUSE-CORE")
         self.assertEqual(obj.findtext("TotalArea"), "120")
-        self.assertEqual(obj.findtext("LandArea"), "6.5")
-        self.assertEqual(obj.findtext("LandAreaUnit"), "sotka")
+        land = obj.find("Land")
+        self.assertIsNotNone(land)
+        self.assertEqual(land.findtext("Area"), "6.5")
+        self.assertEqual(land.findtext("AreaUnitType"), "sotka")
         self.assertEqual(obj.findtext("HouseFloorsCount"), "2")
         self.assertEqual(obj.findtext("HouseMaterialType"), "brick")
         self.assertEqual(obj.findtext("YearBuild"), "2005")
@@ -139,4 +141,7 @@ class CianFeedStructureTests(TestCase):
         xml_text = ET.tostring(root, encoding="utf-8").decode("utf-8").lower()
         self.assertNotIn("<jk", xml_text)
         self.assertNotIn("underground", xml_text)
-        self.assertNotIn("metro", xml_text)
+
+        obj = _find_object(root, "NO-METRO")
+        tags = [element.tag.lower() for element in obj.iter()]
+        self.assertTrue(all("metro" not in tag for tag in tags))

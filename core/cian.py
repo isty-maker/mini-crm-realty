@@ -16,6 +16,25 @@ except Exception:  # pragma: no cover - sites may be disabled
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 
+HOUSE_GAS_MAP = {
+    "main_on_plot": "main",
+    "gasholder": "gasHolder",
+    "border": "border",
+}
+
+HOUSE_DRAINAGE_MAP = {
+    "central": "central",
+    "septic": "septicTank",
+    "cesspool": "cesspool",
+}
+
+HOUSE_WATER_MAP = {
+    "central": "central",
+    "borehole": "borehole",
+    "well": "well",
+}
+
+
 def _clean(value: Optional[str]) -> str:
     return (value or "").strip().lower()
 
@@ -145,6 +164,21 @@ def _is_http_url(value: str) -> bool:
     return lower.startswith("http://") or lower.startswith("https://")
 
 
+def _normalize_phone_number(value: Optional[str], country_code: str) -> Optional[str]:
+    digits = _digits_only(value)
+    if not digits:
+        return None
+    if len(digits) == 11 and digits.startswith("8"):
+        digits = digits[1:]
+    if country_code == "7" and len(digits) == 11 and digits.startswith("7"):
+        digits = digits[1:]
+    if len(digits) < 10 or len(digits) > 11:
+        return None
+    if country_code == "7" and len(digits) != 10:
+        return None
+    return digits
+
+
 def _as_decimal(value) -> Optional[str]:
     if value in (None, ""):
         return None
@@ -260,17 +294,65 @@ class PhotoPayload:
     is_default: bool
 
 
+def _resolve_photo_url(photo, request=None) -> str:
+    full_url_raw = getattr(photo, "full_url", None)
+    if full_url_raw not in (None, ""):
+        full_url = smart_str(full_url_raw).strip()
+        if full_url:
+            return full_url
+
+    image = getattr(photo, "image", None)
+    image_url = ""
+    if image:
+        try:
+            image_url = smart_str(image.url)
+        except Exception:
+            image_url = ""
+    if image_url:
+        if _is_http_url(image_url):
+            return image_url
+        if request is not None:
+            absolute = request.build_absolute_uri(image_url)
+            if absolute and _is_http_url(absolute):
+                return absolute
+        absolute = build_absolute_url(image_url, request=request)
+        if absolute and _is_http_url(absolute):
+            return absolute
+
+    return ""
+
+
 def _collect_photos(prop, request=None) -> Sequence[PhotoPayload]:
     photos_qs = getattr(prop, "photos", None)
     if not photos_qs:
         return []
+
+    queryset = photos_qs.all()
+
+    ordering = []
+    meta_ordering = getattr(getattr(queryset, "model", None), "_meta", None)
+    if meta_ordering is not None and getattr(meta_ordering, "ordering", None):
+        ordering = list(meta_ordering.ordering)
+
+    if not ordering and hasattr(queryset.model, "sort"):
+        ordering = ["-is_default", "sort", "id"]
+
+    if not ordering:
+        ordering = ["-is_default", "-id"]
+
+    queryset = queryset.order_by(*ordering)
+
     result = []
-    for photo in photos_qs.all():
-        raw_url = getattr(photo, "src", "")
-        absolute = build_absolute_url(raw_url, request=request)
-        if not absolute or not _is_http_url(absolute):
+    for photo in queryset:
+        absolute = _resolve_photo_url(photo, request=request)
+        if not absolute:
             continue
-        result.append(PhotoPayload(url=absolute, is_default=bool(getattr(photo, "is_default", False))))
+        result.append(
+            PhotoPayload(
+                url=absolute,
+                is_default=bool(getattr(photo, "is_default", False)),
+            )
+        )
     return result
 
 
@@ -328,21 +410,20 @@ class CianFeedBuilder:
         return obj
 
     def _append_phones(self, obj: Element, prop) -> None:
-        phone_numbers = []
-        num1 = _digits_only(getattr(prop, "phone_number", ""))
-        if num1:
-            phone_numbers.append(num1)
-        num2 = _digits_only(getattr(prop, "phone_number2", ""))
-        if num2:
-            phone_numbers.append(num2)
+        country_raw = getattr(prop, "phone_country", None) or "7"
+        country = _digits_only(country_raw) or "7"
+        numbers = []
+        for field in ("phone_number", "phone_number2"):
+            normalized = _normalize_phone_number(getattr(prop, field, ""), country)
+            if normalized and normalized not in numbers:
+                numbers.append(normalized)
 
-        if not phone_numbers:
+        if not numbers:
             return
 
         container = SubElement(obj, "Phones")
-        country = getattr(prop, "phone_country", None) or "7"
-        for number in phone_numbers:
-            ph = SubElement(container, "Phone")
+        for number in numbers:
+            ph = SubElement(container, "PhoneSchema")
             _append_child(ph, "CountryCode", country, always=True)
             _append_child(ph, "Number", number, always=True)
 
@@ -362,15 +443,22 @@ class CianFeedBuilder:
         photos_el = SubElement(obj, "Photos")
         default_used = False
         for idx, payload in enumerate(photos):
-            photo_el = SubElement(photos_el, "Photo")
-            SubElement(photo_el, "FullUrl").text = payload.url
+            if not payload.url:
+                continue
+
             mark_default = False
             if not default_used and payload.is_default:
                 mark_default = True
             elif not default_used and idx == 0:
                 mark_default = True
+
+            for tag in ("Photo", "PhotoSchema"):
+                photo_el = SubElement(photos_el, tag)
+                SubElement(photo_el, "FullUrl").text = payload.url
+                if mark_default:
+                    SubElement(photo_el, "IsDefault").text = "true"
+
             if mark_default:
-                SubElement(photo_el, "IsDefault").text = "true"
                 default_used = True
 
     def _append_areas(self, obj: Element, prop) -> None:
@@ -491,7 +579,53 @@ class CianFeedBuilder:
                 _append_child(obj, "RoomType", mapped)
 
     def _append_house_specific(self, obj: Element, prop) -> None:
+        self._append_house_utilities(obj, prop)
+        self._append_house_land(obj, prop)
         _append_child(obj, "HeatingType", getattr(prop, "heating_type", None))
+
+    def _append_house_utilities(self, obj: Element, prop) -> None:
+        gas_value = HOUSE_GAS_MAP.get((getattr(prop, "gas_supply_type", "") or "").strip())
+        if gas_value:
+            gas = SubElement(obj, "Gas")
+            SubElement(gas, "Type").text = gas_value
+
+        drainage_value = HOUSE_DRAINAGE_MAP.get((getattr(prop, "sewerage_type", "") or "").strip())
+        if drainage_value:
+            drainage = SubElement(obj, "Drainage")
+            SubElement(drainage, "Type").text = drainage_value
+
+        water_value = HOUSE_WATER_MAP.get((getattr(prop, "water_supply_type", "") or "").strip())
+        if water_value:
+            water = SubElement(obj, "Water")
+            SubElement(water, "SuburbanWaterType").text = water_value
+
+    def _append_house_land(self, obj: Element, prop) -> None:
+        area_text = _as_decimal(getattr(prop, "land_area", None))
+        unit_value = smart_str(getattr(prop, "land_area_unit", "")).strip()
+        permitted = smart_str(getattr(prop, "permitted_land_use", "")).strip()
+        land_category = smart_str(getattr(prop, "land_category", "")).strip()
+        has_contract = getattr(prop, "is_land_with_contract", None)
+
+        land_element = None
+
+        if area_text and unit_value:
+            land_element = SubElement(obj, "Land")
+            _append_child(land_element, "Area", area_text, always=True)
+            _append_child(land_element, "AreaUnitType", unit_value, always=True)
+        elif any([permitted, land_category, has_contract in (True, False)]):
+            land_element = SubElement(obj, "Land")
+
+        if land_element is None:
+            return
+
+        if has_contract in (True, False):
+            _append_bool(land_element, "IsLandWithContract", has_contract)
+
+        if permitted:
+            _append_child(land_element, "PermittedLandUse", permitted)
+
+        if land_category:
+            _append_child(land_element, "LandCategory", land_category)
 
     def _append_commercial_specific(self, obj: Element, prop) -> None:
         _append_decimal(obj, "Power", getattr(prop, "power", None))
