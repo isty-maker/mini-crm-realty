@@ -40,6 +40,7 @@ except ImportError:  # pragma: no cover - support for trimmed Pillow stub
 from .cian import build_cian_category
 from .forms import PropertyForm
 from .models import Photo, Property
+from .utils.image_pipeline import InvalidImage, compress_to_jpeg
 
 
 log = logging.getLogger("upload")
@@ -157,7 +158,6 @@ def _process_one_file(uploaded_file):
     # HEIC/HEIF — сразу отказ с нужной формулировкой
     if name_l.endswith((".heic", ".heif")) or ct_l in {"image/heic", "image/heif"}:
         raise ValueError("HEIC/HEIF пока не поддерживается — сохраните как JPG/PNG/WebP.")
-    # Pillow → JPEG
     try:
         try:
             uploaded_file.seek(0)
@@ -168,58 +168,10 @@ def _process_one_file(uploaded_file):
             uploaded_file.seek(0)
         except Exception:
             pass
-
-        decoder_kind = _guess_decoder_kind(name_l, ct_l)
-        if decoder_kind and not _check_decoder_available(decoder_kind):
-            if not _looks_like_image(decoder_kind, orig):
-                raise ValueError(INVALID_IMAGE_MESSAGE)
-            log.warning(
-                "Missing Pillow decoder for %s — storing original upload (%s)",
-                decoder_kind,
-                uploaded_file.name,
-            )
-            return ContentFile(
-                orig,
-                name=_fallback_file_name(getattr(uploaded_file, "name", None), decoder_kind),
-            )
-
-        try:
-            img = Image.open(uploaded_file)
-            img.load()
-        except (UnidentifiedImageError, OSError, ValueError) as e:
-            _, ext = os.path.splitext(name_l)
-            kind = _guess_decoder_kind(name_l, ct_l) or (
-                "jpeg"
-                if ext.lower() in {".jpg", ".jpeg"}
-                else "webp"
-                if ext.lower() == ".webp"
-                else "png"
-                if ext.lower() == ".png"
-                else None
-            )
-            if kind and _looks_like_image(kind, orig):
-                if orig:
-                    log.warning(
-                        "fallback_save_as_is (post-open) filename=%s reason=%s",
-                        name_l,
-                        e,
-                    )
-                    return ContentFile(
-                        orig,
-                        name=_fallback_file_name(
-                            getattr(uploaded_file, "name", None), kind
-                        ),
-                    )
-            raise ValueError(INVALID_IMAGE_MESSAGE)
-        img = img.convert("RGB")
-        w, h = img.size
-        if max(w, h) > 2560:
-            r = 2560 / float(max(w, h))
-            img = img.resize((int(w * r), int(h * r)), Image.LANCZOS)
+        data = compress_to_jpeg(orig)
         base = name_l.rsplit("/", 1)[-1].rsplit(".", 1)[0] or "photo"
-        return _encode_jpeg_to_target(img, base, orig)
-    except (UnidentifiedImageError, OSError, ValueError):
-        # мусор или неподдержанный
+        return ContentFile(data, name=f"{base}.jpg")
+    except InvalidImage:
         raise ValueError(INVALID_IMAGE_MESSAGE)
 
 def healthz(request):
