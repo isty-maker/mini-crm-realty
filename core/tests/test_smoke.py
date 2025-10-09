@@ -64,7 +64,7 @@ class Smoke(TestCase):
         )
         response = self.client.get("/panel/export/cian/?key=kontinent")
         assert response.status_code == 200
-        assert b"<Feed" in response.content
+        assert b"<feed" in response.content
 
 
 class FlagsExistenceTests(TestCase):

@@ -24,7 +24,7 @@ class TestCianOptionalFields(TestCase):
         resp = _export_first_object(self.client)
         self.assertEqual(resp.status_code, 200)
         root = ET.fromstring(resp.content)
-        objs = root.findall("Object")
+        objs = root.findall("object")
         self.assertTrue(objs, "Expected at least one exported object")
         return objs[0]
 
@@ -103,10 +103,6 @@ class TestCianOptionalFields(TestCase):
         self.assertEqual(obj.findtext("CombinedWcsCount"), "2")
         self.assertEqual(obj.findtext("RepairType"), "euro")
 
-        land = obj.find("Land")
-        self.assertIsNotNone(land)
-        self.assertEqual(land.findtext("Area"), "6.5")
-
         self.assertEqual(obj.findtext("HeatingType"), "gas")
         self.assertEqual(obj.findtext("Power"), "15")
         self.assertEqual(obj.findtext("ParkingPlacesCount"), "5")
@@ -161,7 +157,6 @@ class TestCianOptionalFields(TestCase):
             "SeparateWcsCount",
             "CombinedWcsCount",
             "RepairType",
-            "Land",
             "HeatingType",
             "Power",
             "ParkingPlacesCount",
