@@ -5,6 +5,8 @@ stop_fields:  # НЕ экспортируемые служебные/внутр�
   - is_archived
   - export_to_cian
   - export_to_domklik
+  - created_at
+  - updated_at
   - object_tour_url   # у ЦИАН нет отдельного тега (не выводим)
   - furnishing_details  # описательный текст — не тег ЦИАН
   - title              # внутренний заголовок
@@ -55,6 +57,10 @@ categories:
       is_apartments: "IsApartments"
       loggias_count: "LoggiasCount"
       balconies_count: "BalconiesCount"
+      building_floors: "Building.FloorsCount"
+      building_build_year: "Building.BuildYear"
+      building_material: "Building.MaterialType"
+      building_ceiling_height: "Building.CeilingHeight"
   roomSale:
     fields:
       total_area: "TotalArea"
