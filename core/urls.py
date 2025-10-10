@@ -19,6 +19,11 @@ urlpatterns = [
         name="panel_photo_delete",
     ),
     path(
+        "panel/photo/<int:pk>/rotate/",
+        views.panel_photo_rotate,
+        name="panel_photo_rotate",
+    ),
+    path(
         "panel/<int:prop_id>/photos/reorder/",
         views.panel_photos_reorder,
         name="panel_photos_reorder",
@@ -27,6 +32,11 @@ urlpatterns = [
         "panel/photo/<int:pk>/set-default/",
         views.panel_photo_set_default,
         name="panel_photo_set_default",
+    ),
+    path(
+        "panel/photos/bulk-delete/",
+        views.panel_photos_bulk_delete,
+        name="panel_photos_bulk_delete",
     ),
     path("feed/cian.xml", views.export_cian, name="export_cian"),
 ]

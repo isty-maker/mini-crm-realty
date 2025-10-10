@@ -5,7 +5,7 @@
   <a href="/panel/">&larr; к списку</a>
   <h1>{{ prop|default:"Новый объект" }}</h1>
 
-  <form id="prop-form" method="post" action="{% if prop %}{% url 'panel_edit' pk=prop.id %}{% else %}{% url 'panel_create' %}{% endif %}">
+  <form id="prop-form" method="post" action="{% if prop %}{% url 'panel_edit' pk=prop.id %}{% else %}{% url 'panel_create' %}{% endif %}" data-preserve-scroll="true">
     {% csrf_token %}
     {{ form.non_field_errors }}
     {% if form.errors %}
@@ -758,7 +758,7 @@
   {% if prop %}
     <hr>
     <h3>Фотографии</h3>
-    <form method="post" action="{% url 'panel_add_photo' pk=prop.id %}" enctype="multipart/form-data">
+    <form method="post" action="{% url 'panel_add_photo' pk=prop.id %}" enctype="multipart/form-data" data-preserve-scroll="true">
       {% csrf_token %}
       <div class="form-row">
         <label>Файлы (можно выбрать несколько)</label>
@@ -808,6 +808,7 @@
         padding: .5rem;
         border-radius: 8px;
         width: 200px;
+        transition: box-shadow .2s ease;
       }
 
       .photo-card img {
@@ -815,6 +816,10 @@
         height: 200px;
         object-fit: cover;
         border-radius: 6px;
+      }
+
+      .photo-card.selected {
+        box-shadow: 0 0 0 3px rgba(77, 163, 255, 0.6);
       }
 
       .drag-handle {
@@ -842,6 +847,25 @@
         font-weight: 600;
       }
 
+      .select-checkbox {
+        position: absolute;
+        top: 8px;
+        right: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        background: rgba(255, 255, 255, 0.12);
+        border-radius: 4px;
+      }
+
+      .select-checkbox input {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+      }
+
       .meta {
         margin-top: .35rem;
         font-size: .85rem;
@@ -852,6 +876,7 @@
         display: flex;
         gap: .4rem;
         margin-top: .35rem;
+        flex-wrap: wrap;
       }
 
       .icon-btn {
@@ -871,12 +896,63 @@
       .icon-btn.danger {
         color: #d66;
       }
+
+      .icon-btn[disabled] {
+        opacity: .5;
+        cursor: wait;
+      }
+
+      .photo-bulk-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        align-items: center;
+        margin-top: 1rem;
+      }
+
+      .photo-bulk-actions .bulk-btn {
+        padding: .35rem .75rem;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        background: #2a2f3d;
+        color: #eef;
+      }
+
+      .photo-bulk-actions .bulk-btn[disabled] {
+        opacity: .5;
+        cursor: not-allowed;
+      }
+
+      .photo-bulk-actions .bulk-btn.danger {
+        background: #7a2f36;
+        color: #fff;
+      }
+
+      .photo-bulk-actions .selection-info {
+        font-size: .85rem;
+        color: #99a;
+      }
     </style>
 
-    <div id="photos" class="photos">
+    {% if photos %}
+    <div class="photo-bulk-actions" data-property-id="{{ prop.id }}" data-bulk-delete-url="{% url 'panel_photos_bulk_delete' %}">
+      <button type="button" class="bulk-btn" id="photo-select-all">Выбрать все</button>
+      <button type="button" class="bulk-btn" id="photo-clear-selection" disabled>Снять</button>
+      <button type="button" class="bulk-btn danger" id="photo-delete-selected" disabled>Удалить выбранные</button>
+      <button type="button" class="bulk-btn danger" id="photo-delete-all">Удалить все</button>
+      <span class="selection-info" id="photo-selection-info"></span>
+    </div>
+    {% endif %}
+
+    <div id="photos" class="photos" data-empty-text="Фото пока нет">
       {% for ph in photos %}
-        <div class="photo-card" data-photo-id="{{ ph.id }}">
+        <div class="photo-card" data-photo-id="{{ ph.id }}" data-rotate-url="{% url 'panel_photo_rotate' ph.id %}">
           <div class="drag-handle" title="Перетащить">⋮⋮</div>
+
+          <label class="select-checkbox no-drag">
+            <input type="checkbox" class="photo-select" value="{{ ph.id }}">
+          </label>
 
           {% if ph.is_default %}
             <span class="badge-default">Главное</span>
@@ -889,13 +965,15 @@
           </div>
 
           <div class="actions">
-            <form class="no-drag" method="post" action="{% url 'panel_photo_set_default' ph.id %}">
+            <button type="button" class="icon-btn" title="Повернуть влево" data-dir="left" data-action="rotate">↺</button>
+            <button type="button" class="icon-btn" title="Повернуть вправо" data-dir="right" data-action="rotate">↻</button>
+            <form class="no-drag" method="post" action="{% url 'panel_photo_set_default' ph.id %}" data-preserve-scroll="true">
               {% csrf_token %}
               <button type="submit" class="icon-btn" title="Сделать главным">
                 {% if ph.is_default %}★{% else %}☆{% endif %}
               </button>
             </form>
-            <form class="no-drag" method="post" action="{% url 'panel_photo_delete' ph.id %}">
+            <form class="no-drag" method="post" action="{% url 'panel_photo_delete' ph.id %}" data-preserve-scroll="true">
               {% csrf_token %}
               <button type="submit" class="icon-btn danger" title="Удалить">✖</button>
             </form>
@@ -907,7 +985,7 @@
     </div>
 
     {% if photos %}
-    <form id="reorderForm" method="post" action="{% url 'panel_photos_reorder' prop.id %}" style="margin-top:1rem;">
+    <form id="reorderForm" method="post" action="{% url 'panel_photos_reorder' prop.id %}" style="margin-top:1rem;" data-preserve-scroll="true">
       {% csrf_token %}
       <input type="hidden" name="order" id="orderInput">
       <button type="submit">Сохранить порядок</button>

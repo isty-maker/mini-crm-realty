@@ -23,7 +23,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 try:
-    from PIL import Image, ImageFile, UnidentifiedImageError
+    from PIL import Image, ImageFile, ImageOps, UnidentifiedImageError
 except ImportError:  # pragma: no cover - support for trimmed Pillow stub
     from PIL import Image  # type: ignore
 
@@ -34,6 +34,13 @@ except ImportError:  # pragma: no cover - support for trimmed Pillow stub
 
     class UnidentifiedImageError(Exception):
         pass
+
+    class _StubImageOps:  # pragma: no cover - minimal stub
+        @staticmethod
+        def exif_transpose(img):
+            return img
+
+    ImageOps = _StubImageOps()  # type: ignore
 
 from .cian import build_cian_feed, resolve_category
 from .forms import PropertyForm
@@ -656,6 +663,61 @@ def panel_photo_set_default(request, pk):
 
 
 @require_POST
+def panel_photo_rotate(request, pk):
+    direction = (request.GET.get("dir") or "").lower()
+    if direction not in {"left", "right"}:
+        return JsonResponse({"ok": False, "error": "invalid_direction"}, status=400)
+
+    photo = get_object_or_404(Photo, pk=pk)
+    if not photo.image:
+        return JsonResponse({"ok": False, "error": "no_local_image"}, status=400)
+
+    try:
+        photo.image.open("rb")
+        original_bytes = photo.image.read()
+    finally:
+        try:
+            photo.image.close()
+        except Exception:
+            pass
+
+    try:
+        img = Image.open(BytesIO(original_bytes))
+        img.load()
+        img = ImageOps.exif_transpose(img)
+    except (UnidentifiedImageError, OSError, ValueError):
+        return JsonResponse({"ok": False, "error": "invalid_image"}, status=400)
+
+    angle = -90 if direction == "left" else 90
+    rotated = img.rotate(angle, expand=True)
+    rotated = rotated.convert("RGB")
+
+    buf = BytesIO()
+    rotated.save(buf, format="JPEG", optimize=True, progressive=True, quality=85)
+    data = buf.getvalue()
+
+    storage = getattr(photo.image, "storage", None)
+    name = getattr(photo.image, "name", None)
+    target_name = name or photo.image.name
+    if not target_name:
+        target_name = photo.image.field.generate_filename(photo, f"photo-{photo.id}.jpg")
+
+    if storage and name:
+        try:
+            storage.delete(name)
+        except Exception:
+            pass
+
+    try:
+        photo.image.save(target_name, ContentFile(data), save=False)
+        photo.save(update_fields=["image"])
+    except Exception:
+        return JsonResponse({"ok": False, "error": "save_failed"}, status=500)
+
+    return JsonResponse({"ok": True, "id": photo.id})
+
+
+@require_POST
 @transaction.atomic
 def panel_photos_reorder(request, prop_id):
     """
@@ -682,6 +744,29 @@ def panel_photos_reorder(request, prop_id):
 
     messages.success(request, "Порядок фото сохранён.")
     return redirect(f"/panel/edit/{prop_id}/")
+
+
+@require_POST
+def panel_photos_bulk_delete(request):
+    ids = request.POST.getlist("ids[]") or request.POST.getlist("ids")
+    property_id = request.POST.get("property_id")
+
+    try:
+        id_values = [int(x) for x in ids if str(x).isdigit()]
+    except Exception:
+        id_values = []
+
+    if not property_id or not id_values:
+        return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
+
+    prop = get_object_or_404(Property, pk=property_id)
+    qs = Photo.objects.filter(property=prop, id__in=id_values)
+    deleted_ids = []
+    for item in qs:
+        deleted_ids.append(item.id)
+        item.delete()
+
+    return JsonResponse({"ok": True, "deleted": deleted_ids})
 
 def export_cian(request):
     # В фид попадают только отмеченные для выгрузки
