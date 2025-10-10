@@ -10,6 +10,13 @@ stop_fields:  # НЕ экспортируемые служебные/внутр�
   - object_tour_url   # у ЦИАН нет отдельного тега (не выводим)
   - furnishing_details  # описательный текст — не тег ЦИАН
   - title              # внутренний заголовок
+  - jk_id
+  - jk_name
+  - house_id
+  - house_name
+  - section_number
+  - undergrounds
+  - metro
 
 # Универсальные поля (для всех категорий объявлений)
 common:
@@ -20,25 +27,60 @@ common:
     # Геолокация: пример ожидает Lat/Lng, а не Latitude/Longitude
     lat: "Coordinates.Lat"
     lng: "Coordinates.Lng"
-    price: "BargainTerms.Price"
-    mortgage_allowed: "BargainTerms.MortgageAllowed"
-    agent_bonus_value: "BargainTerms.AgentBonus.Value"
-    agent_bonus_is_percent: "BargainTerms.AgentBonus.PaymentType"
-    currency:
-      - "BargainTerms.Currency"   # ожидаются 'RUR'|'USD'|'EUR' — конвертировать из модели
-      - "BargainTerms.AgentBonus.Currency"
-    security_deposit: "BargainTerms.SecurityDeposit"
-    deposit: "BargainTerms.Deposit"
-    min_rent_term_months: "BargainTerms.MinRentTermMonths"
-    sale_type: "BargainTerms.SaleType"
-    lease_term_type: "BargainTerms.LeaseTermType"
-    prepay_months: "BargainTerms.PrepayMonths"
-    client_fee: "BargainTerms.ClientFee"
-    agent_fee: "BargainTerms.AgentFee"
-    utilities_terms: "BargainTerms.UtilitiesTerms"
-    bargain_allowed: "BargainTerms.BargainAllowed"
-    bargain_price: "BargainTerms.BargainPrice"
-    bargain_conditions: "BargainTerms.BargainConditions"
+    flat_number: "Apartment"
+
+    # Здание и окружение
+    building_floors: "Building.FloorsCount"
+    building_build_year: "Building.BuildYear"
+    building_material: "Building.MaterialType"
+    building_ceiling_height: "Building.CeilingHeight"
+    building_passenger_lifts: "Building.PassengerLiftsCount"
+    building_cargo_lifts: "Building.CargoLiftsCount"
+    building_series: "Building.Series"
+    building_has_garbage_chute: "Building.HasGarbageChute"
+    building_parking: "Building.Parking"
+
+    # Общие удобства
+    windows_view_type: "WindowsViewType"
+    separate_wcs_count: "SeparateWcsCount"
+    combined_wcs_count: "CombinedWcsCount"
+    repair_type: "RepairType"
+    has_ramp: "HasRamp"
+    has_internet: "HasInternet"
+    has_furniture: "HasFurniture"
+    has_kitchen_furniture: "HasKitchenFurniture"
+    has_tv: "HasTv"
+    has_washer: "HasWasher"
+    has_conditioner: "HasConditioner"
+    has_refrigerator: "HasRefrigerator"
+    has_dishwasher: "HasDishwasher"
+    has_shower: "HasShower"
+    has_bathtub: "HasBathtub"
+    has_phone: "HasPhone"
+    has_parking: "HasParking"
+    parking_places: "ParkingPlaces"
+
+    # Аренда / деление объекта
+    is_rent_by_parts: "IsRentByParts"
+    rent_by_parts_desc: "RentByPartsComment"
+
+    # Земля / дом
+    land_area: "Land.Area"
+    land_area_unit: "Land.AreaUnitType"
+    bedrooms_count: "BedroomsCount"
+    wc_location: "WcLocationType"
+    sewerage_type: "Drainage.Type"
+    water_supply_type: "Water.SuburbanWaterType"
+    gas_supply_type: "Gas.Type"
+    has_electricity: "Electricity.Available"
+    house_condition: "HouseCondition"
+    has_garage: "HasGarage"
+    heating_type: "HeatingType"
+    power: "Electricity.Power"
+    has_pool: "HasPool"
+    has_bathhouse: "HasBathhouse"
+    has_security: "HasSecurity"
+
   phones:
     # Строгая структура телефонов ЦИАН
     - "Phones.PhoneSchema[0].CountryCode:phone_country"
@@ -70,6 +112,7 @@ categories:
       repair_type: "RepairType"        # cosmetic|design|euro|no
       is_euro_flat: "IsEuroLayout"
       is_apartments: "IsApartments"
+      is_penthouse: "IsPenthouse"
       loggias_count: "LoggiasCount"
       balconies_count: "BalconiesCount"
       building_floors: "Building.FloorsCount"
@@ -135,7 +178,7 @@ categories:
       has_parking: "HasParking"
       parking_places: "ParkingPlaces"
       power: "Electricity.Power"
-      has_ramp: "Ramp"
+      has_ramp: "HasRamp"
   garageSale:
     fields:
       total_area: "TotalArea"
@@ -150,7 +193,31 @@ categories:
       rooms: "RoomsCount"
       is_apartments: "IsApartments"
       is_euro_flat: "IsEuroLayout"
+      is_penthouse: "IsPenthouse"
       beds_count: "BedsCount"
+
+# Условия сделки
+deal_terms:
+  fields:
+    price: "BargainTerms.Price"
+    agent_bonus_value: "BargainTerms.AgentBonus.Value"
+    agent_bonus_is_percent: "BargainTerms.AgentBonus.PaymentType"
+    currency:
+      - "BargainTerms.Currency"
+      - "BargainTerms.AgentBonus.Currency"
+    mortgage_allowed: "BargainTerms.MortgageAllowed"
+    sale_type: "BargainTerms.SaleType"
+    security_deposit: "BargainTerms.SecurityDeposit"
+    deposit: "BargainTerms.Deposit"
+    min_rent_term_months: "BargainTerms.MinRentTermMonths"
+    lease_term_type: "BargainTerms.LeaseTermType"
+    prepay_months: "BargainTerms.PrepayMonths"
+    client_fee: "BargainTerms.ClientFee"
+    agent_fee: "BargainTerms.AgentFee"
+    utilities_terms: "BargainTerms.UtilitiesTerms"
+    bargain_allowed: "BargainTerms.BargainAllowed"
+    bargain_price: "BargainTerms.BargainPrice"
+    bargain_conditions: "BargainTerms.BargainConditions"
 
 # Преобразование значений (enum/булевы/валюта)
 values:
@@ -159,44 +226,44 @@ values:
     usd: "USD"
     eur: "EUR"
   agent_bonus_is_percent:
-    true: "percent"
-    false: "fixed"
+    true: percent
+    false: fixed
   room_type:
-    separate: "separate"
-    combined: "combined"
-    both: "both"
+    separate: separate
+    combined: combined
+    both: both
   windows_view_type:
-    yard: "yard"
-    street: "street"
-    yardAndStreet: "yardAndStreet"
+    yard: yard
+    street: street
+    yardAndStreet: yardAndStreet
   repair_type:
-    cosmetic: "cosmetic"
-    design: "design"
-    euro: "euro"
-    no: "no"
+    cosmetic: cosmetic
+    design: design
+    euro: euro
+    no: no
   wc_location:
-    inside: "inside"
-    outside: "outside"
+    inside: inside
+    outside: outside
   heating_type:
-    central: "central"
-    gas: "gas"
-    electric: "electric"
-    solid: "solid"
+    central: central
+    gas: gas
+    electric: electric
+    solid: solid
   gas_supply_type:
-    main_on_plot: "main"
-    border: "border"
-    gasholder: "gasHolder"
+    main_on_plot: main
+    border: border
+    gasholder: gasHolder
     none: null
   sewerage_type:
-    central: "central"
-    septic: "septicTank"
-    cesspool: "cesspool"
-    none: "none"
+    central: central
+    septic: septicTank
+    cesspool: cesspool
+    none: none
   water_supply_type:
-    central: "central"
-    borehole: "borehole"
-    well: "well"
-    none: "none"
+    central: central
+    borehole: borehole
+    well: well
+    none: none
   land_area_unit:
-    sotka: "sotka"
-    sqm: "sqm"
+    sotka: sotka
+    sqm: sqm
