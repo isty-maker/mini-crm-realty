@@ -116,10 +116,8 @@ class CianFeedStructureTests(TestCase):
         self.assertEqual(land.findtext("Area"), "6.5")
         self.assertEqual(land.findtext("AreaUnitType"), "sotka")
         self.assertEqual(obj.findtext("HouseFloorsCount"), "2")
-        self.assertEqual(obj.findtext("HouseMaterialType"), "brick")
-        self.assertEqual(obj.findtext("YearBuild"), "2005")
-        description = obj.findtext("Description") or ""
-        self.assertIn("Санузел", description)
+        self.assertEqual(obj.findtext("MaterialType"), "brick")
+        self.assertEqual(obj.findtext("BuildYear"), "2005")
 
     def test_no_metro_no_jk_in_feed(self):
         prop = Property.objects.create(

@@ -1,202 +1,236 @@
+from __future__ import annotations
+
 from decimal import Decimal
 from xml.etree import ElementTree as ET
 
 from django.test import TestCase
 from django.urls import reverse
 
+from core.cian import build_cian_feed
 from core.models import Photo, Property
 
 
-def _export_first_object(client):
-    resp = client.get(reverse("export_cian"))
-    return resp
+def _export_feed(client) -> ET.Element:
+    response = client.get(reverse("export_cian"))
+    assert response.status_code == 200
+    return ET.fromstring(response.content)
 
 
-class TestCianOptionalFields(TestCase):
-    def _create_photo(self, prop):
+def _find_object(root: ET.Element, external_id: str) -> ET.Element:
+    for obj in root.findall("object"):
+        if obj.findtext("ExternalId") == external_id:
+            return obj
+    raise AssertionError(f"object with ExternalId={external_id} not found")
+
+
+class TestCianMapping(TestCase):
+    def _create_photo(self, prop: Property) -> None:
         Photo.objects.create(
             property=prop,
             full_url="https://example.com/photo.jpg",
             is_default=True,
         )
 
-    def _get_exported_object(self):
-        resp = _export_first_object(self.client)
-        self.assertEqual(resp.status_code, 200)
-        root = ET.fromstring(resp.content)
-        objs = root.findall("object")
-        self.assertTrue(objs, "Expected at least one exported object")
-        return objs[0]
-
-    def test_includes_optional_when_present(self):
+    def test_flat_building_block_present(self):
         prop = Property.objects.create(
+            category="flat",
+            operation="sale",
+            external_id="FLAT-BUILDING",
+            address="Москва",
+            total_area=Decimal("45.6"),
+            floor_number=5,
+            rooms=2,
+            price=Decimal("9600000"),
+            phone_number="+7 999 111-22-33",
+            building_floors=17,
+            building_build_year=2015,
+            building_material="brick",
+            building_ceiling_height=Decimal("2.80"),
+            export_to_cian=True,
+        )
+        self._create_photo(prop)
+
+        root = _export_feed(self.client)
+        obj = _find_object(root, "FLAT-BUILDING")
+
+        building = obj.find("Building")
+        self.assertIsNotNone(building, "Building block must be present for flats")
+        self.assertEqual(building.findtext("FloorsCount"), "17")
+        self.assertEqual(building.findtext("BuildYear"), "2015")
+        self.assertEqual(building.findtext("MaterialType"), "brick")
+        self.assertEqual(building.findtext("CeilingHeight"), "2.8")
+
+    def test_house_utilities_present(self):
+        prop = Property.objects.create(
+            category="house",
+            operation="sale",
+            external_id="HOUSE-UTIL",
+            address="Зеленоград",
+            total_area=Decimal("120"),
+            land_area=Decimal("10"),
+            land_area_unit="sotka",
+            price=Decimal("12500000"),
+            phone_number="+7 900 000-00-00",
+            gas_supply_type="main_on_plot",
+            sewerage_type="septic",
+            water_supply_type="borehole",
+            has_electricity=True,
+            power=15,
+            export_to_cian=True,
+        )
+        self._create_photo(prop)
+
+        root = _export_feed(self.client)
+        obj = _find_object(root, "HOUSE-UTIL")
+
+        gas = obj.find("Gas")
+        self.assertIsNotNone(gas)
+        self.assertEqual(gas.findtext("Type"), "main")
+
+        drainage = obj.find("Drainage")
+        self.assertIsNotNone(drainage)
+        self.assertEqual(drainage.findtext("Type"), "septicTank")
+
+        water = obj.find("Water")
+        self.assertIsNotNone(water)
+        self.assertEqual(water.findtext("SuburbanWaterType"), "borehole")
+
+        electricity = obj.find("Electricity")
+        self.assertIsNotNone(electricity)
+        self.assertEqual(electricity.findtext("Available"), "true")
+        self.assertEqual(electricity.findtext("Power"), "15")
+
+    def test_full_coverage_no_skips(self):
+        flat = Property.objects.create(
+            category="flat",
+            operation="sale",
+            external_id="FLAT-COVER",
+            address="Москва",
+            total_area=Decimal("55.4"),
+            living_area=Decimal("30"),
+            kitchen_area=Decimal("12"),
+            floor_number=8,
+            rooms=2,
+            price=Decimal("11250000"),
+            currency="rur",
+            phone_number="+7 901 123-45-67",
+            loggias_count=1,
+            balconies_count=1,
+            repair_type="euro",
+            is_apartments=True,
+            building_floors=22,
+            building_build_year=2018,
+            building_material="monolith",
+            building_ceiling_height=Decimal("3.05"),
+            export_to_cian=True,
+        )
+
+        house = Property.objects.create(
+            category="house",
+            operation="sale",
+            external_id="HOUSE-COVER",
+            address="Мытищи",
+            total_area=Decimal("180"),
+            land_area=Decimal("8"),
+            land_area_unit="sotka",
+            price=Decimal("20500000"),
+            phone_number="+7 902 000-11-22",
+            house_type="house",
+            building_floors=2,
+            building_build_year=2010,
+            building_material="brick",
+            gas_supply_type="border",
+            sewerage_type="central",
+            water_supply_type="well",
+            has_electricity=True,
+            power=20,
+            export_to_cian=True,
+        )
+
+        land = Property.objects.create(
+            category="land",
+            operation="sale",
+            external_id="LAND-COVER",
+            address="Подмосковье",
+            land_area=Decimal("12"),
+            land_area_unit="sotka",
+            price=Decimal("2500000"),
+            phone_number="+7 903 333-44-55",
+            has_electricity=True,
+            power=5,
+            export_to_cian=True,
+        )
+
+        commercial = Property.objects.create(
             category="commercial",
             operation="rent_long",
-            title="Test property",
-            address="Address",
-            total_area=Decimal("123.4"),
-            external_id="CIAN-OPT-1",
-            phone_number="+7 (999) 111-22-33",
-            price=Decimal("50000"),
-            export_to_cian=True,
-            loggias_count=1,
-            balconies_count=2,
-            room_type="both",
-            is_euro_flat=True,
-            is_apartments=True,
-            is_penthouse=True,
-            layout_photo_url="https://example.com/layout.jpg",
-            building_floors=25,
-            building_build_year=2005,
-            building_material="brick",
-            building_ceiling_height=Decimal("3.20"),
-            building_passenger_lifts=3,
-            building_cargo_lifts=1,
-            windows_view_type="yardAndStreet",
-            separate_wcs_count=1,
-            combined_wcs_count=2,
-            repair_type="euro",
-            land_area=Decimal("6.5"),
-            heating_type="gas",
-            power=15,
-            parking_places=5,
-            has_parking=True,
-            has_internet=True,
-            has_furniture=True,
-            has_kitchen_furniture=True,
-            has_tv=True,
-            has_washer=True,
-            has_conditioner=True,
-            has_refrigerator=True,
-            has_dishwasher=True,
-            has_shower=True,
-            has_phone=True,
-            has_ramp=True,
-            has_bathtub=True,
+            external_id="COMM-COVER",
+            address="Москва",
+            total_area=Decimal("320"),
+            price=Decimal("250000"),
+            phone_number="+7 904 222-33-44",
+            commercial_type="office",
+            ceiling_height=Decimal("3.6"),
             is_rent_by_parts=True,
             rent_by_parts_desc="Частями",
+            has_parking=True,
+            parking_places=5,
+            power=40,
+            export_to_cian=True,
         )
-        self._create_photo(prop)
 
-        obj = self._get_exported_object()
+        garage = Property.objects.create(
+            category="garage",
+            operation="sale",
+            external_id="GARAGE-COVER",
+            address="Химки",
+            total_area=Decimal("18"),
+            price=Decimal("950000"),
+            phone_number="+7 905 000-77-88",
+            has_electricity=True,
+            power=3,
+            export_to_cian=True,
+        )
 
-        self.assertEqual(obj.findtext("LoggiasCount"), "1")
-        self.assertEqual(obj.findtext("BalconiesCount"), "2")
-        self.assertEqual(obj.findtext("RoomType"), "both")
-        self.assertEqual(obj.findtext("IsEuroFlat"), "true")
-        self.assertEqual(obj.findtext("IsApartments"), "true")
-        self.assertEqual(obj.findtext("IsPenthouse"), "true")
+        for prop in (flat, house, land, commercial, garage):
+            self._create_photo(prop)
 
-        layout = obj.find("LayoutPhoto")
-        self.assertIsNotNone(layout)
-        self.assertEqual(layout.findtext("FullUrl"), "https://example.com/layout.jpg")
+        feed_result = build_cian_feed(Property.objects.order_by("external_id"))
+        uncovered = {
+            result.prop.external_id: sorted(result.uncovered_fields)
+            for result in feed_result.objects
+            if result.uncovered_fields
+        }
 
-        self.assertEqual(obj.findtext("FloorsCount"), "25")
-        self.assertEqual(obj.findtext("BuildYear"), "2005")
-        self.assertEqual(obj.findtext("MaterialType"), "brick")
-        self.assertEqual(obj.findtext("CeilingHeight"), "3.2")
-        self.assertEqual(obj.findtext("PassengerLiftsCount"), "3")
-        self.assertEqual(obj.findtext("CargoLiftsCount"), "1")
+        self.assertEqual(
+            uncovered,
+            {},
+            f"Unexpected uncovered fields detected: {uncovered}",
+        )
 
-        self.assertEqual(obj.findtext("WindowsViewType"), "yardAndStreet")
-        self.assertEqual(obj.findtext("SeparateWcsCount"), "1")
-        self.assertEqual(obj.findtext("CombinedWcsCount"), "2")
-        self.assertEqual(obj.findtext("RepairType"), "euro")
-
-        self.assertEqual(obj.findtext("HeatingType"), "gas")
-        self.assertEqual(obj.findtext("Power"), "15")
-        self.assertEqual(obj.findtext("ParkingPlacesCount"), "5")
-        self.assertEqual(obj.findtext("HasParking"), "true")
-
-        self.assertEqual(obj.findtext("HasInternet"), "true")
-        self.assertEqual(obj.findtext("HasFurniture"), "true")
-        self.assertEqual(obj.findtext("HasKitchenFurniture"), "true")
-        self.assertEqual(obj.findtext("HasTv"), "true")
-        self.assertEqual(obj.findtext("HasWasher"), "true")
-        self.assertEqual(obj.findtext("HasConditioner"), "true")
-        self.assertEqual(obj.findtext("HasRefrigerator"), "true")
-        self.assertEqual(obj.findtext("HasDishwasher"), "true")
-        self.assertEqual(obj.findtext("HasShower"), "true")
-        self.assertEqual(obj.findtext("HasPhone"), "true")
-        self.assertEqual(obj.findtext("HasRamp"), "true")
-        self.assertEqual(obj.findtext("HasBathtub"), "true")
-
-        self.assertEqual(obj.findtext("IsRentByParts"), "true")
-        self.assertEqual(obj.findtext("RentByPartsDescription"), "Частями")
-
-    def test_skips_optional_when_empty(self):
+    def test_no_empty_tags(self):
         prop = Property.objects.create(
             category="flat",
             operation="sale",
-            title="Empty optional",
-            address="Address",
-            total_area=Decimal("45"),
-            external_id="CIAN-OPT-2",
-            phone_number="+7 912 111-22-33",
-            price=Decimal("1500000"),
+            external_id="FLAT-NO-EMPTY",
+            address="Москва",
+            total_area=Decimal("42"),
+            floor_number=4,
+            price=Decimal("7200000"),
+            phone_number="+7 906 555-66-77",
             export_to_cian=True,
         )
         self._create_photo(prop)
 
-        obj = self._get_exported_object()
+        root = _export_feed(self.client)
+        obj = _find_object(root, "FLAT-NO-EMPTY")
 
-        for tag in [
-            "LoggiasCount",
-            "BalconiesCount",
-            "RoomType",
-            "IsEuroFlat",
-            "IsApartments",
-            "IsPenthouse",
-            "FloorsCount",
-            "BuildYear",
-            "MaterialType",
-            "CeilingHeight",
-            "PassengerLiftsCount",
-            "CargoLiftsCount",
-            "WindowsViewType",
-            "SeparateWcsCount",
-            "CombinedWcsCount",
-            "RepairType",
-            "HeatingType",
-            "Power",
-            "ParkingPlacesCount",
-            "HasParking",
-            "HasInternet",
-            "HasFurniture",
-            "HasKitchenFurniture",
-            "HasTv",
-            "HasWasher",
-            "HasConditioner",
-            "HasRefrigerator",
-            "HasDishwasher",
-            "HasShower",
-            "HasPhone",
-            "HasRamp",
-            "HasBathtub",
-            "IsRentByParts",
-            "RentByPartsDescription",
-        ]:
-            self.assertIsNone(obj.find(tag), f"{tag} should not be exported when empty")
-
-        self.assertIsNone(obj.find("LayoutPhoto"))
-
-    def test_layout_photo_block(self):
-        prop = Property.objects.create(
-            category="flat",
-            operation="sale",
-            title="With layout",
-            address="Address",
-            total_area=Decimal("60"),
-            external_id="CIAN-OPT-3",
-            phone_number="+7 912 555-66-77",
-            price=Decimal("2500000"),
-            export_to_cian=True,
-            layout_photo_url="https://example.com/layout-2.jpg",
-        )
-        self._create_photo(prop)
-
-        obj = self._get_exported_object()
-
-        layout = obj.find("LayoutPhoto")
-        self.assertIsNotNone(layout)
-        self.assertEqual(layout.findtext("FullUrl"), "https://example.com/layout-2.jpg")
+        for element in obj.iter():
+            children = list(element)
+            if children:
+                continue
+            text = element.text or ""
+            self.assertTrue(
+                text.strip(),
+                msg=f"Element <{element.tag}> should not be empty",
+            )
