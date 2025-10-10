@@ -123,6 +123,7 @@ class PropertyForm(forms.ModelForm):
         "has_phone",
         "has_ramp",
         "has_bathtub",
+        "cadastral_number",
         "is_rent_by_parts",
         "rent_by_parts_desc",
         "lease_term_type",
