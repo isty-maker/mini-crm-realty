@@ -34,5 +34,10 @@ jobs:
       - name: Pending migrations check
         run: python manage.py makemigrations --check --dry-run --noinput
 
+      - name: Update code index
+        env:
+          CODE_INDEX_VALIDATE: 0
+        run: python scripts/update_code_index.py --no-validate
+
       - name: Tests
         run: python manage.py test -q
