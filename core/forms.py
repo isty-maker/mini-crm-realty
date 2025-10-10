@@ -4,6 +4,7 @@ import re
 from django import forms
 from django.core.exceptions import FieldDoesNotExist
 
+from .cian import load_registry
 from .models import Property, Photo
 
 
@@ -62,83 +63,37 @@ def _build_choices(model_attr_name, fallback_values, field_name=None):
             pass
     return [(value, value) for value in fallback_values]
 
+
+FORMS_EXCLUDE = {
+    "jk_id",
+    "jk_name",
+    "house_id",
+    "house_name",
+    "section_number",
+    "undergrounds",
+    "metro",
+    "object_tour_url",
+    "furnishing_details",
+}
+
+
+def _required_form_fields_from_registry():
+    registry = load_registry()
+    fields = set()
+    fields |= set(registry.get("common", {}).get("fields", {}).keys())
+    fields |= set(registry.get("deal_terms", {}).get("fields", {}).keys())
+    categories = registry.get("categories", {}) or {}
+    for category in categories.values():
+        fields |= set((category.get("fields") or {}).keys())
+    # Phones are configured separately in the registry
+    fields |= {"phone_country", "phone_number", "phone_number2"}
+    return tuple(sorted(field for field in fields if field not in FORMS_EXCLUDE))
+
+
 class PropertyForm(forms.ModelForm):
     SUBTYPE_CHOICES_MAP = PROPERTY_SUBTYPE_CHOICES
     SUBTYPE_PLACEHOLDER = "— не выбрано —"
-    FEED_RELATED_FIELDS = (
-        "loggias_count",
-        "balconies_count",
-        "room_type",
-        "is_euro_flat",
-        "is_apartments",
-        "is_penthouse",
-        "beds_count",
-        "layout_photo_url",
-        "building_floors",
-        "building_build_year",
-        "building_material",
-        "building_ceiling_height",
-        "building_passenger_lifts",
-        "building_cargo_lifts",
-        "building_series",
-        "building_has_garbage_chute",
-        "building_parking",
-        "windows_view_type",
-        "separate_wcs_count",
-        "combined_wcs_count",
-        "repair_type",
-        "rooms_for_sale_count",
-        "jk_id",
-        "jk_name",
-        "house_id",
-        "house_name",
-        "flat_number",
-        "section_number",
-        "land_area", 
-        "land_area_unit",
-        "bedrooms_count",
-        "wc_location",
-        "sewerage_type",
-        "has_drainage",
-        "water_supply_type",
-        "has_water",
-        "gas_supply_type",
-        "has_gas",
-        "has_electricity",
-        "house_condition",
-        "has_garage",
-        "heating_type",
-        "power",
-        "parking_places",
-        "has_parking",
-        "has_pool",
-        "has_bathhouse",
-        "has_security",
-        "has_internet",
-        "has_furniture",
-        "has_kitchen_furniture",
-        "has_tv",
-        "has_washer",
-        "has_conditioner",
-        "has_refrigerator",
-        "has_dishwasher",
-        "has_shower",
-        "has_phone",
-        "has_ramp",
-        "has_bathtub",
-        "cadastral_number",
-        "is_rent_by_parts",
-        "rent_by_parts_desc",
-        "lease_term_type",
-        "prepay_months",
-        "deposit",
-        "client_fee",
-        "agent_fee",
-        "utilities_terms",
-        "bargain_allowed",
-        "bargain_price",
-        "bargain_conditions",
-    )
+    FEED_RELATED_FIELDS = _required_form_fields_from_registry()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
