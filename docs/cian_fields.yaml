@@ -74,12 +74,39 @@ deal_terms:   # Условия сделки (BargainTerms)
   - tag: BargainTerms.AgentBonus.Currency
     model_field: currency
     status: optional        # если fixed
+  - tag: BargainTerms.Deposit
+    model_field: deposit
+    status: optional        # для аренды
   - tag: BargainTerms.SecurityDeposit
     model_field: security_deposit
-    status: optional        # для аренды
+    status: optional        # легаси-поле: отдельный тег в старых схемах
   - tag: BargainTerms.MinRentTerm
     model_field: min_rent_term_months
     status: optional        # для аренды
+  - tag: BargainTerms.LeaseTermType
+    model_field: lease_term_type
+    status: optional
+  - tag: BargainTerms.PrepayMonths
+    model_field: prepay_months
+    status: optional
+  - tag: BargainTerms.ClientFee
+    model_field: client_fee
+    status: optional
+  - tag: BargainTerms.AgentFee
+    model_field: agent_fee
+    status: optional
+  - tag: BargainTerms.UtilitiesTerms
+    model_field: utilities_terms
+    status: optional
+  - tag: BargainTerms.BargainAllowed
+    model_field: bargain_allowed
+    status: optional
+  - tag: BargainTerms.BargainPrice
+    model_field: bargain_price
+    status: optional
+  - tag: BargainTerms.BargainConditions
+    model_field: bargain_conditions
+    status: optional
 
 category:
   flat:  # Квартира
@@ -90,6 +117,9 @@ category:
       - tag: RoomType
         model_field: room_type
         status: optional   # both|combined|separate
+      - tag: RoomsCount
+        model_field: rooms
+        status: optional
       - tag: IsEuroFlat
         model_field: is_euro_flat
         status: optional
@@ -129,6 +159,15 @@ category:
       - tag: RepairType
         model_field: repair_type
         status: optional
+      - tag: Building.Series
+        model_field: building_series
+        status: optional
+      - tag: Building.HasGarbageChute
+        model_field: building_has_garbage_chute
+        status: optional
+      - tag: Building.Parking
+        model_field: building_parking
+        status: optional
       - tag: HasInternet
         model_field: has_internet
         status: optional
@@ -163,15 +202,24 @@ category:
       - tag: FloorNumber
         model_field: floor_number
         status: required
+      - tag: RoomsCount
+        model_field: rooms
+        status: optional
+      - tag: BedsCount
+        model_field: beds_count
+        status: optional
 
   room:  # Комната
     sale:
       - tag: FlatRoomsCount
         model_field: flat_rooms_count
         status: recommended
-      - tag: TotalArea
+      - tag: RoomArea
         model_field: total_area
         status: required
+      - tag: RoomsForSaleCount
+        model_field: rooms_for_sale_count
+        status: recommended
       - tag: FloorNumber
         model_field: floor_number
         status: required
@@ -199,6 +247,9 @@ category:
         status: optional
       - tag: LandCategory
         model_field: land_category
+        status: optional
+      - tag: WcLocationType
+        model_field: wc_location
         status: optional
       - tag: HeatingType
         model_field: heating_type

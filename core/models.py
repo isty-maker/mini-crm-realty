@@ -185,6 +185,9 @@ class Property(models.Model):
     building_ceiling_height = models.DecimalField("Высота потолков, м", max_digits=4, decimal_places=2, null=True, blank=True)
     building_passenger_lifts = models.PositiveSmallIntegerField("Пассажирских лифтов", null=True, blank=True)
     building_cargo_lifts = models.PositiveSmallIntegerField("Грузовых лифтов", null=True, blank=True)
+    building_series = models.CharField("Серия дома (опц.)", max_length=64, blank=True)
+    building_has_garbage_chute = models.BooleanField("Мусоропровод", default=False)
+    building_parking = models.CharField("Парковка (опис.)", max_length=64, blank=True)
 
     # Квартира
     flat_type = models.CharField(max_length=20, choices=FLAT_SUBTYPE_CHOICES, null=True, blank=True, verbose_name="Подтип квартиры")
@@ -192,9 +195,11 @@ class Property(models.Model):
     sale_type = models.CharField("Тип продажи", max_length=12, choices=SALE_TYPE_CHOICES, blank=True)
     flat_rooms_count = models.PositiveSmallIntegerField("Кол-во комнат (кв.)", null=True, blank=True)
     room_type_ext = models.CharField(max_length=30, choices=ROOM_SUBTYPE_CHOICES, null=True, blank=True, verbose_name="Подтип комнаты")
+    rooms_for_sale_count = models.PositiveSmallIntegerField("Комнат продаётся", null=True, blank=True)
     is_euro_flat = models.BooleanField("Европланировка", default=False)
     is_apartments = models.BooleanField("Апартаменты (юрид.)", default=False)
     is_penthouse = models.BooleanField("Пентхаус", default=False)
+    beds_count = models.PositiveSmallIntegerField("Спальных мест", null=True, blank=True)
     total_area = models.DecimalField(
         "Общая площадь, м²",
         max_digits=8,
@@ -302,6 +307,15 @@ class Property(models.Model):
     agent_bonus_is_percent = models.BooleanField("Бонус в %", default=False)
     security_deposit = models.DecimalField("Залог (аренда)", max_digits=10, decimal_places=2, null=True, blank=True)
     min_rent_term_months = models.PositiveSmallIntegerField("Мин. срок аренды (мес.)", null=True, blank=True)
+    lease_term_type = models.CharField("Тип срока аренды", max_length=16, blank=True)
+    prepay_months = models.PositiveSmallIntegerField("Предоплата (мес.)", null=True, blank=True)
+    deposit = models.DecimalField("Залог (Deposit)", max_digits=10, decimal_places=2, null=True, blank=True)
+    client_fee = models.DecimalField("Комиссия клиента", max_digits=10, decimal_places=2, null=True, blank=True)
+    agent_fee = models.DecimalField("Комиссия агента", max_digits=10, decimal_places=2, null=True, blank=True)
+    utilities_terms = models.CharField("Коммуналка (условия)", max_length=64, blank=True)
+    bargain_allowed = models.BooleanField("Торг уместен", default=False)
+    bargain_price = models.DecimalField("Цена по торгу", max_digits=12, decimal_places=2, null=True, blank=True)
+    bargain_conditions = models.CharField("Условия торга", max_length=255, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

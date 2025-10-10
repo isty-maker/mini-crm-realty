@@ -72,6 +72,7 @@ class PropertyForm(forms.ModelForm):
         "is_euro_flat",
         "is_apartments",
         "is_penthouse",
+        "beds_count",
         "layout_photo_url",
         "building_floors",
         "building_build_year",
@@ -79,10 +80,14 @@ class PropertyForm(forms.ModelForm):
         "building_ceiling_height",
         "building_passenger_lifts",
         "building_cargo_lifts",
+        "building_series",
+        "building_has_garbage_chute",
+        "building_parking",
         "windows_view_type",
         "separate_wcs_count",
         "combined_wcs_count",
         "repair_type",
+        "rooms_for_sale_count",
         "jk_id",
         "jk_name",
         "house_id",
@@ -120,6 +125,15 @@ class PropertyForm(forms.ModelForm):
         "has_bathtub",
         "is_rent_by_parts",
         "rent_by_parts_desc",
+        "lease_term_type",
+        "prepay_months",
+        "deposit",
+        "client_fee",
+        "agent_fee",
+        "utilities_terms",
+        "bargain_allowed",
+        "bargain_price",
+        "bargain_conditions",
     )
 
     def __init__(self, *args, **kwargs):
@@ -317,6 +331,17 @@ class PropertyForm(forms.ModelForm):
 
         if category in {"flat", "room", "house"} and not cleaned_data.get("total_area"):
             self.add_error("total_area", "Укажите общую площадь (TotalArea).")
+
+        if (
+            category == "room"
+            and operation == "sale"
+            and need("rooms_for_sale_count")
+            and not cleaned_data.get("rooms_for_sale_count")
+        ):
+            self.add_error(
+                "rooms_for_sale_count",
+                "Для продажи комнаты укажите «Комнат продаётся».",
+            )
 
         subtype_value = (cleaned_data.get("subtype") or "").strip()
         if subtype_value:

@@ -28,8 +28,17 @@ common:
       - "BargainTerms.Currency"   # ожидаются 'RUR'|'USD'|'EUR' — конвертировать из модели
       - "BargainTerms.AgentBonus.Currency"
     security_deposit: "BargainTerms.SecurityDeposit"
+    deposit: "BargainTerms.Deposit"
     min_rent_term_months: "BargainTerms.MinRentTermMonths"
     sale_type: "BargainTerms.SaleType"
+    lease_term_type: "BargainTerms.LeaseTermType"
+    prepay_months: "BargainTerms.PrepayMonths"
+    client_fee: "BargainTerms.ClientFee"
+    agent_fee: "BargainTerms.AgentFee"
+    utilities_terms: "BargainTerms.UtilitiesTerms"
+    bargain_allowed: "BargainTerms.BargainAllowed"
+    bargain_price: "BargainTerms.BargainPrice"
+    bargain_conditions: "BargainTerms.BargainConditions"
   phones:
     # Строгая структура телефонов ЦИАН
     - "Phones.PhoneSchema[0].CountryCode:phone_country"
@@ -53,6 +62,7 @@ categories:
       # В фидах ЦИАН для квартир используют FlatRoomsCount
       flat_rooms_count: "FlatRoomsCount"
       room_type: "RoomType"            # separate|combined|both
+      rooms: "RoomsCount"
       # WindowsViewType из примеров вместо устаревшего WindowsView
       windows_view_type: "WindowsViewType" # yard|street|yardAndStreet
       separate_wcs_count: "SeparateWcsCount"
@@ -66,9 +76,13 @@ categories:
       building_build_year: "Building.BuildYear"
       building_material: "Building.MaterialType"
       building_ceiling_height: "Building.CeilingHeight"
+      building_series: "Building.Series"
+      building_has_garbage_chute: "Building.HasGarbageChute"
+      building_parking: "Building.Parking"
   roomSale:
     fields:
       total_area: "RoomArea"
+      rooms_for_sale_count: "RoomsForSaleCount"
       floor_number: "FloorNumber"
       room_type_ext: "RoomType"        # для комнаты допускается RoomType
   houseSale:
@@ -133,8 +147,10 @@ categories:
       flat_rooms_count: "FlatRoomsCount"
       total_area: "TotalArea"
       floor_number: "FloorNumber"
+      rooms: "RoomsCount"
       is_apartments: "IsApartments"
       is_euro_flat: "IsEuroLayout"
+      beds_count: "BedsCount"
 
 # Преобразование значений (enum/булевы/валюта)
 values:
