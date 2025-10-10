@@ -35,7 +35,7 @@ except ImportError:  # pragma: no cover - support for trimmed Pillow stub
     class UnidentifiedImageError(Exception):
         pass
 
-from .cian import build_cian_category, build_cian_feed_xml, _resolve_property_subtype
+from .cian import build_cian_feed, resolve_category
 from .forms import PropertyForm
 from .models import Photo, Property
 from .utils.image_pipeline import InvalidImage, compress_to_jpeg
@@ -690,7 +690,28 @@ def export_cian(request):
         .order_by("id")
         .prefetch_related("photos")
     )
-    xml_bytes = build_cian_feed_xml(qs, request=request)
+    feed_result = build_cian_feed(qs)
+    xml_bytes = feed_result.xml
+
+    strict_mode = (request.GET.get("strict") or "").strip() == "1"
+    if settings.DEBUG or strict_mode:
+        uncovered = [
+            (result.prop, sorted(result.uncovered_fields))
+            for result in feed_result.objects
+            if result.uncovered_fields
+        ]
+        if uncovered:
+            export_log = logging.getLogger("core.cian.export")
+            for prop_obj, fields in uncovered:
+                identifier = getattr(prop_obj, "external_id", None) or getattr(
+                    prop_obj, "pk", None
+                )
+                export_log.warning(
+                    "CIAN export uncovered fields for %s: %s",
+                    identifier,
+                    ", ".join(fields),
+                )
+
     feeds_dir = os.path.join(settings.MEDIA_ROOT, "feeds")
     os.makedirs(feeds_dir, exist_ok=True)
     out_path = os.path.join(feeds_dir, "cian.xml")
@@ -708,12 +729,7 @@ def export_cian_check(request):
     items = []
 
     for prop in qs:
-        subtype_value = _resolve_property_subtype(prop)
-        category_str = build_cian_category(
-            getattr(prop, "category", ""),
-            getattr(prop, "operation", ""),
-            subtype_value,
-        )
+        category_str = resolve_category(prop)
         missing = []
 
         external_id = getattr(prop, "external_id", "") or ""

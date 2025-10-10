@@ -1,156 +1,255 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Iterable, Optional, Sequence
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 from urllib.parse import urljoin
+from xml.etree.ElementTree import Element, SubElement, tostring
 
+try:  # pragma: no cover - optional dependency is used when available
+    import yaml  # type: ignore
+except Exception:  # pragma: no cover - fallback parser is used
+    yaml = None
 from django.conf import settings
 from django.utils.encoding import smart_str
 
-try:  # pragma: no cover - optional dependency
-    from django.contrib.sites.models import Site
-except Exception:  # pragma: no cover - sites may be disabled
-    Site = None
-
-from xml.etree.ElementTree import Element, SubElement, tostring
+log = logging.getLogger(__name__)
 
 
-HOUSE_GAS_MAP = {
-    "main_on_plot": "main",
-    "gasholder": "gasHolder",
-    "border": "border",
-}
-
-HOUSE_DRAINAGE_MAP = {
-    "central": "central",
-    "septic": "septicTank",
-    "cesspool": "cesspool",
-}
-
-HOUSE_WATER_MAP = {
-    "central": "central",
-    "borehole": "borehole",
-    "well": "well",
-}
-
-
-def _clean(value: Optional[str]) -> str:
-    return (value or "").strip().lower()
+def _strip_yaml_comments(line: str) -> str:
+    result: list[str] = []
+    in_quote: str | None = None
+    for index, ch in enumerate(line):
+        if in_quote:
+            result.append(ch)
+            if ch == in_quote and (index == 0 or line[index - 1] != "\\"):
+                in_quote = None
+        else:
+            if ch in {'"', "'"}:
+                in_quote = ch
+                result.append(ch)
+            elif ch == '#':
+                break
+            else:
+                result.append(ch)
+    return ''.join(result).rstrip()
 
 
-def _is_rent(operation: str) -> bool:
-    return operation.startswith("rent")
+def _parse_scalar(value: str):
+    text = value.strip()
+    if text == '':
+        return ''
+    lowered = text.lower()
+    if lowered == 'null':
+        return None
+    if lowered == 'true':
+        return True
+    if lowered == 'false':
+        return False
+    if (text.startswith('"') and text.endswith('"')) or (
+        text.startswith("'") and text.endswith("'")
+    ):
+        return text[1:-1]
+    return text
 
 
-def build_cian_category(category: Optional[str], operation: Optional[str], subtype: Optional[str]) -> str:
-    cat = _clean(category)
-    op = _clean(operation)
-    sub = _clean(subtype)
+def _parse_block(lines: list[str], start: int, indent: int):
+    items: list[object] = []
+    mapping: dict[str, object] = {}
+    index = start
 
-    default = "flatSale"
-    if not cat:
-        return default
+    while index < len(lines):
+        line = lines[index]
+        if not line.strip():
+            index += 1
+            continue
+        current_indent = len(line) - len(line.lstrip(' '))
+        if current_indent < indent:
+            break
+        stripped = line.strip()
+        if stripped.startswith('- '):
+            if mapping:
+                raise ValueError('Mixed list and dict structures are not supported')
+            item_text = stripped[2:].strip()
+            if item_text:
+                items.append(_parse_scalar(item_text))
+                index += 1
+            else:
+                value, index = _parse_block(lines, index + 1, current_indent + 2)
+                items.append(value)
+        else:
+            if items:
+                raise ValueError('Mixed list and dict structures are not supported')
+            if ':' not in stripped:
+                raise ValueError(f'Invalid YAML line: {stripped}')
+            key, value_text = stripped.split(':', 1)
+            key = key.strip()
+            value_text = value_text.strip()
+            if value_text:
+                mapping[key] = _parse_scalar(value_text)
+                index += 1
+            else:
+                value, index = _parse_block(lines, index + 1, current_indent + 2)
+                mapping[key] = value
 
-    if cat == "flat":
-        return "flatRent" if _is_rent(op) else "flatSale"
-
-    if cat == "room":
-        return "roomRent" if _is_rent(op) else "roomSale"
-
-    if cat == "house":
-        return "houseRent" if _is_rent(op) else "houseSale"
-
-    if cat == "commercial":
-        sale_map = {
-            "office": "officeSale",
-            "retail": "retailSale",
-            "warehouse": "warehouseSale",
-            "production": "productionSale",
-            "free_purpose": "freeUseSale",
-        }
-        rent_map = {
-            "office": "officeRent",
-            "retail": "retailRent",
-            "warehouse": "warehouseRent",
-            "production": "productionRent",
-            "free_purpose": "freeUseRent",
-        }
-        if _is_rent(op):
-            return rent_map.get(sub, "commercialRent")
-        return sale_map.get(sub, "commercialSale")
-
-    if cat == "land":
-        if op == "sale":
-            return "landSale"
-        if _is_rent(op):
-            return "landRent"
-        return default
-
-    if cat == "garage":
-        if op == "sale":
-            return "garageSale"
-        if _is_rent(op):
-            return "garageRent"
-        return default
-
-    return default
+    return (items if items else mapping), index
 
 
-def _ensure_leading_slash(path: str) -> str:
-    if not path:
-        return path
-    if path.startswith("/"):
-        return path
-    return f"/{path.lstrip('/')}"
+def _simple_yaml_load(text: str):
+    cleaned = [_strip_yaml_comments(line) for line in text.splitlines()]
+    filtered = [line for line in cleaned if line.strip()]
+    value, _ = _parse_block(filtered, 0, 0)
+    return value
 
 
-def build_absolute_url(path: Optional[str], request=None) -> str:
-    """Return an absolute http(s) URL for the provided path."""
+@dataclass(frozen=True)
+class AdBuildResult:
+    """Payload produced for a single property object."""
 
-    if not path:
-        return ""
+    prop: object
+    element: Element
+    filled_fields: Set[str]
+    exported_fields: Set[str]
 
-    value = smart_str(path).strip()
-    if not value:
-        return ""
+    @property
+    def uncovered_fields(self) -> Set[str]:
+        return self.filled_fields - self.exported_fields
 
-    lowered = value.lower()
-    if lowered.startswith("http://") or lowered.startswith("https://"):
+
+@dataclass(frozen=True)
+class FeedBuildResult:
+    """Container describing the generated feed and coverage metadata."""
+
+    xml: bytes
+    objects: Sequence[AdBuildResult]
+
+
+_REGISTRY: Optional[Dict] = None
+
+
+def load_registry() -> Dict:
+    global _REGISTRY
+    if _REGISTRY is None:
+        registry_path = Path(settings.BASE_DIR) / "docs" / "cian_map.yaml"
+        with registry_path.open("r", encoding="utf-8") as fh:
+            text = fh.read()
+        if yaml is not None:
+            _REGISTRY = yaml.safe_load(text)
+        else:  # pragma: no cover - exercised when PyYAML is unavailable
+            _REGISTRY = _simple_yaml_load(text)
+    return _REGISTRY  # type: ignore[return-value]
+
+
+def resolve_category(prop) -> str:
+    """Return registry category name for a Property instance."""
+
+    category = smart_str(getattr(prop, "category", "")).strip().lower()
+    operation = smart_str(getattr(prop, "operation", "")).strip().lower()
+
+    mapping = {
+        "flat": "flatSale",
+        "room": "roomSale",
+        "house": "houseSale",
+        "land": "landSale",
+        "commercial": "commercialSale",
+        "garage": "garageSale",
+    }
+    value = mapping.get(category)
+    if value:
         return value
+    # fallback: flats are the most common category in the feed spec
+    return "flatSale"
 
-    if value.startswith("//"):
-        scheme = "https"
-        if getattr(settings, "SECURE_SSL_REDIRECT", False) or getattr(
-            settings, "SESSION_COOKIE_SECURE", False
-        ):
-            scheme = "https"
-        return f"{scheme}:{value}"
 
-    base_url = smart_str(getattr(settings, "FEED_PUBLIC_BASE_URL", "")).strip().rstrip("/")
-    normalized_path = _ensure_leading_slash(value)
+def _ensure_child(parent: Element, tag: str) -> Element:
+    for child in parent:
+        if child.tag == tag:
+            return child
+    return SubElement(parent, tag)
 
-    if base_url:
-        return urljoin(f"{base_url}/", normalized_path.lstrip("/"))
 
-    if request is not None:
-        return request.build_absolute_uri(normalized_path)
+def emit(parent: Element, path: str, value: str) -> None:
+    """Create nested XML nodes according to dotted path and set value."""
 
-    site_base = smart_str(getattr(settings, "SITE_BASE_URL", "")).strip().rstrip("/")
-    if site_base:
-        return urljoin(f"{site_base}/", normalized_path.lstrip("/"))
+    parts = [part for part in path.split(".") if part]
+    if not parts:
+        return
 
-    if Site is not None:
-        try:
-            current_site = Site.objects.get_current()
-            domain = smart_str(getattr(current_site, "domain", "")).strip().strip("/")
-            if domain:
-                scheme = "https" if getattr(settings, "SESSION_COOKIE_SECURE", False) else "http"
-                return urljoin(f"{scheme}://{domain}/", normalized_path.lstrip("/"))
-        except Exception:
-            pass
+    node = parent
+    for tag in parts[:-1]:
+        node = _ensure_child(node, tag)
+    leaf = _ensure_child(node, parts[-1])
+    leaf.text = smart_str(value)
 
-    return normalized_path
+
+def _normalize_decimal(value) -> str:
+    quant = Decimal(str(value))
+    normalized = quant.normalize()
+    text = format(normalized, "f")
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return text or "0"
+
+
+def map_value(field: str, raw) -> Optional[str]:
+    registry = load_registry()
+    values_map = registry.get("values", {}).get(field, {})
+    if values_map:
+        raw_str = smart_str(raw).strip()
+        for candidate in (raw, raw_str, raw_str.lower()):
+            if candidate in values_map:
+                mapped = values_map[candidate]
+                if mapped is None:
+                    return None
+                return smart_str(mapped)
+        if raw_str and raw_str.lower() in values_map:
+            mapped = values_map[raw_str.lower()]
+            if mapped is None:
+                return None
+            return smart_str(mapped)
+
+    if isinstance(raw, bool):
+        return "true" if raw else "false"
+    if isinstance(raw, Decimal):
+        return _normalize_decimal(raw)
+    if isinstance(raw, (float, int)):
+        return _normalize_decimal(raw)
+    return smart_str(raw)
+
+
+def _value_is_present(value) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value is True
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, Decimal):
+        return True
+    if isinstance(value, (int, float)):
+        return True
+    if isinstance(value, (list, tuple, set, dict)):
+        return bool(value)
+    return True
+
+
+def _collect_filled_fields(prop, stop_fields: Set[str]) -> Set[str]:
+    filled: Set[str] = set()
+    for field in prop._meta.concrete_fields:  # type: ignore[attr-defined]
+        name = field.name
+        if name in stop_fields:
+            continue
+        if _value_is_present(getattr(prop, name, None)):
+            filled.add(name)
+    # phone country is meaningful only when there is at least one number
+    if not any(
+        _value_is_present(getattr(prop, attr, None))
+        for attr in ("phone_number", "phone_number2")
+    ):
+        filled.discard("phone_country")
+    return filled
 
 
 def _digits_only(value: Optional[str]) -> str:
@@ -159,505 +258,197 @@ def _digits_only(value: Optional[str]) -> str:
     return "".join(ch for ch in smart_str(value) if ch.isdigit())
 
 
-def _is_http_url(value: str) -> bool:
-    lower = value.lower()
-    return lower.startswith("http://") or lower.startswith("https://")
-
-
-def _normalize_phone_number(value: Optional[str], country_code: str) -> Optional[str]:
-    digits = _digits_only(value)
+def _normalize_phone_number(raw: Optional[str], country: str) -> Optional[str]:
+    digits = _digits_only(raw)
     if not digits:
         return None
     if len(digits) == 11 and digits.startswith("8"):
         digits = digits[1:]
-    if country_code == "7" and len(digits) == 11 and digits.startswith("7"):
+    if country == "7" and len(digits) == 11 and digits.startswith("7"):
         digits = digits[1:]
     if len(digits) < 10 or len(digits) > 11:
         return None
-    if country_code == "7" and len(digits) != 10:
+    if country == "7" and len(digits) != 10:
         return None
     return digits
 
 
-def _as_decimal(value) -> Optional[str]:
-    if value in (None, ""):
-        return None
-    quant = Decimal(str(value))
-    normalized = quant.normalize()
-    text = format(normalized, "f")
-    if "." in text:
-        text = text.rstrip("0").rstrip(".")
-    return smart_str(text)
+def _absolute_url(path: Optional[str]) -> str:
+    value = smart_str(path or "").strip()
+    if not value:
+        return ""
+    lowered = value.lower()
+    if lowered.startswith("http://") or lowered.startswith("https://"):
+        return value
+    base = smart_str(getattr(settings, "SITE_BASE_URL", "")).strip().rstrip("/")
+    if not base:
+        return value
+    return urljoin(f"{base}/", value.lstrip("/"))
 
 
-def _bool(value: Optional[bool]) -> Optional[str]:
-    if value in (None, ""):
-        return None
-    return "true" if bool(value) else "false"
-
-
-def _resolve_property_subtype(prop) -> Optional[str]:
-    for attr in ("subtype", "house_type", "commercial_type", "land_type"):
-        value = getattr(prop, attr, None)
-        if value:
-            return value
-    return None
-
-
-def _append_child(parent: Element, tag: str, text: Optional[str], always: bool = False) -> Optional[Element]:
-    if text in (None, "") and not always:
-        return None
-    el = SubElement(parent, tag)
-    if isinstance(text, bool):
-        el.text = "true" if text else "false"
-    elif text not in (None, ""):
-        el.text = smart_str(text)
-    return el
-
-
-def _append_decimal(parent: Element, tag: str, value) -> Optional[Element]:
-    text = _as_decimal(value)
-    if text is None:
-        return None
-    return _append_child(parent, tag, text)
-
-
-def _append_bool(parent: Element, tag: str, value) -> Optional[Element]:
-    text = _bool(value)
-    if text is None:
-        return None
-    return _append_child(parent, tag, text, always=True)
-
-
-def _layout_photo_block(parent: Element, url: str, request=None) -> None:
-    absolute = build_absolute_url(url, request=request)
-    if not absolute or not _is_http_url(absolute):
-        return
-    lp = SubElement(parent, "LayoutPhoto")
-    SubElement(lp, "FullUrl").text = absolute
-    SubElement(lp, "IsDefault").text = "false"
-
-
-def _object_tour_block(parent: Element, url: str, request=None) -> None:
-    absolute = build_absolute_url(url, request=request)
-    if not absolute or not _is_http_url(absolute):
-        return
-    tour = SubElement(parent, "ObjectTour")
-    SubElement(tour, "FullUrl").text = absolute
-
-
-def _build_description(prop, extra_lines: Sequence[str]) -> str:
-    base = smart_str(getattr(prop, "description", "")).strip()
-    extra = [smart_str(line).strip() for line in extra_lines if line]
-    extra = [line for line in extra if line]
-    if not extra:
-        return base
-    extras_text = "\n".join(extra)
-    if base:
-        return f"{base}\n\n{extras_text}"
-    return extras_text
-
-
-def _build_house_description(prop) -> Sequence[str]:
-    lines = []
-    mapping = {
-        "wc_location": "Санузел",
-        "sewerage_type": "Канализация",
-        "water_supply_type": "Водоснабжение",
-        "gas_supply_type": "Газ",
-        "house_condition": "Состояние",
-    }
-    for field, label in mapping.items():
-        value = getattr(prop, field, None)
-        if value:
-            display_method = getattr(prop, f"get_{field}_display", None)
-            text = display_method() if callable(display_method) else smart_str(value)
-            lines.append(f"{label}: {text}")
-
-    bool_mapping = {
-        "has_electricity": "Электричество",
-        "has_garage": "Гараж",
-        "has_pool": "Бассейн",
-        "has_bathhouse": "Баня",
-        "has_security": "Охрана",
-    }
-    for field, label in bool_mapping.items():
-        if getattr(prop, field, None):
-            lines.append(f"{label}: есть")
-
-    return lines
-
-
-@dataclass
-class PhotoPayload:
-    url: str
-    is_default: bool
-
-
-def _resolve_photo_url(photo, request=None) -> str:
-    full_url_raw = getattr(photo, "full_url", None)
-    if full_url_raw not in (None, ""):
-        full_url = smart_str(full_url_raw).strip()
-        if full_url:
-            return full_url
-
+def _resolve_photo_url(photo) -> str:
+    full_url = getattr(photo, "full_url", None)
+    absolute = _absolute_url(full_url)
+    if absolute:
+        return absolute
     image = getattr(photo, "image", None)
-    image_url = ""
     if image:
         try:
             image_url = smart_str(image.url)
         except Exception:
             image_url = ""
-    if image_url:
-        if _is_http_url(image_url):
-            return image_url
-        if request is not None:
-            absolute = request.build_absolute_uri(image_url)
-            if absolute and _is_http_url(absolute):
-                return absolute
-        absolute = build_absolute_url(image_url, request=request)
-        if absolute and _is_http_url(absolute):
-            return absolute
-
+        if image_url:
+            return _absolute_url(image_url)
     return ""
 
 
-def _collect_photos(prop, request=None) -> Sequence[PhotoPayload]:
-    photos_qs = getattr(prop, "photos", None)
-    if not photos_qs:
+def _collect_photos(prop) -> List[Tuple[str, bool]]:
+    photos_attr = getattr(prop, "photos", None)
+    if not photos_attr:
         return []
-
-    queryset = photos_qs.all()
-
-    ordering = []
-    meta_ordering = getattr(getattr(queryset, "model", None), "_meta", None)
-    if meta_ordering is not None and getattr(meta_ordering, "ordering", None):
-        ordering = list(meta_ordering.ordering)
-
-    if not ordering and hasattr(queryset.model, "sort"):
-        ordering = ["-is_default", "sort", "id"]
-
-    if not ordering:
-        ordering = ["-is_default", "-id"]
-
-    queryset = queryset.order_by(*ordering)
-
-    result = []
+    queryset = photos_attr.all()
+    model_meta = getattr(getattr(queryset, "model", None), "_meta", None)
+    ordering = getattr(model_meta, "ordering", None)
+    if ordering:
+        queryset = queryset.order_by(*ordering)
+    result: List[Tuple[str, bool]] = []
+    seen: Set[str] = set()
     for photo in queryset:
-        absolute = _resolve_photo_url(photo, request=request)
-        if not absolute:
+        url = _resolve_photo_url(photo)
+        if not url or url in seen:
             continue
-        result.append(
-            PhotoPayload(
-                url=absolute,
-                is_default=bool(getattr(photo, "is_default", False)),
-            )
-        )
+        seen.add(url)
+        result.append((url, bool(getattr(photo, "is_default", False))))
     return result
 
 
-class CianFeedBuilder:
-    def __init__(self, *, request=None):
-        self.request = request
+def _build_phones(parent: Element, prop, exported_fields: Set[str]) -> None:
+    registry = load_registry()
+    phone_specs = registry.get("common", {}).get("phones", [])
+    if not phone_specs:
+        return
 
-    def build(self, properties: Iterable) -> Element:
-        root = Element("feed")
-        SubElement(root, "feed_version").text = "2"
-        for prop in properties:
-            element = self._build_object(prop)
-            if element is not None:
-                root.append(element)
-        return root
+    country_raw = getattr(prop, "phone_country", None)
+    country = _digits_only(country_raw) or "7"
 
-    def _build_object(self, prop) -> Optional[Element]:
-        subtype_value = _resolve_property_subtype(prop)
-        category_str = build_cian_category(
-            getattr(prop, "category", None),
-            getattr(prop, "operation", None),
-            subtype_value,
-        )
-        if not category_str:
-            return None
+    numbers: List[Tuple[str, str]] = []
+    for field_name in ("phone_number", "phone_number2"):
+        normalized = _normalize_phone_number(getattr(prop, field_name, None), country)
+        if normalized:
+            numbers.append((field_name, normalized))
 
-        obj = Element("object")
-        _append_child(obj, "Category", category_str, always=True)
-        external_id = getattr(prop, "external_id", "") or ""
-        _append_child(obj, "ExternalId", external_id, always=True)
+    if not numbers:
+        return
 
-        extra_description_lines = []
-        if getattr(prop, "category", None) == "house":
-            extra_description_lines = list(_build_house_description(prop))
+    phones_el = _ensure_child(parent, "Phones")
+    for field_name, number in numbers[:2]:
+        schema = SubElement(phones_el, "PhoneSchema")
+        SubElement(schema, "CountryCode").text = country
+        SubElement(schema, "Number").text = number
+        exported_fields.add(field_name)
 
-        description = _build_description(prop, extra_description_lines)
-        _append_child(obj, "Description", description, always=bool(description))
-        _append_child(obj, "Address", getattr(prop, "address", None))
+    exported_fields.add("phone_country")
 
-        lat = getattr(prop, "lat", None)
-        lng = getattr(prop, "lng", None)
-        if lat not in (None, "") and lng not in (None, ""):
-            coords = SubElement(obj, "Coordinates")
-            _append_decimal(coords, "Lat", lat)
-            _append_decimal(coords, "Lng", lng)
 
-        _append_child(obj, "CadastralNumber", getattr(prop, "cadastral_number", None))
+def _build_photos(parent: Element, prop, exported_fields: Set[str]) -> None:
+    layout_url = _absolute_url(getattr(prop, "layout_photo_url", None))
+    if layout_url:
+        layout = _ensure_child(parent, "LayoutPhoto")
+        _ensure_child(layout, "FullUrl").text = layout_url
+        exported_fields.add("layout_photo_url")
 
-        self._append_phones(obj, prop)
-        self._append_media(obj, prop)
-        self._append_areas(obj, prop)
-        self._append_deal_terms(obj, prop)
-        self._append_category_specific(obj, prop)
+    photos = _collect_photos(prop)
+    if not photos:
+        return
 
-        return obj
+    photos_el = _ensure_child(parent, "Photos")
+    default_assigned = False
+    for url, is_default in photos:
+        schema = SubElement(photos_el, "PhotoSchema")
+        SubElement(schema, "FullUrl").text = url
+        if not default_assigned and is_default:
+            SubElement(schema, "IsDefault").text = "true"
+            default_assigned = True
 
-    def _append_phones(self, obj: Element, prop) -> None:
-        country_raw = getattr(prop, "phone_country", None) or "7"
-        country = _digits_only(country_raw) or "7"
-        numbers = []
-        for field in ("phone_number", "phone_number2"):
-            normalized = _normalize_phone_number(getattr(prop, field, ""), country)
-            if normalized and normalized not in numbers:
-                numbers.append(normalized)
+    if photos and not default_assigned:
+        first_schema = photos_el.find("PhotoSchema")
+        if first_schema is not None:
+            SubElement(first_schema, "IsDefault").text = "true"
 
-        if not numbers:
-            return
 
-        container = SubElement(obj, "Phones")
-        for number in numbers:
-            ph = SubElement(container, "PhoneSchema")
-            _append_child(ph, "CountryCode", country, always=True)
-            _append_child(ph, "Number", number, always=True)
+def build_ad_xml(prop) -> AdBuildResult:
+    registry = load_registry()
+    stop_fields = set(registry.get("stop_fields", []))
+    category_name = resolve_category(prop)
 
-    def _append_media(self, obj: Element, prop) -> None:
-        layout_url = getattr(prop, "layout_photo_url", "")
-        if layout_url:
-            _layout_photo_block(obj, layout_url, request=self.request)
+    element = Element("object")
+    emit(element, "Category", category_name)
 
-        tour_url = getattr(prop, "object_tour_url", "")
-        if tour_url:
-            _object_tour_block(obj, tour_url, request=self.request)
+    filled_fields = _collect_filled_fields(prop, stop_fields)
+    exported_fields: Set[str] = set()
 
-        photos = list(_collect_photos(prop, request=self.request))
-        if not photos:
-            return
-
-        photos_el = SubElement(obj, "Photos")
-        default_used = False
-        for idx, payload in enumerate(photos):
-            if not payload.url:
+    def _process(fields_map: Dict[str, str]) -> None:
+        for field_name, path in fields_map.items():
+            raw_value = getattr(prop, field_name, None)
+            if not _value_is_present(raw_value):
                 continue
+            mapped_value = map_value(field_name, raw_value)
+            if mapped_value in (None, ""):
+                continue
+            emit(element, path, mapped_value)
+            exported_fields.add(field_name)
 
-            mark_default = False
-            if not default_used and payload.is_default:
-                mark_default = True
-            elif not default_used and idx == 0:
-                mark_default = True
+    common_fields = registry.get("common", {}).get("fields", {})
+    _process(common_fields)
 
-            for tag in ("Photo", "PhotoSchema"):
-                photo_el = SubElement(photos_el, tag)
-                SubElement(photo_el, "FullUrl").text = payload.url
-                if mark_default:
-                    SubElement(photo_el, "IsDefault").text = "true"
+    category_fields = (
+        registry.get("categories", {})
+        .get(category_name, {})
+        .get("fields", {})
+    )
+    _process(category_fields)
 
-            if mark_default:
-                default_used = True
+    _build_phones(element, prop, exported_fields)
+    _build_photos(element, prop, exported_fields)
 
-    def _append_areas(self, obj: Element, prop) -> None:
-        _append_decimal(obj, "TotalArea", getattr(prop, "total_area", None))
-        _append_decimal(obj, "LivingArea", getattr(prop, "living_area", None))
-        _append_decimal(obj, "KitchenArea", getattr(prop, "kitchen_area", None))
-        _append_child(obj, "FloorNumber", getattr(prop, "floor_number", None))
-        _append_child(obj, "Rooms", getattr(prop, "rooms", None))
-        _append_child(obj, "FlatRoomsCount", getattr(prop, "flat_rooms_count", None))
-        _append_child(obj, "LoggiasCount", getattr(prop, "loggias_count", None))
-        _append_child(obj, "BalconiesCount", getattr(prop, "balconies_count", None))
-        _append_child(obj, "WindowsViewType", getattr(prop, "windows_view_type", None))
-        _append_child(obj, "SeparateWcsCount", getattr(prop, "separate_wcs_count", None))
-        _append_child(obj, "CombinedWcsCount", getattr(prop, "combined_wcs_count", None))
-        _append_child(obj, "RepairType", getattr(prop, "repair_type", None))
+    for helper_field in ("category", "operation", "subtype"):
+        if helper_field in filled_fields:
+            exported_fields.add(helper_field)
 
-        if getattr(prop, "category", None) == "house":
-            self._append_house_areas(obj, prop)
+    return AdBuildResult(
+        prop=prop,
+        element=element,
+        filled_fields=filled_fields,
+        exported_fields=exported_fields,
+    )
 
-    def _append_house_areas(self, obj: Element, prop) -> None:
-        land_area = getattr(prop, "land_area", None)
-        unit = getattr(prop, "land_area_unit", "") or "sotka"
-        if land_area not in (None, ""):
-            value = Decimal(str(land_area))
-            if unit == "sqm":
-                value = value / Decimal("100")
-                unit = "sotka"
-            _append_decimal(obj, "LandArea", value)
-            _append_child(obj, "LandAreaUnit", unit)
-        _append_child(obj, "HouseFloorsCount", getattr(prop, "building_floors", None))
-        material = getattr(prop, "building_material", None)
-        if material:
-            _append_child(obj, "HouseMaterialType", material)
-        _append_child(obj, "YearBuild", getattr(prop, "building_build_year", None))
 
-    def _append_deal_terms(self, obj: Element, prop) -> None:
-        fields_present = [
-            getattr(prop, "price", None),
-            getattr(prop, "mortgage_allowed", None),
-            getattr(prop, "agent_bonus_value", None),
-            getattr(prop, "security_deposit", None),
-            getattr(prop, "min_rent_term_months", None),
-            getattr(prop, "sale_type", None),
-        ]
-        if not any(v not in (None, "") for v in fields_present):
-            return
+def build_cian_feed(properties: Iterable) -> FeedBuildResult:
+    root = Element("feed")
+    SubElement(root, "feed_version").text = "2"
 
-        bt = SubElement(obj, "BargainTerms")
-        _append_decimal(bt, "Price", getattr(prop, "price", None))
-        _append_child(bt, "Currency", getattr(prop, "currency", None) or "rur")
-        _append_bool(bt, "MortgageAllowed", getattr(prop, "mortgage_allowed", None))
+    objects: List[AdBuildResult] = []
+    for prop in properties:
+        result = build_ad_xml(prop)
+        root.append(result.element)
+        objects.append(result)
 
-        sale_type = getattr(prop, "sale_type", "") or ""
-        if sale_type:
-            is_alternative = None
-            if sale_type == "alternative":
-                is_alternative = True
-            elif sale_type == "free":
-                is_alternative = False
-            if is_alternative is not None:
-                _append_bool(bt, "IsAlternative", is_alternative)
+    xml_bytes = tostring(root, encoding="utf-8", xml_declaration=True)
+    return FeedBuildResult(xml=xml_bytes, objects=objects)
 
-        agent_bonus_value = getattr(prop, "agent_bonus_value", None)
-        if agent_bonus_value not in (None, ""):
-            ab = SubElement(bt, "AgentBonus")
-            _append_decimal(ab, "Value", agent_bonus_value)
-            is_percent = bool(getattr(prop, "agent_bonus_is_percent", False))
-            _append_child(ab, "PaymentType", "percent" if is_percent else "fixed", always=True)
-            if not is_percent:
-                _append_child(ab, "Currency", getattr(prop, "currency", None) or "rur")
 
-        _append_decimal(bt, "SecurityDeposit", getattr(prop, "security_deposit", None))
-        _append_child(bt, "MinRentTerm", getattr(prop, "min_rent_term_months", None))
-
-    def _append_category_specific(self, obj: Element, prop) -> None:
-        category = getattr(prop, "category", None)
-        if category == "flat":
-            self._append_flat_specific(obj, prop)
-        elif category == "house":
-            self._append_house_specific(obj, prop)
-        elif category == "commercial":
-            self._append_commercial_specific(obj, prop)
-
-        _append_child(obj, "IsEuroFlat", True if getattr(prop, "is_euro_flat", False) else None)
-        _append_child(obj, "IsApartments", True if getattr(prop, "is_apartments", False) else None)
-        _append_child(obj, "IsPenthouse", True if getattr(prop, "is_penthouse", False) else None)
-
-        self._append_building_info(obj, prop)
-
-        for name in [
-            "has_internet",
-            "has_furniture",
-            "has_kitchen_furniture",
-            "has_tv",
-            "has_washer",
-            "has_conditioner",
-            "has_refrigerator",
-            "has_dishwasher",
-            "has_shower",
-            "has_phone",
-            "has_ramp",
-            "has_bathtub",
-        ]:
-            if getattr(prop, name, None):
-                tag = "".join(part.capitalize() for part in name.split("_"))
-                _append_child(obj, tag, "true", always=True)
-
-    def _append_flat_specific(self, obj: Element, prop) -> None:
-        room_type = getattr(prop, "room_type", None) or ""
-        layout_map = {
-            "combined": "combined",
-            "both": "both",
-            "separate": "separate",
-        }
-        if room_type:
-            mapped = layout_map.get(room_type.lower())
-            if mapped:
-                _append_child(obj, "RoomType", mapped)
-
-    def _append_house_specific(self, obj: Element, prop) -> None:
-        self._append_house_utilities(obj, prop)
-        self._append_house_land(obj, prop)
-        _append_child(obj, "HeatingType", getattr(prop, "heating_type", None))
-
-    def _append_house_utilities(self, obj: Element, prop) -> None:
-        gas_value = HOUSE_GAS_MAP.get((getattr(prop, "gas_supply_type", "") or "").strip())
-        if gas_value:
-            gas = SubElement(obj, "Gas")
-            SubElement(gas, "Type").text = gas_value
-
-        drainage_value = HOUSE_DRAINAGE_MAP.get((getattr(prop, "sewerage_type", "") or "").strip())
-        if drainage_value:
-            drainage = SubElement(obj, "Drainage")
-            SubElement(drainage, "Type").text = drainage_value
-
-        water_value = HOUSE_WATER_MAP.get((getattr(prop, "water_supply_type", "") or "").strip())
-        if water_value:
-            water = SubElement(obj, "Water")
-            SubElement(water, "SuburbanWaterType").text = water_value
-
-    def _append_house_land(self, obj: Element, prop) -> None:
-        area_text = _as_decimal(getattr(prop, "land_area", None))
-        unit_value = smart_str(getattr(prop, "land_area_unit", "")).strip()
-        permitted = smart_str(getattr(prop, "permitted_land_use", "")).strip()
-        land_category = smart_str(getattr(prop, "land_category", "")).strip()
-        has_contract = getattr(prop, "is_land_with_contract", None)
-
-        land_element = None
-
-        if area_text and unit_value:
-            land_element = SubElement(obj, "Land")
-            _append_child(land_element, "Area", area_text, always=True)
-            _append_child(land_element, "AreaUnitType", unit_value, always=True)
-        elif any([permitted, land_category, has_contract in (True, False)]):
-            land_element = SubElement(obj, "Land")
-
-        if land_element is None:
-            return
-
-        if has_contract in (True, False):
-            _append_bool(land_element, "IsLandWithContract", has_contract)
-
-        if permitted:
-            _append_child(land_element, "PermittedLandUse", permitted)
-
-        if land_category:
-            _append_child(land_element, "LandCategory", land_category)
-
-    def _append_commercial_specific(self, obj: Element, prop) -> None:
-        _append_decimal(obj, "Power", getattr(prop, "power", None))
-        _append_child(obj, "ParkingPlacesCount", getattr(prop, "parking_places", None))
-        if getattr(prop, "has_parking", None):
-            _append_child(obj, "HasParking", "true", always=True)
-
-        if getattr(prop, "is_rent_by_parts", False):
-            _append_child(obj, "IsRentByParts", "true", always=True)
-            _append_child(obj, "RentByPartsDescription", getattr(prop, "rent_by_parts_desc", None))
-
-    def _append_building_info(self, obj: Element, prop) -> None:
-        _append_child(obj, "FloorsCount", getattr(prop, "building_floors", None))
-        _append_child(obj, "BuildYear", getattr(prop, "building_build_year", None))
-        if getattr(prop, "building_material", None):
-            _append_child(obj, "MaterialType", getattr(prop, "building_material", None))
-        ceiling = getattr(prop, "building_ceiling_height", None) or getattr(prop, "ceiling_height", None)
-        _append_decimal(obj, "CeilingHeight", ceiling)
-        _append_child(obj, "PassengerLiftsCount", getattr(prop, "building_passenger_lifts", None))
-        _append_child(obj, "CargoLiftsCount", getattr(prop, "building_cargo_lifts", None))
+def build_cian_feed_xml(properties: Iterable) -> bytes:
+    return build_cian_feed(properties).xml
 
 
 __all__ = [
-    "build_cian_category",
-    "build_absolute_url",
-    "CianFeedBuilder",
-    "_resolve_property_subtype",
+    "AdBuildResult",
+    "FeedBuildResult",
+    "build_ad_xml",
+    "build_cian_feed",
     "build_cian_feed_xml",
+    "emit",
+    "load_registry",
+    "map_value",
+    "resolve_category",
 ]
-
-
-def build_cian_feed_xml(properties: Iterable, *, request=None) -> bytes:
-    builder = CianFeedBuilder(request=request)
-    root = builder.build(properties)
-    return tostring(root, encoding="utf-8", xml_declaration=True)
