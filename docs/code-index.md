@@ -275,8 +275,16 @@ RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/mai
 
 ## scripts
 
+[scripts/__init__.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/scripts/__init__.py
+
 [scripts/update_code_index.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/scripts/update_code_index.py
+
+## scripts/tests
+
+[scripts/tests/test_update_code_index_validation.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/scripts/tests/test_update_code_index_validation.py
 
 ## tests
 

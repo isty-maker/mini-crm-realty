@@ -3,14 +3,22 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import os
+import re
+import socket
+import time
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 BASE_RAW_URL = "https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/"
+RAW_URL_PATTERN = re.compile(
+    r"^https://raw\.githubusercontent\.com/isty-maker/mini-crm-realty/refs/heads/main/.+"
+)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOC_PATH = REPO_ROOT / "docs" / "code-index.md"
 
@@ -92,30 +100,189 @@ def group_files(paths: Iterable[Path]) -> Dict[str, List[str]]:
     return dict(sorted(grouped.items(), key=lambda item: item[0]))
 
 
-def validate_links(urls: Iterable[str], *, timeout: float = 10.0) -> None:
-    offline = False
-    for url in urls:
-        try:
-            status = fetch_status(url, timeout=timeout)
-        except URLError as exc:
-            print(f"[warn] Unable to reach {url}: {exc}. Assuming offline mode, skipping validation.")
-            offline = True
-            break
-        except HTTPError as exc:
-            if exc.code == 405:
-                status = fetch_status(url, method="GET", timeout=timeout)
-            else:
-                raise RuntimeError(f"Link validation failed for {url}: HTTP {exc.code}") from exc
-        if status != 200:
-            raise RuntimeError(f"Link validation failed for {url}: HTTP {status}")
-    if offline:
-        print("[warn] Link validation skipped for remaining files due to connectivity issues.")
+USER_AGENT = "mini-crm-index/1.0 (+https://github.com/isty-maker/mini-crm-realty)"
+RATE_LIMIT_SECONDS = 0.05
+HEAD_TIMEOUT = 4.0
+GET_TIMEOUT = 6.0
+MAX_RETRIES = 2
+BACKOFF_INITIAL = 0.2
 
 
-def fetch_status(url: str, *, method: str = "HEAD", timeout: float = 10.0) -> int:
-    request = Request(url, method=method, headers={"User-Agent": "code-index-updater/1.0"})
+class ValidationState:
+    VALID = "valid"
+    SKIPPED = "skipped"
+    ERROR = "error"
+
+
+@dataclass
+class ValidationResult:
+    url: str
+    state: str
+    detail: str
+
+
+@dataclass
+class ValidationSummary:
+    results: List[ValidationResult]
+
+    @property
+    def valid_count(self) -> int:
+        return sum(1 for result in self.results if result.state == ValidationState.VALID)
+
+    @property
+    def skipped(self) -> List[ValidationResult]:
+        return [result for result in self.results if result.state == ValidationState.SKIPPED]
+
+    @property
+    def errors(self) -> List[ValidationResult]:
+        return [result for result in self.results if result.state == ValidationState.ERROR]
+
+    @property
+    def skipped_count(self) -> int:
+        return len(self.skipped)
+
+    @property
+    def error_count(self) -> int:
+        return len(self.errors)
+
+
+def _send_request(url: str, *, method: str, timeout: float, headers: Dict[str, str]) -> int:
+    request = Request(url, method=method, headers=headers)
     with urlopen(request, timeout=timeout) as response:  # type: ignore[arg-type]
-        return response.status
+        status = response.status
+    time.sleep(RATE_LIMIT_SECONDS)
+    return status
+
+
+def _request_with_retries(
+    url: str,
+    *,
+    method: str,
+    timeout: float,
+    headers: Dict[str, str],
+    max_retries: int = MAX_RETRIES,
+) -> int:
+    attempt = 0
+    delay = BACKOFF_INITIAL
+    while True:
+        try:
+            return _send_request(url, method=method, timeout=timeout, headers=headers)
+        except HTTPError as exc:
+            time.sleep(RATE_LIMIT_SECONDS)
+            if exc.code == 429 and attempt < max_retries:
+                time.sleep(delay)
+                delay *= 2
+                attempt += 1
+                continue
+            raise
+        except URLError as exc:
+            time.sleep(RATE_LIMIT_SECONDS)
+            if _is_timeout_error(exc.reason) and attempt < max_retries:
+                time.sleep(delay)
+                delay *= 2
+                attempt += 1
+                continue
+            raise
+
+
+def _is_timeout_error(reason: object) -> bool:
+    if isinstance(reason, (TimeoutError, socket.timeout)):
+        return True
+    if isinstance(reason, OSError) and getattr(reason, "errno", None) == errno.ETIMEDOUT:
+        return True
+    if isinstance(reason, str) and "timed out" in reason.lower():
+        return True
+    return False
+
+
+def validate_url(url: str) -> ValidationResult:
+    if not RAW_URL_PATTERN.match(url):
+        return ValidationResult(url, ValidationState.ERROR, "malformed URL pattern")
+
+    head_headers = {"User-Agent": USER_AGENT}
+    head_detail = ""
+    try:
+        head_status = _request_with_retries(
+            url,
+            method="HEAD",
+            timeout=HEAD_TIMEOUT,
+            headers=head_headers,
+        )
+    except HTTPError as exc:
+        head_status = exc.code
+        head_detail = f"HEAD {exc.code}"
+    except URLError as exc:
+        head_status = None
+        head_detail = f"HEAD error: {exc.reason if exc.reason else exc}"
+
+    fallback_needed = False
+    if head_status is not None:
+        if 200 <= head_status <= 399:
+            return ValidationResult(url, ValidationState.VALID, f"HEAD {head_status}")
+        if head_status in {405, 403, 501}:
+            fallback_needed = True
+        elif head_status in {404, 410}:
+            detail = head_detail or f"HEAD {head_status}"
+            return ValidationResult(url, ValidationState.ERROR, detail)
+        elif head_status >= 400:
+            detail = head_detail or f"HEAD {head_status}"
+            return ValidationResult(url, ValidationState.SKIPPED, detail)
+    else:
+        fallback_needed = True
+
+    if not fallback_needed:
+        # If we reached here, head_status is None but fallback not required (shouldn't happen)
+        return ValidationResult(url, ValidationState.SKIPPED, "HEAD unknown failure")
+
+    get_headers = {"User-Agent": USER_AGENT, "Range": "bytes=0-0"}
+    try:
+        get_status = _request_with_retries(
+            url,
+            method="GET",
+            timeout=GET_TIMEOUT,
+            headers=get_headers,
+        )
+    except HTTPError as exc:
+        get_status = exc.code
+    except URLError as exc:
+        reason = exc.reason if exc.reason else exc
+        detail = f"{head_detail}; GET error: {reason}" if head_detail else f"GET error: {reason}"
+        return ValidationResult(url, ValidationState.SKIPPED, detail)
+
+    if get_status in {200, 206, 304}:
+        detail = f"{head_detail}; GET {get_status}" if head_detail else f"GET {get_status}"
+        return ValidationResult(url, ValidationState.VALID, detail)
+    if get_status in {404, 410}:
+        detail = f"{head_detail}; GET {get_status}" if head_detail else f"GET {get_status}"
+        return ValidationResult(url, ValidationState.ERROR, detail)
+    detail = f"{head_detail}; GET {get_status}" if head_detail else f"GET {get_status}"
+    return ValidationResult(url, ValidationState.SKIPPED, detail)
+
+
+def validate_links(urls: Iterable[str]) -> ValidationSummary:
+    results = [validate_url(url) for url in urls]
+    return ValidationSummary(results)
+
+
+def print_validation_summary(summary: ValidationSummary) -> None:
+    print(
+        "[validate] Summary — VALID: {valid}, SKIPPED(blocked): {skipped}, ERROR: {errors}".format(
+            valid=summary.valid_count,
+            skipped=summary.skipped_count,
+            errors=summary.error_count,
+        )
+    )
+
+    if summary.error_count:
+        print("[validate] Broken URLs (first 10):")
+        for result in summary.errors[:10]:
+            print(f"  - {result.url} ({result.detail})")
+
+    if summary.skipped_count:
+        print("[validate] Skipped (blocked) URLs (first 5):")
+        for result in summary.skipped[:5]:
+            print(f"  - {result.url} ({result.detail})")
+
 
 
 def build_document(grouped: Dict[str, List[str]]) -> str:
@@ -130,14 +297,40 @@ def build_document(grouped: Dict[str, List[str]]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def resolve_validation_mode(args: argparse.Namespace) -> tuple[bool, str]:
+    env_value = os.getenv("CODE_INDEX_VALIDATE")
+    if args.validate:
+        return True, "--validate"
+    if args.no_validate:
+        return False, "--no-validate"
+
+    if env_value is not None:
+        normalized = env_value.strip().lower()
+        if normalized in {"0", "false", "no", "off"}:
+            return False, f"CODE_INDEX_VALIDATE={env_value}"
+        if normalized in {"1", "true", "yes", "on"}:
+            return True, f"CODE_INDEX_VALIDATE={env_value}"
+    return True, "default"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Regenerate docs/code-index.md with RAW links")
-    parser.add_argument(
-        "--skip-validation",
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--validate",
         action="store_true",
-        help="Skip HTTP validation of generated RAW links",
+        help="Force HTTP validation of generated RAW links",
+    )
+    group.add_argument(
+        "--no-validate",
+        action="store_true",
+        help="Disable HTTP validation of generated RAW links",
     )
     args = parser.parse_args()
+
+    should_validate, reason = resolve_validation_mode(args)
+    mode_label = "ENABLED" if should_validate else "DISABLED"
+    print(f"[validate] Validation mode: {mode_label} ({reason})")
 
     files = iter_repo_files(REPO_ROOT)
     grouped = group_files(files)
@@ -145,11 +338,14 @@ def main() -> None:
     DOC_PATH.write_text(document, encoding="utf-8")
     print(f"[info] Wrote index for {len(files)} files to {DOC_PATH.relative_to(REPO_ROOT)}")
 
-    if not args.skip_validation:
-        try:
-            validate_links(BASE_RAW_URL + path.as_posix() for path in files)
-        except RuntimeError as exc:
-            raise SystemExit(str(exc))
+    if not should_validate:
+        print("[validate] Link validation disabled; skipping network checks.")
+        return
+
+    summary = validate_links(BASE_RAW_URL + path.as_posix() for path in files)
+    print_validation_summary(summary)
+    if summary.error_count:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
