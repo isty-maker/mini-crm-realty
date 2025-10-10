@@ -6,6 +6,7 @@ import re
 from functools import lru_cache
 from typing import Optional
 from io import BytesIO
+from pathlib import Path
 
 from django.conf import settings
 from django.contrib import messages
@@ -570,8 +571,9 @@ def panel_add_photo(request, pk):
     if request.method != "POST":
         return redirect(f"/panel/edit/{pk}/")
 
-    os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
-    os.makedirs(settings.MEDIA_ROOT / "logs", exist_ok=True)
+    media_root = Path(settings.MEDIA_ROOT)
+    os.makedirs(media_root, exist_ok=True)
+    os.makedirs(media_root / "logs", exist_ok=True)
 
     files = list(request.FILES.getlist("images") or [])
     single = request.FILES.get("image")

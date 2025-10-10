@@ -20,12 +20,15 @@ common:
     lat: "Coordinates.Latitude"
     lng: "Coordinates.Longitude"
     price: "BargainTerms.Price"
-    currency: "BargainTerms.Currency"   # ожидаются 'RUR'|'USD'|'EUR' — конвертировать из модели
     mortgage_allowed: "BargainTerms.MortgageAllowed"
     agent_bonus_value: "BargainTerms.AgentBonus.Value"
-    agent_bonus_is_percent: "BargainTerms.AgentBonus.IsPercent"
+    agent_bonus_is_percent: "BargainTerms.AgentBonus.PaymentType"
+    currency:
+      - "BargainTerms.Currency"   # ожидаются 'RUR'|'USD'|'EUR' — конвертировать из модели
+      - "BargainTerms.AgentBonus.Currency"
     security_deposit: "BargainTerms.SecurityDeposit"
     min_rent_term_months: "BargainTerms.MinRentTermMonths"
+    sale_type: "BargainTerms.SaleType"
   phones:
     # Строгая структура телефонов ЦИАН
     - "Phones.PhoneSchema[0].CountryCode:phone_country"
@@ -63,7 +66,7 @@ categories:
       building_ceiling_height: "Building.CeilingHeight"
   roomSale:
     fields:
-      total_area: "TotalArea"
+      total_area: "RoomArea"
       floor_number: "FloorNumber"
       room_type_ext: "RoomType"        # для комнаты допускается RoomType
   houseSale:
@@ -122,12 +125,23 @@ categories:
       has_electricity: "Electricity.Available"
       power: "Electricity.Power"
 
+  flatRent:
+    fields:
+      flat_rooms_count: "FlatRoomsCount"
+      total_area: "TotalArea"
+      floor_number: "FloorNumber"
+      is_apartments: "IsApartments"
+      is_euro_flat: "IsEuroLayout"
+
 # Преобразование значений (enum/булевы/валюта)
 values:
   currency:
     rur: "RUR"
     usd: "USD"
     eur: "EUR"
+  agent_bonus_is_percent:
+    true: "percent"
+    false: "fixed"
   room_type:
     separate: "separate"
     combined: "combined"

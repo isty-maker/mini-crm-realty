@@ -206,7 +206,7 @@ def test_values_normalized():
     assert "<Currency>EUR</Currency>" in xml_text
     assert "<MortgageAllowed>true</MortgageAllowed>" in xml_text
     assert "<Value>12.5</Value>" in xml_text
-    assert "<IsPercent>true</IsPercent>" in xml_text
+    assert "<PaymentType>percent</PaymentType>" in xml_text
     assert "<Gas><Type>gasHolder</Type></Gas>" in xml_text
     assert "<Drainage><Type>cesspool</Type></Drainage>" in xml_text
     assert "<Water><SuburbanWaterType>well</SuburbanWaterType></Water>" in xml_text
