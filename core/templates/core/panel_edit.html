@@ -273,6 +273,12 @@
         {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
+      {% with field=form.has_gas %}
+      <div class="form-row">
+        <label>{{ field }} {{ field.label }}</label>
+        {% include "core/includes/field_errors.html" %}
+      </div>
+      {% endwith %}
       {% with field=form.heating_type %}
       <div class="form-row">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
@@ -281,6 +287,18 @@
       </div>
       {% endwith %}
       {% with field=form.has_electricity %}
+      <div class="form-row">
+        <label>{{ field }} {{ field.label }}</label>
+        {% include "core/includes/field_errors.html" %}
+      </div>
+      {% endwith %}
+      {% with field=form.has_water %}
+      <div class="form-row">
+        <label>{{ field }} {{ field.label }}</label>
+        {% include "core/includes/field_errors.html" %}
+      </div>
+      {% endwith %}
+      {% with field=form.has_drainage %}
       <div class="form-row">
         <label>{{ field }} {{ field.label }}</label>
         {% include "core/includes/field_errors.html" %}
