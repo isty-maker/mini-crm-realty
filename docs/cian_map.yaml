@@ -17,8 +17,9 @@ common:
     external_id: "ExternalId"
     description: "Description"
     address: "Address"
-    lat: "Coordinates.Latitude"
-    lng: "Coordinates.Longitude"
+    # Геолокация: пример ожидает Lat/Lng, а не Latitude/Longitude
+    lat: "Coordinates.Lat"
+    lng: "Coordinates.Lng"
     price: "BargainTerms.Price"
     mortgage_allowed: "BargainTerms.MortgageAllowed"
     agent_bonus_value: "BargainTerms.AgentBonus.Value"
@@ -49,10 +50,11 @@ categories:
       living_area: "LivingArea"
       kitchen_area: "KitchenArea"
       floor_number: "FloorNumber"
-      rooms: "RoomsCount"
-      flat_rooms_count: "RoomsCount"   # если заполнено — RoomsCount тоже
+      # В фидах ЦИАН для квартир используют FlatRoomsCount
+      flat_rooms_count: "FlatRoomsCount"
       room_type: "RoomType"            # separate|combined|both
-      windows_view_type: "WindowsView" # yard|street|yardAndStreet
+      # WindowsViewType из примеров вместо устаревшего WindowsView
+      windows_view_type: "WindowsViewType" # yard|street|yardAndStreet
       separate_wcs_count: "SeparateWcsCount"
       combined_wcs_count: "CombinedWcsCount"
       repair_type: "RepairType"        # cosmetic|design|euro|no
@@ -77,7 +79,8 @@ categories:
       building_build_year: "BuildYear"
       building_material: "MaterialType"
       bedrooms_count: "BedroomsCount"
-      wc_location: "WcLocation"        # inside|outside
+      # Пример использует WcLocationType
+      wc_location: "WcLocationType"        # inside|outside
       heating_type: "HeatingType"      # central|gas|electric|solid
       ceiling_height: "CeilingHeight"
       house_condition: "HouseCondition"

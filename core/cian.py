@@ -328,11 +328,14 @@ def _build_phones(parent: Element, prop, exported_fields: Set[str]) -> None:
         return
 
     country_raw = getattr(prop, "phone_country", None)
-    country = _digits_only(country_raw) or "7"
+    country_digits = _digits_only(country_raw) or "7"
+    country = f"+{country_digits}"
 
     numbers: List[Tuple[str, str]] = []
     for field_name in ("phone_number", "phone_number2"):
-        normalized = _normalize_phone_number(getattr(prop, field_name, None), country)
+        normalized = _normalize_phone_number(
+            getattr(prop, field_name, None), country_digits
+        )
         if normalized:
             numbers.append((field_name, normalized))
 
@@ -342,7 +345,7 @@ def _build_phones(parent: Element, prop, exported_fields: Set[str]) -> None:
     phones_el = _ensure_child(parent, "Phones")
     for field_name, number in numbers[:2]:
         schema = SubElement(phones_el, "PhoneSchema")
-        SubElement(schema, "CountryCode").text = f"+{country}"
+        SubElement(schema, "CountryCode").text = country
         SubElement(schema, "Number").text = number
         exported_fields.add(field_name)
 

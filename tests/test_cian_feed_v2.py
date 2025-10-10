@@ -143,3 +143,53 @@ class CianFeedStructureTests(TestCase):
         obj = _find_object(root, "NO-METRO")
         tags = [element.tag.lower() for element in obj.iter()]
         self.assertTrue(all("metro" not in tag for tag in tags))
+
+    def test_flat_sale_rooms_and_windows_tags(self):
+        prop = Property.objects.create(
+            category="flat",
+            operation="sale",
+            external_id="FLAT-TAGS",
+            address="Москва",
+            flat_rooms_count=2,
+            windows_view_type="yard",
+            total_area=Decimal("45"),
+            floor_number=6,
+            price=Decimal("5000000"),
+            currency="rur",
+            phone_number="+7 900 000-00-00",
+            export_to_cian=True,
+        )
+        Photo.objects.create(property=prop, full_url="http://example.com/p.jpg")
+
+        root = _export_feed(self.client)
+        obj = _find_object(root, "FLAT-TAGS")
+        self.assertEqual(obj.findtext("FlatRoomsCount"), "2")
+        self.assertEqual(obj.findtext("WindowsViewType"), "yard")
+
+    def test_house_wc_location_type_and_phone_plus(self):
+        prop = Property.objects.create(
+            category="house",
+            operation="sale",
+            external_id="HOUSE-TAGS",
+            address="Тюмень",
+            total_area=Decimal("90"),
+            land_area=Decimal("5"),
+            land_area_unit="sotka",
+            wc_location="inside",
+            price=Decimal("6500000"),
+            currency="rur",
+            phone_country="7",
+            phone_number="9991234567",
+            export_to_cian=True,
+        )
+        Photo.objects.create(property=prop, full_url="http://example.com/h.jpg")
+
+        root = _export_feed(self.client)
+        obj = _find_object(root, "HOUSE-TAGS")
+        self.assertEqual(obj.findtext("WcLocationType"), "inside")
+        phones = obj.find("Phones")
+        self.assertIsNotNone(phones)
+        phone_nodes = phones.findall("PhoneSchema")
+        self.assertTrue(phone_nodes)
+        self.assertEqual(phone_nodes[0].findtext("CountryCode"), "+7")
+        self.assertEqual(phone_nodes[0].findtext("Number"), "9991234567")
