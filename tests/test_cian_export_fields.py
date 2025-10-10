@@ -234,3 +234,137 @@ class TestCianMapping(TestCase):
                 text.strip(),
                 msg=f"Element <{element.tag}> should not be empty",
             )
+
+    def test_flat_sale_core_and_building(self):
+        prop = Property.objects.create(
+            category="flat",
+            operation="sale",
+            external_id="FLAT-CORE",
+            address="Москва",
+            total_area=Decimal("56.7"),
+            floor_number=12,
+            flat_rooms_count=2,
+            windows_view_type="yard",
+            building_floors=16,
+            building_build_year=2012,
+            building_material="monolith",
+            building_ceiling_height=Decimal("2.90"),
+            building_passenger_lifts=1,
+            building_cargo_lifts=0,
+            building_series="П-44",
+            building_has_garbage_chute=True,
+            building_parking="подземная",
+            price=Decimal("13500000"),
+            phone_number="+7 (999) 111-22-33",
+            export_to_cian=True,
+        )
+        self._create_photo(prop)
+
+        root = _export_feed(self.client)
+        obj = _find_object(root, "FLAT-CORE")
+
+        self.assertEqual(obj.findtext("FlatRoomsCount"), "2")
+        self.assertEqual(obj.findtext("WindowsViewType"), "yard")
+
+        building = obj.find("Building")
+        self.assertIsNotNone(building)
+        self.assertEqual(building.findtext("FloorsCount"), "16")
+        self.assertEqual(building.findtext("BuildYear"), "2012")
+        self.assertEqual(building.findtext("MaterialType"), "monolith")
+        self.assertEqual(building.findtext("CeilingHeight"), "2.9")
+        self.assertEqual(building.findtext("Series"), "П-44")
+        self.assertEqual(building.findtext("HasGarbageChute"), "true")
+        self.assertEqual(building.findtext("Parking"), "подземная")
+
+    def test_house_sale_land_wc_building(self):
+        prop = Property.objects.create(
+            category="house",
+            operation="sale",
+            external_id="HOUSE-WC",
+            address="Истра",
+            total_area=Decimal("150"),
+            land_area=Decimal("6.5"),
+            land_area_unit="sotka",
+            wc_location="inside",
+            heating_type="gas",
+            land_category="settlements",
+            permitted_land_use="individualHousingConstruction",
+            price=Decimal("18500000"),
+            phone_number="+7 900 000-00-00",
+            export_to_cian=True,
+        )
+        self._create_photo(prop)
+
+        root = _export_feed(self.client)
+        obj = _find_object(root, "HOUSE-WC")
+
+        land = obj.find("Land")
+        self.assertIsNotNone(land)
+        self.assertEqual(land.findtext("Area"), "6.5")
+        self.assertEqual(land.findtext("AreaUnitType"), "sotka")
+        self.assertEqual(obj.findtext("WcLocationType"), "inside")
+
+    def test_flat_rent_terms_and_beds(self):
+        prop = Property.objects.create(
+            category="flat",
+            operation="rent_long",
+            external_id="FLAT-RENT",
+            address="Москва",
+            total_area=Decimal("48"),
+            floor_number=7,
+            flat_rooms_count=2,
+            beds_count=3,
+            lease_term_type="longTerm",
+            prepay_months=1,
+            deposit=Decimal("55000"),
+            utilities_terms="included",
+            client_fee=Decimal("0"),
+            agent_fee=Decimal("0"),
+            price=Decimal("55000"),
+            currency="rur",
+            phone_country="7",
+            phone_number="8 (903) 123-45-67",
+            export_to_cian=True,
+        )
+        self._create_photo(prop)
+
+        root = _export_feed(self.client)
+        obj = _find_object(root, "FLAT-RENT")
+
+        bt = obj.find("BargainTerms")
+        self.assertIsNotNone(bt)
+        self.assertEqual(bt.findtext("LeaseTermType"), "longTerm")
+        self.assertEqual(bt.findtext("PrepayMonths"), "1")
+        self.assertEqual(bt.findtext("Deposit"), "55000")
+        self.assertEqual(bt.findtext("UtilitiesTerms"), "included")
+        self.assertEqual(bt.findtext("ClientFee"), "0")
+        self.assertEqual(bt.findtext("AgentFee"), "0")
+        self.assertEqual(obj.findtext("BedsCount"), "3")
+
+        phones = obj.find("Phones")
+        self.assertIsNotNone(phones)
+        schema = phones.find("PhoneSchema")
+        self.assertIsNotNone(schema)
+        self.assertEqual(schema.findtext("CountryCode"), "+7")
+        self.assertEqual(schema.findtext("Number"), "9031234567")
+
+    def test_room_sale_roomarea_and_count(self):
+        prop = Property.objects.create(
+            category="room",
+            operation="sale",
+            external_id="ROOM-COUNT",
+            address="Москва",
+            total_area=Decimal("12"),
+            rooms_for_sale_count=1,
+            floor_number=3,
+            price=Decimal("3200000"),
+            phone_number="+7 999 000-11-22",
+            export_to_cian=True,
+        )
+        self._create_photo(prop)
+
+        root = _export_feed(self.client)
+        obj = _find_object(root, "ROOM-COUNT")
+
+        self.assertEqual(obj.findtext("RoomArea"), "12")
+        self.assertEqual(obj.findtext("RoomsForSaleCount"), "1")
