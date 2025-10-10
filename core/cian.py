@@ -148,6 +148,9 @@ def resolve_category(prop) -> str:
     category = smart_str(getattr(prop, "category", "")).strip().lower()
     operation = smart_str(getattr(prop, "operation", "")).strip().lower()
 
+    if category == "flat" and operation.startswith("rent"):
+        return "flatRent"
+
     mapping = {
         "flat": "flatSale",
         "room": "roomSale",
@@ -156,11 +159,7 @@ def resolve_category(prop) -> str:
         "commercial": "commercialSale",
         "garage": "garageSale",
     }
-    value = mapping.get(category)
-    if value:
-        return value
-    # fallback: flats are the most common category in the feed spec
-    return "flatSale"
+    return mapping.get(category, "flatSale")
 
 
 def _ensure_child(parent: Element, tag: str) -> Element:
@@ -343,7 +342,7 @@ def _build_phones(parent: Element, prop, exported_fields: Set[str]) -> None:
     phones_el = _ensure_child(parent, "Phones")
     for field_name, number in numbers[:2]:
         schema = SubElement(phones_el, "PhoneSchema")
-        SubElement(schema, "CountryCode").text = country
+        SubElement(schema, "CountryCode").text = f"+{country}"
         SubElement(schema, "Number").text = number
         exported_fields.add(field_name)
 
@@ -387,15 +386,57 @@ def build_ad_xml(prop) -> AdBuildResult:
     filled_fields = _collect_filled_fields(prop, stop_fields)
     exported_fields: Set[str] = set()
 
-    def _process(fields_map: Dict[str, str]) -> None:
+    values_registry: Dict[str, Dict] = registry.get("values", {})
+
+    def _process(fields_map: Dict[str, object]) -> None:
         for field_name, path in fields_map.items():
+            if field_name == "agent_bonus_is_percent":
+                bonus_value = getattr(prop, "agent_bonus_value", None)
+                if not _value_is_present(bonus_value):
+                    continue
+
             raw_value = getattr(prop, field_name, None)
+            values_map: Dict = values_registry.get(field_name, {})
+
             if not _value_is_present(raw_value):
-                continue
+                should_continue = True
+                if values_map and raw_value is not None:
+                    raw_str = smart_str(raw_value).strip()
+                    candidates = [raw_value]
+                    if raw_str:
+                        candidates.append(raw_str)
+                        candidates.append(raw_str.lower())
+                    for candidate in candidates:
+                        if candidate in values_map:
+                            should_continue = False
+                            break
+                if should_continue:
+                    continue
+
             mapped_value = map_value(field_name, raw_value)
             if mapped_value in (None, ""):
                 continue
-            emit(element, path, mapped_value)
+
+            if isinstance(path, (list, tuple)):
+                paths_to_emit: List[str] = []
+                for sub_path in path:
+                    sub_path_str = smart_str(sub_path)
+                    if (
+                        sub_path_str == "BargainTerms.AgentBonus.Currency"
+                        and not exported_fields.intersection(
+                            {"agent_bonus_value", "agent_bonus_is_percent"}
+                        )
+                    ):
+                        continue
+                    paths_to_emit.append(sub_path_str)
+            else:
+                paths_to_emit = [smart_str(path)]
+
+            if not paths_to_emit:
+                continue
+
+            for sub_path in paths_to_emit:
+                emit(element, sub_path, mapped_value)
             exported_fields.add(field_name)
 
     common_fields = registry.get("common", {}).get("fields", {})

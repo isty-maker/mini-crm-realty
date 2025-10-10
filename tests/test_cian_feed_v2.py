@@ -87,7 +87,7 @@ class CianFeedStructureTests(TestCase):
         self.assertEqual(obj.findtext("RoomType"), "both")
         bargain_terms = obj.find("BargainTerms")
         self.assertIsNotNone(bargain_terms)
-        self.assertEqual(bargain_terms.findtext("IsAlternative"), "true")
+        self.assertEqual(bargain_terms.findtext("SaleType"), "alternative")
 
     def test_house_sale_core_fields_present(self):
         prop = Property.objects.create(

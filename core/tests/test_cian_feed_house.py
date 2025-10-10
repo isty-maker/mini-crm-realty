@@ -63,7 +63,7 @@ class TestCianFeedHouse(TestCase):
 
         self.assertIn("<Phones>", xml_text)
         self.assertIn("<PhoneSchema>", xml_text)
-        self.assertIn("<CountryCode>7</CountryCode>", xml_text)
+        self.assertIn("<CountryCode>+7</CountryCode>", xml_text)
         self.assertIn("<Number>9991234567</Number>", xml_text)
 
         self.assertIn("<FullUrl>http", xml_text)
