@@ -71,9 +71,12 @@ class TestCianMapping(TestCase):
             land_area_unit="sotka",
             price=Decimal("12500000"),
             phone_number="+7 900 000-00-00",
+            has_gas=True,
             gas_supply_type="main_on_plot",
             sewerage_type="septic",
+            has_drainage=True,
             water_supply_type="borehole",
+            has_water=True,
             has_electricity=True,
             power=15,
             export_to_cian=True,
@@ -95,9 +98,13 @@ class TestCianMapping(TestCase):
         self.assertIsNotNone(water)
         self.assertEqual(water.findtext("SuburbanWaterType"), "borehole")
 
+        self.assertEqual(obj.findtext("HasElectricity"), "true")
+        self.assertEqual(obj.findtext("HasGas"), "true")
+        self.assertEqual(obj.findtext("HasWater"), "true")
+        self.assertEqual(obj.findtext("HasDrainage"), "true")
+
         electricity = obj.find("Electricity")
         self.assertIsNotNone(electricity)
-        self.assertEqual(electricity.findtext("Available"), "true")
         self.assertEqual(electricity.findtext("Power"), "15")
 
     def test_full_coverage_no_skips(self):

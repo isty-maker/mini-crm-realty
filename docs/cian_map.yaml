@@ -28,6 +28,7 @@ common:
     # Геолокация: пример ожидает Lat/Lng, а не Latitude/Longitude
     lat: "Coordinates.Lat"
     lng: "Coordinates.Lng"
+    # Flat number: <Apartment> tag in flatSale XML
     flat_number: "Apartment"
 
     # Здание и окружение
@@ -73,8 +74,11 @@ common:
     sewerage_type: "Drainage.Type"
     water_supply_type: "Water.SuburbanWaterType"
     gas_supply_type: "Gas.Type"
-    has_electricity: "Electricity.Available"
-    house_condition: "HouseCondition"
+    has_electricity: "HasElectricity"
+    has_water: "HasWater"
+    has_gas: "HasGas"
+    has_drainage: "HasDrainage"
+    house_condition: "Condition"
     has_garage: "HasGarage"
     heating_type: "HeatingType"
     power: "Electricity.Power"
@@ -111,7 +115,7 @@ categories:
       separate_wcs_count: "SeparateWcsCount"
       combined_wcs_count: "CombinedWcsCount"
       repair_type: "RepairType"        # cosmetic|design|euro|no
-      is_euro_flat: "IsEuroLayout"
+      is_euro_flat: "IsEuroFlat"
       is_apartments: "IsApartments"
       is_penthouse: "IsPenthouse"
       loggias_count: "LoggiasCount"
@@ -141,8 +145,11 @@ categories:
       wc_location: "WcLocationType"        # inside|outside
       heating_type: "HeatingType"      # central|gas|electric|solid
       ceiling_height: "CeilingHeight"
-      house_condition: "HouseCondition"
+      house_condition: "Condition"
       has_garage: "HasGarage"
+      has_pool: "HasPool"
+      has_bathhouse: "HasBathhouse"
+      has_security: "HasSecurity"
       # Земля (в составе дома)
       land_area: "Land.Area"
       land_area_unit: "Land.AreaUnitType"   # sotka|sqm
@@ -153,7 +160,10 @@ categories:
       gas_supply_type: "Gas.Type"            # main|border|gasHolder|gasBottle
       sewerage_type: "Drainage.Type"         # central|septicTank|cesspool|none
       water_supply_type: "Water.SuburbanWaterType" # central|borehole|well|none
-      has_electricity: "Electricity.Available"
+      has_electricity: "HasElectricity"
+      has_water: "HasWater"
+      has_gas: "HasGas"
+      has_drainage: "HasDrainage"
       power: "Electricity.Power"
       has_terrace: "HasTerrace"
       has_cellar: "HasCellar"
@@ -166,7 +176,7 @@ categories:
       land_area_unit: "AreaUnitType"
       permitted_land_use: "PermittedLandUse"
       land_category: "LandCategory"
-      has_electricity: "Electricity.Available"
+      has_electricity: "HasElectricity"
       power: "Electricity.Power"
       is_land_with_contract: "IsLandWithContract"
   commercialSale:
@@ -183,7 +193,7 @@ categories:
   garageSale:
     fields:
       total_area: "TotalArea"
-      has_electricity: "Electricity.Available"
+      has_electricity: "HasElectricity"
       power: "Electricity.Power"
 
   flatRent:
@@ -193,7 +203,7 @@ categories:
       floor_number: "FloorNumber"
       rooms: "RoomsCount"
       is_apartments: "IsApartments"
-      is_euro_flat: "IsEuroLayout"
+      is_euro_flat: "IsEuroFlat"
       is_penthouse: "IsPenthouse"
       beds_count: "BedsCount"
 
