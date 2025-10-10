@@ -445,6 +445,9 @@ def build_ad_xml(prop) -> AdBuildResult:
     common_fields = registry.get("common", {}).get("fields", {})
     _process(common_fields)
 
+    deal_terms_fields = registry.get("deal_terms", {}).get("fields", {})
+    _process(deal_terms_fields)
+
     category_fields = (
         registry.get("categories", {})
         .get(category_name, {})
