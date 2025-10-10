@@ -147,7 +147,341 @@
     );
   }
 
+  var SCROLL_STORAGE_KEY = 'panel:scroll';
+
+  function getCsrfToken() {
+    var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (input && input.value) {
+      return input.value;
+    }
+    var match = document.cookie ? document.cookie.match(/csrftoken=([^;]+)/) : null;
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
+  function saveScrollPosition() {
+    try {
+      var photos = document.getElementById('photos');
+      var top = window.scrollY || window.pageYOffset || 0;
+      var payload = {
+        scrollY: top,
+        photosTop: photos
+          ? photos.getBoundingClientRect().top + top
+          : null
+      };
+      sessionStorage.setItem(SCROLL_STORAGE_KEY, JSON.stringify(payload));
+    } catch (err) {
+      /* no-op */
+    }
+  }
+
+  function restoreScrollPosition() {
+    try {
+      var raw = sessionStorage.getItem(SCROLL_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      sessionStorage.removeItem(SCROLL_STORAGE_KEY);
+      var payload = JSON.parse(raw);
+      if (payload && typeof payload.scrollY === 'number') {
+        window.scrollTo(0, payload.scrollY);
+        return;
+      }
+      if (payload && typeof payload.photosTop === 'number') {
+        window.scrollTo(0, payload.photosTop);
+      }
+    } catch (err) {
+      try {
+        sessionStorage.removeItem(SCROLL_STORAGE_KEY);
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  }
+
+  function attachScrollPersistence() {
+    var forms = document.querySelectorAll('form[data-preserve-scroll="true"]');
+    forms.forEach(function (form) {
+      form.addEventListener('submit', function () {
+        saveScrollPosition();
+      });
+    });
+  }
+
+  function bustCache(url) {
+    try {
+      var obj = new URL(url, window.location.href);
+      obj.searchParams.set('_', Date.now().toString());
+      return obj.toString();
+    } catch (err) {
+      var base = url.split('#')[0];
+      var parts = base.split('?')[0];
+      return parts + '?_=' + Date.now();
+    }
+  }
+
+  function setupPhotoActions() {
+    var list = document.getElementById('photos');
+    if (!list) {
+      attachScrollPersistence();
+      return;
+    }
+
+    var bulkBar = document.querySelector('.photo-bulk-actions');
+    var selectAllBtn = document.getElementById('photo-select-all');
+    var clearSelectionBtn = document.getElementById('photo-clear-selection');
+    var deleteSelectedBtn = document.getElementById('photo-delete-selected');
+    var deleteAllBtn = document.getElementById('photo-delete-all');
+    var selectionInfo = document.getElementById('photo-selection-info');
+    var reorderForm = document.getElementById('reorderForm');
+
+    function cards() {
+      return Array.prototype.slice.call(list.querySelectorAll('.photo-card'));
+    }
+
+    function toggleCardHighlight(checkbox, selected) {
+      var card = checkbox ? checkbox.closest('.photo-card') : null;
+      if (card) {
+        if (selected) {
+          card.classList.add('selected');
+        } else {
+          card.classList.remove('selected');
+        }
+      }
+    }
+
+    function updateSelectionInfo() {
+      var checked = list.querySelectorAll('.photo-select:checked');
+      var count = checked.length;
+      if (selectionInfo) {
+        selectionInfo.textContent = count ? 'Выбрано: ' + count : '';
+      }
+      if (deleteSelectedBtn) {
+        deleteSelectedBtn.disabled = count === 0;
+      }
+      if (clearSelectionBtn) {
+        clearSelectionBtn.disabled = count === 0;
+      }
+    }
+
+    function setSelectionForAll(checked) {
+      var boxes = list.querySelectorAll('.photo-select');
+      boxes.forEach(function (box) {
+        box.checked = checked;
+        toggleCardHighlight(box, checked);
+      });
+      updateSelectionInfo();
+    }
+
+    function removeCardsByIds(ids) {
+      ids.forEach(function (id) {
+        var card = list.querySelector('.photo-card[data-photo-id="' + id + '"]');
+        if (card) {
+          card.remove();
+        }
+      });
+    }
+
+    function ensureEmptyState() {
+      if (cards().length > 0) {
+        return;
+      }
+      if (bulkBar) {
+        bulkBar.style.display = 'none';
+      }
+      if (reorderForm) {
+        reorderForm.style.display = 'none';
+      }
+      var emptyText = list.dataset.emptyText || '';
+      if (emptyText) {
+        list.innerHTML = '<p>' + emptyText + '</p>';
+      } else {
+        list.innerHTML = '';
+      }
+    }
+
+    function postDelete(ids) {
+      if (!bulkBar) {
+        return Promise.resolve([]);
+      }
+      var url = bulkBar.dataset.bulkDeleteUrl;
+      var propertyId = bulkBar.dataset.propertyId;
+      if (!url || !propertyId) {
+        return Promise.resolve([]);
+      }
+      var params = new URLSearchParams();
+      params.append('property_id', propertyId);
+      ids.forEach(function (id) {
+        params.append('ids[]', id);
+      });
+      var headers = { 'X-Requested-With': 'XMLHttpRequest' };
+      var token = getCsrfToken();
+      if (token) {
+        headers['X-CSRFToken'] = token;
+      }
+      return fetch(url, {
+        method: 'POST',
+        headers: headers,
+        body: params
+      }).then(
+        function (response) {
+          if (!response.ok) {
+            return response
+              .json()
+              .catch(function () {
+                return {};
+              })
+              .then(function (payload) {
+                var error = payload && payload.error ? payload.error : 'unknown';
+                throw new Error(error);
+              });
+          }
+          return response.json();
+        }
+      );
+    }
+
+    function handleDelete(ids, confirmMessage) {
+      if (!ids.length) {
+        return;
+      }
+      if (confirmMessage && !window.confirm(confirmMessage)) {
+        return;
+      }
+      var buttonToDisable = ids.length === cards().length ? deleteAllBtn : deleteSelectedBtn;
+      if (buttonToDisable) {
+        buttonToDisable.disabled = true;
+      }
+      var enableButtons = function () {
+        if (buttonToDisable) {
+          buttonToDisable.disabled = false;
+        }
+      };
+      postDelete(ids)
+        .then(function (payload) {
+          var removed = (payload && payload.deleted) || [];
+          removeCardsByIds(removed);
+          updateSelectionInfo();
+          ensureEmptyState();
+        })
+        .catch(function () {
+          window.alert('Не удалось удалить фото. Попробуйте ещё раз.');
+        })
+        .then(enableButtons, enableButtons);
+    }
+
+    function rotatePhoto(card, direction) {
+      var rotateButtons = card.querySelectorAll('button[data-action="rotate"]');
+      rotateButtons.forEach(function (btn) {
+        btn.disabled = true;
+      });
+      var baseUrl = card.dataset.rotateUrl || '';
+      if (!baseUrl) {
+        rotateButtons.forEach(function (btn) {
+          btn.disabled = false;
+        });
+        return;
+      }
+      var url = baseUrl + (baseUrl.indexOf('?') === -1 ? '?' : '&') + 'dir=' + encodeURIComponent(direction);
+      var headers = { 'X-Requested-With': 'XMLHttpRequest' };
+      var token = getCsrfToken();
+      if (token) {
+        headers['X-CSRFToken'] = token;
+      }
+      fetch(url, {
+        method: 'POST',
+        headers: headers
+      }).then(function (response) {
+        if (!response.ok) {
+          return response
+            .json()
+            .catch(function () {
+              return {};
+            })
+            .then(function (payload) {
+              var error = payload && payload.error ? payload.error : 'unknown';
+              throw new Error(error);
+            });
+        }
+        return response.json();
+      }).then(function () {
+        var img = card.querySelector('img');
+        if (img) {
+          img.src = bustCache(img.src);
+        }
+      }, function () {
+        window.alert('Не удалось повернуть фото. Попробуйте ещё раз.');
+      }).then(function () {
+        rotateButtons.forEach(function (btn) {
+          btn.disabled = false;
+        });
+      }, function () {
+        rotateButtons.forEach(function (btn) {
+          btn.disabled = false;
+        });
+      });
+    }
+
+    list.addEventListener('change', function (event) {
+      var target = event.target;
+      if (target && target.classList && target.classList.contains('photo-select')) {
+        toggleCardHighlight(target, target.checked);
+        updateSelectionInfo();
+      }
+    });
+
+    list.addEventListener('click', function (event) {
+      var source = event.target;
+      if (!source || typeof source.closest !== 'function') {
+        return;
+      }
+      var rotateBtn = source.closest('button[data-action="rotate"]');
+      if (rotateBtn) {
+        event.preventDefault();
+        var card = rotateBtn.closest('.photo-card');
+        if (card) {
+          rotatePhoto(card, rotateBtn.dataset.dir === 'left' ? 'left' : 'right');
+        }
+      }
+    });
+
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', function () {
+        setSelectionForAll(true);
+      });
+    }
+
+    if (clearSelectionBtn) {
+      clearSelectionBtn.addEventListener('click', function () {
+        setSelectionForAll(false);
+      });
+    }
+
+    if (deleteSelectedBtn) {
+      deleteSelectedBtn.addEventListener('click', function () {
+        var ids = Array.prototype.slice
+          .call(list.querySelectorAll('.photo-select:checked'))
+          .map(function (box) {
+            return box.value;
+          });
+        handleDelete(ids, 'Удалить выбранные фото?');
+      });
+    }
+
+    if (deleteAllBtn) {
+      deleteAllBtn.addEventListener('click', function () {
+        var ids = cards().map(function (card) {
+          return card.dataset.photoId;
+        });
+        handleDelete(ids, 'Удалить все фото?');
+      });
+    }
+
+    updateSelectionInfo();
+    attachScrollPersistence();
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
+    restoreScrollPosition();
     var categoryField = fieldByName('category');
     var subtypeField = fieldByName('subtype');
     var operationField = fieldByName('operation');
@@ -231,5 +565,6 @@
     }
 
     handleChange(sections);
+    setupPhotoActions();
   });
 })();

@@ -34,9 +34,14 @@ def _try_import_real_pillow():
             sys.modules.pop(key, None)
         sys.path.insert(0, base)
         try:
-            from PIL import Image as pil_image, ImageFile as pil_imagefile, UnidentifiedImageError as pil_uie
+            from PIL import (
+                Image as pil_image,
+                ImageFile as pil_imagefile,
+                ImageOps as pil_imageops,
+                UnidentifiedImageError as pil_uie,
+            )
 
-            return pil_image, pil_imagefile, pil_uie
+            return pil_image, pil_imagefile, pil_imageops, pil_uie
         except ImportError:
             sys.modules.update(saved)
         finally:
@@ -46,10 +51,10 @@ def _try_import_real_pillow():
 
 _real = _try_import_real_pillow()
 if _real is not None:
-    Image, ImageFile, UnidentifiedImageError = _real
+    Image, ImageFile, ImageOps, UnidentifiedImageError = _real
 else:  # pragma: no cover - fallback to stub-compatible import
     try:
-        from PIL import Image, ImageFile, UnidentifiedImageError  # type: ignore[misc]
+        from PIL import Image, ImageFile, ImageOps, UnidentifiedImageError  # type: ignore[misc]
     except ImportError:
         from PIL import Image  # type: ignore
 
@@ -60,6 +65,13 @@ else:  # pragma: no cover - fallback to stub-compatible import
 
         class UnidentifiedImageError(Exception):
             pass
+
+        class _StubImageOps:  # pragma: no cover - minimal stub
+            @staticmethod
+            def exif_transpose(img):
+                return img
+
+        ImageOps = _StubImageOps()  # type: ignore
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -123,6 +135,7 @@ def compress_with_pillow(orig: bytes) -> bytes:
     try:
         img = Image.open(BytesIO(orig))
         img.load()
+        img = ImageOps.exif_transpose(img)
     except (UnidentifiedImageError, OSError, ValueError) as e:
         raise InvalidImage(str(e))
     # PNG/WebP with alpha → RGB

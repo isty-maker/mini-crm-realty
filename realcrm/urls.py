@@ -15,6 +15,7 @@ urlpatterns = [
     path("panel/edit/<int:pk>/", core_views.panel_edit, name="panel_edit"),
     path("panel/edit/<int:pk>/add-photo/", core_views.panel_add_photo, name="panel_add_photo"),
     path("panel/photo/<int:pk>/delete/", core_views.panel_photo_delete, name="panel_photo_delete"),
+    path("panel/photo/<int:pk>/rotate/", core_views.panel_photo_rotate, name="panel_photo_rotate"),
     path(
         "panel/<int:prop_id>/photos/reorder/",
         core_views.panel_photos_reorder,
@@ -24,6 +25,11 @@ urlpatterns = [
         "panel/photo/<int:pk>/set-default/",
         core_views.panel_photo_set_default,
         name="panel_photo_set_default",
+    ),
+    path(
+        "panel/photos/bulk-delete/",
+        core_views.panel_photos_bulk_delete,
+        name="panel_photos_bulk_delete",
     ),
     path("panel/export/cian/", core_views.export_cian, name="export_cian"),
     path("panel/export/cian/check/", core_views.export_cian_check, name="export_cian_check"),
