@@ -22,6 +22,23 @@
    python manage.py runserver
    ```
 
+## Тесты
+Локально:
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+pytest -q
+```
+Или одной командой:
+```bash
+bash scripts/run_tests_locally.sh
+```
+На PythonAnywhere:
+```bash
+workon venv  # если используете virtualenvwrapper
+pip install -r requirements.txt -r requirements-dev.txt
+pytest -q
+```
+
 ## Деплой на PythonAnywhere
 Подробная инструкция доступна в [docs/deploy_pa_NEW.md](docs/deploy_pa_NEW.md).
 
