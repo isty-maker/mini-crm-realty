@@ -24,6 +24,7 @@ common:
     external_id: "ExternalId"
     description: "Description"
     address: "Address"
+    cadastral_number: "CadastralNumber"
     # Геолокация: пример ожидает Lat/Lng, а не Latitude/Longitude
     lat: "Coordinates.Lat"
     lng: "Coordinates.Lng"
