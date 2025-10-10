@@ -1,0 +1,163 @@
+version: 1
+stop_fields:  # НЕ экспортируемые служебные/внутренние
+  - id
+  - status
+  - is_archived
+  - export_to_cian
+  - export_to_domklik
+  - object_tour_url   # у ЦИАН нет отдельного тега (не выводим)
+  - furnishing_details  # описательный текст — не тег ЦИАН
+  - title              # внутренний заголовок
+
+# Универсальные поля (для всех категорий объявлений)
+common:
+  fields:
+    external_id: "ExternalId"
+    description: "Description"
+    address: "Address"
+    lat: "Coordinates.Latitude"
+    lng: "Coordinates.Longitude"
+    price: "BargainTerms.Price"
+    currency: "BargainTerms.Currency"   # ожидаются 'RUR'|'USD'|'EUR' — конвертировать из модели
+    mortgage_allowed: "BargainTerms.MortgageAllowed"
+    agent_bonus_value: "BargainTerms.AgentBonus.Value"
+    agent_bonus_is_percent: "BargainTerms.AgentBonus.IsPercent"
+    security_deposit: "BargainTerms.SecurityDeposit"
+    min_rent_term_months: "BargainTerms.MinRentTermMonths"
+  phones:
+    # Строгая структура телефонов ЦИАН
+    - "Phones.PhoneSchema[0].CountryCode:phone_country"
+    - "Phones.PhoneSchema[0].Number:phone_number"
+    - "Phones.PhoneSchema[1].CountryCode:phone_country"
+    - "Phones.PhoneSchema[1].Number:phone_number2"
+  photos:
+    # Абсолютные URL и порядок, один IsDefault=true
+    full_url: "Photos.PhotoSchema.FullUrl"
+    is_default: "Photos.PhotoSchema.IsDefault"
+    layout_full_url: "LayoutPhoto.FullUrl"
+
+# Категории (только допустимые теги из доки ЦИАН)
+categories:
+  flatSale:
+    fields:
+      total_area: "TotalArea"
+      living_area: "LivingArea"
+      kitchen_area: "KitchenArea"
+      floor_number: "FloorNumber"
+      rooms: "RoomsCount"
+      flat_rooms_count: "RoomsCount"   # если заполнено — RoomsCount тоже
+      room_type: "RoomType"            # separate|combined|both
+      windows_view_type: "WindowsView" # yard|street|yardAndStreet
+      separate_wcs_count: "SeparateWcsCount"
+      combined_wcs_count: "CombinedWcsCount"
+      repair_type: "RepairType"        # cosmetic|design|euro|no
+      is_euro_flat: "IsEuroLayout"
+      is_apartments: "IsApartments"
+      loggias_count: "LoggiasCount"
+      balconies_count: "BalconiesCount"
+  roomSale:
+    fields:
+      total_area: "TotalArea"
+      floor_number: "FloorNumber"
+      room_type_ext: "RoomType"        # для комнаты допускается RoomType
+  houseSale:
+    fields:
+      house_type: "HouseType"
+      total_area: "TotalArea"
+      building_floors: "HouseFloorsCount"
+      building_build_year: "BuildYear"
+      building_material: "MaterialType"
+      bedrooms_count: "BedroomsCount"
+      wc_location: "WcLocation"        # inside|outside
+      heating_type: "HeatingType"      # central|gas|electric|solid
+      ceiling_height: "CeilingHeight"
+      house_condition: "HouseCondition"
+      has_garage: "HasGarage"
+      # Земля (в составе дома)
+      land_area: "Land.Area"
+      land_area_unit: "Land.AreaUnitType"   # sotka|sqm
+      permitted_land_use: "Land.PermittedLandUse"
+      is_land_with_contract: "Land.IsLandWithContract"
+      land_category: "Land.LandCategory"
+      # Коммуникации
+      gas_supply_type: "Gas.Type"            # main|border|gasHolder|gasBottle
+      sewerage_type: "Drainage.Type"         # central|septicTank|cesspool|none
+      water_supply_type: "Water.SuburbanWaterType" # central|borehole|well|none
+      has_electricity: "Electricity.Available"
+      power: "Electricity.Power"
+      has_terrace: "HasTerrace"
+      has_cellar: "HasCellar"
+      has_pool: "HasPool"
+      has_bathhouse: "HasBathhouse"
+      has_security: "HasSecurity"
+  landSale:
+    fields:
+      land_area: "Area"
+      land_area_unit: "AreaUnitType"
+      permitted_land_use: "PermittedLandUse"
+      land_category: "LandCategory"
+      has_electricity: "Electricity.Available"
+      power: "Electricity.Power"
+      is_land_with_contract: "IsLandWithContract"
+  commercialSale:
+    fields:
+      commercial_type: "CommercialType"
+      total_area: "TotalArea"
+      ceiling_height: "CeilingHeight"
+      is_rent_by_parts: "IsRentByParts"
+      rent_by_parts_desc: "RentByPartsComment"
+      has_parking: "HasParking"
+      parking_places: "ParkingPlaces"
+      power: "Electricity.Power"
+      has_ramp: "Ramp"
+  garageSale:
+    fields:
+      total_area: "TotalArea"
+      has_electricity: "Electricity.Available"
+      power: "Electricity.Power"
+
+# Преобразование значений (enum/булевы/валюта)
+values:
+  currency:
+    rur: "RUR"
+    usd: "USD"
+    eur: "EUR"
+  room_type:
+    separate: "separate"
+    combined: "combined"
+    both: "both"
+  windows_view_type:
+    yard: "yard"
+    street: "street"
+    yardAndStreet: "yardAndStreet"
+  repair_type:
+    cosmetic: "cosmetic"
+    design: "design"
+    euro: "euro"
+    no: "no"
+  wc_location:
+    inside: "inside"
+    outside: "outside"
+  heating_type:
+    central: "central"
+    gas: "gas"
+    electric: "electric"
+    solid: "solid"
+  gas_supply_type:
+    main_on_plot: "main"
+    border: "border"
+    gasholder: "gasHolder"
+    none: null
+  sewerage_type:
+    central: "central"
+    septic: "septicTank"
+    cesspool: "cesspool"
+    none: "none"
+  water_supply_type:
+    central: "central"
+    borehole: "borehole"
+    well: "well"
+    none: "none"
+  land_area_unit:
+    sotka: "sotka"
+    sqm: "sqm"

@@ -162,7 +162,7 @@ class PhotoManagementTest(TestCase):
         self.assertIsNotNone(target)
         photos_el = target.find("Photos")
         self.assertIsNotNone(photos_el)
-        urls = [node.findtext("FullUrl") for node in photos_el.findall("Photo")]
+        urls = [node.findtext("FullUrl") for node in photos_el.findall("PhotoSchema")]
         self.assertEqual(urls, [p3.full_url, p2.full_url, p1.full_url])
 
 
