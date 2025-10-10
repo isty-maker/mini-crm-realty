@@ -159,18 +159,21 @@ def test_full_coverage_flat_house_land_commercial_garage():
     house_xml = tostring(results[1].element, encoding="unicode")
     assert "<Gas><Type>gasHolder</Type></Gas>" in house_xml
     assert "<Land><Area>8.5</Area>" in house_xml
-    assert "<Electricity><Available>true</Available><Power>15</Power></Electricity>" in house_xml
+    assert "<HasElectricity>true</HasElectricity>" in house_xml
+    assert "<Electricity><Power>15</Power></Electricity>" in house_xml
 
     land_xml = tostring(results[2].element, encoding="unicode")
     assert "<Area>12.4</Area>" in land_xml
-    assert "<Electricity><Available>true</Available><Power>10</Power></Electricity>" in land_xml
+    assert "<HasElectricity>true</HasElectricity>" in land_xml
+    assert "<Electricity><Power>10</Power></Electricity>" in land_xml
 
     commercial_xml = tostring(results[3].element, encoding="unicode")
     assert "<IsRentByParts>true</IsRentByParts>" in commercial_xml
     assert "<BargainTerms><Price>9800000" in commercial_xml
 
     garage_xml = tostring(results[4].element, encoding="unicode")
-    assert "<Electricity><Available>true</Available><Power>5</Power></Electricity>" in garage_xml
+    assert "<HasElectricity>true</HasElectricity>" in garage_xml
+    assert "<Electricity><Power>5</Power></Electricity>" in garage_xml
 
 
 @pytest.mark.django_db

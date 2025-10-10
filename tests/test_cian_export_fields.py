@@ -95,9 +95,10 @@ class TestCianMapping(TestCase):
         self.assertIsNotNone(water)
         self.assertEqual(water.findtext("SuburbanWaterType"), "borehole")
 
+        self.assertEqual(obj.findtext("HasElectricity"), "true")
+
         electricity = obj.find("Electricity")
         self.assertIsNotNone(electricity)
-        self.assertEqual(electricity.findtext("Available"), "true")
         self.assertEqual(electricity.findtext("Power"), "15")
 
     def test_full_coverage_no_skips(self):

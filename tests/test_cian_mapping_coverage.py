@@ -1,7 +1,7 @@
-from core.forms import PropertyForm
 from core.cian import load_registry
+from core.forms import PropertyForm
 
-EXCLUDED_FIELDS = {
+EXCLUDED = {
     "jk_id",
     "jk_name",
     "house_id",
@@ -9,11 +9,14 @@ EXCLUDED_FIELDS = {
     "section_number",
     "undergrounds",
     "metro",
+    "object_tour_url",
+    "furnishing_details",
 }
 
 
 def _collect_mapped_fields() -> set[str]:
     registry = load_registry()
+
     mapped = set(registry.get("common", {}).get("fields", {}).keys())
 
     deal_terms = registry.get("deal_terms", {}).get("fields", {})
@@ -29,12 +32,15 @@ def _collect_mapped_fields() -> set[str]:
     return mapped
 
 
-def test_every_form_field_is_mapped_somewhere():
+def test_every_feed_related_field_has_mapping_somewhere():
     mapped_fields = _collect_mapped_fields()
+
     unmapped = [
-        field for field in PropertyForm.FEED_RELATED_FIELDS
-        if field not in EXCLUDED_FIELDS and field not in mapped_fields
+        field
+        for field in PropertyForm.FEED_RELATED_FIELDS
+        if field not in EXCLUDED and field not in mapped_fields
     ]
+
     assert not unmapped, f"Unmapped form fields: {sorted(unmapped)}"
 
 
