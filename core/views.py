@@ -55,6 +55,28 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 INVALID_IMAGE_MESSAGE = "Неподдерживаемый формат или повреждённое изображение."
 
 
+def _pillow_supports_rotation() -> bool:
+    image_cls = getattr(Image, "Image", None)
+    if image_cls is None:
+        return False
+    module_requirements = ("open", "new")
+    if any(not hasattr(Image, attr) for attr in module_requirements):
+        return False
+    instance_requirements = ("rotate", "transpose", "convert", "getexif")
+    if any(not hasattr(image_cls, attr) for attr in instance_requirements):
+        return False
+    exif_transpose = getattr(ImageOps, "exif_transpose", None)
+    return callable(exif_transpose)
+
+
+def _image_has_rotation_api(img) -> bool:
+    required = ("rotate", "transpose", "convert", "getexif")
+    for attr in required:
+        if not hasattr(img, attr):
+            return False
+    return True
+
+
 def _check_decoder_available(kind: str) -> bool:
     """Return True if Pillow reports decoder support for *kind* ("jpeg"/"webp"/"png")."""
 
@@ -702,6 +724,9 @@ def panel_photo_rotate(request, pk):
     if direction not in {"left", "right"}:
         return JsonResponse({"ok": False, "error": "invalid_direction"}, status=400)
 
+    if not _pillow_supports_rotation():
+        return JsonResponse({"ok": False, "error": "rotate_unsupported"})
+
     photo = get_object_or_404(Photo, pk=pk)
     if not photo.image:
         return JsonResponse({"ok": False, "error": "no_local_image"}, status=400)
@@ -721,6 +746,9 @@ def panel_photo_rotate(request, pk):
         img = ImageOps.exif_transpose(img)
     except (UnidentifiedImageError, OSError, ValueError):
         return JsonResponse({"ok": False, "error": "invalid_image"}, status=400)
+
+    if not _image_has_rotation_api(img):
+        return JsonResponse({"ok": False, "error": "rotate_unsupported"})
 
     angle = -90 if direction == "left" else 90
     rotated = img.rotate(angle, expand=True)
