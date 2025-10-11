@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% load static %}
 {% block title %}{{ prop|default:"Новый объект" }} — Мини-CRM{% endblock %}
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'core/panel.css' %}">
+{% endblock %}
 {% block content %}
   <a href="/panel/">&larr; к списку</a>
   <h1>{{ prop|default:"Новый объект" }}</h1>
@@ -167,18 +171,18 @@
             <button type="button" data-action="rotate" data-dir="right" title="Повернуть вправо">↻</button>
             {% endif %}
 
-            {% if ph.is_default %}<span class="badge">Главное</span>{% endif %}
-            <span class="size">{{ ph.human_size }}</span>
-
-            <form method="post" action="{% url 'panel_photo_set_default' ph.id %}" style="display:inline">
+            <form method="post" action="{% url 'panel_photo_set_default' ph.id %}">
               {% csrf_token %}
               <button type="submit" title="Сделать главным">{% if ph.is_default %}★{% else %}☆{% endif %}</button>
             </form>
 
-            <form method="post" action="{% url 'panel_photo_delete' ph.id %}" style="display:inline">
+            <form method="post" action="{% url 'panel_photo_delete' ph.id %}">
               {% csrf_token %}
               <button type="submit" title="Удалить">✖</button>
             </form>
+
+            <span class="size">{{ ph.human_size }}</span>
+            {% if ph.is_default %}<span class="badge">Главное</span>{% endif %}
           </div>
         </div>
       {% empty %}
