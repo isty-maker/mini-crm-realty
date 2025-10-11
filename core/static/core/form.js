@@ -210,12 +210,12 @@
   function bustCache(url) {
     try {
       var obj = new URL(url, window.location.href);
-      obj.searchParams.set('_', Date.now().toString());
+      obj.searchParams.set('v', Date.now().toString());
       return obj.toString();
     } catch (err) {
       var base = url.split('#')[0];
       var parts = base.split('?')[0];
-      return parts + '?_=' + Date.now();
+      return parts + '?v=' + Date.now();
     }
   }
 
@@ -369,56 +369,104 @@
         .then(enableButtons, enableButtons);
     }
 
-    function rotatePhoto(card, direction) {
+    function rotatePhoto(card, direction, sourceButton) {
       var rotateButtons = card.querySelectorAll('button[data-action="rotate"]');
+      var actions = card.querySelector('.photo-actions');
+      var status = actions ? actions.querySelector('.photo-rotate-status') : null;
+      if (!status && actions) {
+        status = document.createElement('span');
+        status.className = 'photo-rotate-status';
+        actions.appendChild(status);
+      }
+
       rotateButtons.forEach(function (btn) {
         btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
       });
+      if (status) {
+        status.textContent = 'В процессе…';
+        status.hidden = false;
+      }
+
+      card.classList.add('is-rotating');
+
       var baseUrl = card.dataset.rotateUrl || '';
-      if (!baseUrl) {
+      var img = card.querySelector('img');
+      if (!baseUrl || !img) {
         rotateButtons.forEach(function (btn) {
           btn.disabled = false;
+          btn.removeAttribute('aria-busy');
         });
+        card.classList.remove('is-rotating');
+        if (status) {
+          status.textContent = '';
+          status.hidden = true;
+        }
         return;
       }
-      var url = baseUrl + (baseUrl.indexOf('?') === -1 ? '?' : '&') + 'dir=' + encodeURIComponent(direction);
+
       var headers = { 'X-Requested-With': 'XMLHttpRequest' };
       var token = getCsrfToken();
       if (token) {
         headers['X-CSRFToken'] = token;
       }
-      fetch(url, {
+
+      var requestUrl;
+      try {
+        requestUrl = new URL(baseUrl, window.location.href);
+      } catch (err) {
+        requestUrl = null;
+      }
+
+      if (requestUrl) {
+        requestUrl.searchParams.set('dir', direction === 'left' ? 'left' : 'right');
+      } else {
+        var separator = baseUrl.indexOf('?') === -1 ? '?' : '&';
+        requestUrl = baseUrl + separator + 'dir=' + encodeURIComponent(direction === 'left' ? 'left' : 'right');
+      }
+
+      var fetchUrl = requestUrl.toString ? requestUrl.toString() : requestUrl;
+
+      fetch(fetchUrl, {
         method: 'POST',
-        headers: headers
-      }).then(function (response) {
-        if (!response.ok) {
+        headers: headers,
+        credentials: 'same-origin'
+      })
+        .then(function (response) {
           return response
             .json()
             .catch(function () {
               return {};
             })
             .then(function (payload) {
-              var error = payload && payload.error ? payload.error : 'unknown';
-              throw new Error(error);
+              if (!response.ok || !payload || payload.ok !== true) {
+                var error = payload && payload.error ? payload.error : 'rotate_failed';
+                throw new Error(error);
+              }
+              return payload;
             });
-        }
-        return response.json();
-      }).then(function () {
-        var img = card.querySelector('img');
-        if (img) {
+        })
+        .then(function () {
           img.src = bustCache(img.src);
-        }
-      }, function () {
-        window.alert('Не удалось повернуть фото. Попробуйте ещё раз.');
-      }).then(function () {
-        rotateButtons.forEach(function (btn) {
-          btn.disabled = false;
+        })
+        .catch(function (err) {
+          console.error('Rotate error:', err);
+          window.alert('Не удалось изменить ориентацию фото.');
+        })
+        .finally(function () {
+          rotateButtons.forEach(function (btn) {
+            btn.disabled = false;
+            btn.removeAttribute('aria-busy');
+          });
+          card.classList.remove('is-rotating');
+          if (status) {
+            status.textContent = '';
+            status.hidden = true;
+          }
+          if (sourceButton && sourceButton.focus) {
+            sourceButton.focus();
+          }
         });
-      }, function () {
-        rotateButtons.forEach(function (btn) {
-          btn.disabled = false;
-        });
-      });
     }
 
     list.addEventListener('change', function (event) {
@@ -439,7 +487,7 @@
         event.preventDefault();
         var card = rotateBtn.closest('.photo-card');
         if (card) {
-          rotatePhoto(card, rotateBtn.dataset.dir === 'left' ? 'left' : 'right');
+          rotatePhoto(card, rotateBtn.dataset.dir === 'left' ? 'left' : 'right', rotateBtn);
         }
       }
     });
