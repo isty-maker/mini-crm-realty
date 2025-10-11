@@ -23,14 +23,27 @@
    ```
 
 ## Тесты
+
+### Перед созданием PR
+
+Каноничный способ запуска тестов с установкой всех зависимостей разработки:
+
+```bash
+./scripts/run_tests.sh
+```
+
+Для выборочного запуска конкретного файла или теста передайте путь/шаблон:
+
+```bash
+./scripts/run_tests.sh tests/test_photos.py
+```
+
+### Альтернативный ручной запуск
+
 Локально:
 ```bash
 pip install -r requirements.txt -r requirements-dev.txt
 pytest -q
-```
-Или одной командой:
-```bash
-bash scripts/run_tests_locally.sh
 ```
 На PythonAnywhere:
 ```bash
