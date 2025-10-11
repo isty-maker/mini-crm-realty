@@ -44,7 +44,7 @@ except ImportError:  # pragma: no cover - support for trimmed Pillow stub
     ImageOps = _StubImageOps()  # type: ignore
 
 from .cian import build_cian_feed, resolve_category
-from .forms import PropertyForm, UI_EXCLUDE, fields_for_category, group_fields
+from .forms import PropertyForm, fields_for_category, group_fields
 from .models import Photo, Property
 from .utils.image_pipeline import InvalidImage, compress_to_jpeg
 
@@ -457,26 +457,6 @@ def _panel_form_context(form, prop, photos):
 
     field_groups, category_misc = group_fields(cat_fields)
 
-    manual_fields = {
-        "category",
-        "operation",
-        "subtype",
-        "status",
-        "export_to_cian",
-        "export_to_domklik",
-        "is_archived",
-        "title",
-    }
-
-    visible_field_names = [bound.name for bound in form.visible_fields()]
-    cat_fields_set = set(cat_fields)
-
-    extra_fallback = [
-        name
-        for name in visible_field_names
-        if name not in manual_fields and name not in cat_fields_set and name not in UI_EXCLUDE
-    ]
-
     bound_groups = []
     for title, names in field_groups:
         bound_fields = [form[name] for name in names if name in form.fields]
@@ -484,9 +464,7 @@ def _panel_form_context(form, prop, photos):
             bound_groups.append((title, bound_fields))
 
     category_misc_bound = [form[name] for name in category_misc if name in form.fields]
-    extra_fallback_bound = [form[name] for name in extra_fallback if name in form.fields]
-
-    field_fallback = category_misc_bound + extra_fallback_bound
+    field_fallback = category_misc_bound
     return {
         "form": form,
         "prop": prop,
