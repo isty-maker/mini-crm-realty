@@ -79,6 +79,23 @@ FORMS_EXCLUDE = {
 # Поля, которые мы сознательно не показываем на UI (ЖК/метро/служебные)
 UI_EXCLUDE = set(FORMS_EXCLUDE)
 
+# Условия сделки, которые релевантны только для аренды/продажи.
+# Используется для UI-фильтрации, чтобы в продаже не появлялись арендные поля
+# (и наоборот).
+RENT_ONLY_DEAL_TERMS = {
+    "deposit",
+    "lease_term_type",
+    "min_rent_term_months",
+    "prepay_months",
+    "security_deposit",
+    "utilities_terms",
+}
+
+SALE_ONLY_DEAL_TERMS = {
+    "mortgage_allowed",
+    "sale_type",
+}
+
 
 def _required_form_fields_from_registry():
     registry = load_registry()
@@ -100,7 +117,16 @@ def fields_for_category(category: str, operation: str):
     registry = load_registry()
 
     fields = set(registry.get("common", {}).get("fields", {}).keys())
-    fields |= set(registry.get("deal_terms", {}).get("fields", {}).keys())
+
+    raw_deal_terms = (registry.get("deal_terms", {}) or {}).get("fields", {}) or {}
+    if hasattr(raw_deal_terms, "keys"):
+        deal_terms_fields = set(raw_deal_terms.keys())
+    else:
+        deal_terms_fields = set(raw_deal_terms)
+
+    rent_terms = deal_terms_fields & RENT_ONLY_DEAL_TERMS
+    sale_terms = deal_terms_fields & SALE_ONLY_DEAL_TERMS
+    common_terms = deal_terms_fields - rent_terms - sale_terms
 
     normalized_category = (category or "").strip()
     normalized_operation = (operation or "").strip()
@@ -125,6 +151,13 @@ def fields_for_category(category: str, operation: str):
             .get("fields", {})
             .keys()
         )
+
+    if normalized_operation.startswith("rent"):
+        fields |= common_terms | rent_terms
+    elif normalized_operation == "sale":
+        fields |= common_terms | sale_terms
+    else:
+        fields |= common_terms
 
     fields |= {"phone_country", "phone_number", "phone_number2"}
 

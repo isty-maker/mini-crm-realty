@@ -464,6 +464,8 @@ def _panel_form_context(form, prop, photos):
             bound_groups.append((title, bound_fields))
 
     category_misc_bound = [form[name] for name in category_misc if name in form.fields]
+    # Показываем в «Прочем» только хвост категорийных полей. Остальные поля либо
+    # выводятся в явных секциях шаблона, либо сознательно скрыты.
     field_fallback = category_misc_bound
     return {
         "form": form,
