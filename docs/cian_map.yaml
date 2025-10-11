@@ -28,28 +28,12 @@ common:
     # Геолокация: пример ожидает Lat/Lng, а не Latitude/Longitude
     lat: "Coordinates.Lat"
     lng: "Coordinates.Lng"
-    # Flat number: in flatSale XML <Apartment>44</Apartment> (JK.FlatNumber also exists inside JK, we skip JK)
-    flat_number: "Apartment"
-
-    # Здание и окружение
-    building_floors: "Building.FloorsCount"
-    building_build_year: "Building.BuildYear"
-    building_material: "Building.MaterialType"
-    building_ceiling_height: "Building.CeilingHeight"
-    building_passenger_lifts: "Building.PassengerLiftsCount"
-    building_cargo_lifts: "Building.CargoLiftsCount"
-    building_series: "Building.Series"
-    building_has_garbage_chute: "Building.HasGarbageChute"
-    building_parking: "Building.Parking"
-
-    # Общие удобства
-    # Euro layout per apartment examples
+    # Общие удобства (по-настоящему универсальные)
     is_euro_flat: "IsEuroFlat"
     windows_view_type: "WindowsViewType"
     separate_wcs_count: "SeparateWcsCount"
     combined_wcs_count: "CombinedWcsCount"
     repair_type: "RepairType"
-    has_ramp: "HasRamp"
     has_internet: "HasInternet"
     has_furniture: "HasFurniture"
     has_kitchen_furniture: "HasKitchenFurniture"
@@ -61,33 +45,6 @@ common:
     has_shower: "HasShower"
     has_bathtub: "HasBathtub"
     has_phone: "HasPhone"
-    has_parking: "HasParking"
-    parking_places: "ParkingPlaces"
-
-    # Аренда / деление объекта
-    is_rent_by_parts: "IsRentByParts"
-    rent_by_parts_desc: "RentByPartsComment"
-
-    # Земля / дом
-    land_area: "Land.Area"
-    land_area_unit: "Land.AreaUnitType"
-    bedrooms_count: "BedroomsCount"
-    wc_location: "WcLocationType"
-    sewerage_type: "Drainage.Type"
-    water_supply_type: "Water.SuburbanWaterType"
-    gas_supply_type: "Gas.Type"
-    # House example uses top-level boolean HasElectricity (not nested)
-    has_electricity: "HasElectricity"
-    # Archive examples include top-level booleans for house utilities
-    has_gas: "HasGas"
-    has_water: "HasWater"
-    has_drainage: "HasDrainage"
-    has_garage: "HasGarage"
-    heating_type: "HeatingType"
-    power: "Electricity.Power"
-    has_pool: "HasPool"
-    has_bathhouse: "HasBathhouse"
-    has_security: "HasSecurity"
 
   phones:
     # Строгая структура телефонов ЦИАН
@@ -111,7 +68,6 @@ categories:
       floor_number: "FloorNumber"
       # В фидах ЦИАН для квартир используют FlatRoomsCount
       flat_rooms_count: "FlatRoomsCount"
-      room_type: "RoomType"            # separate|combined|both
       rooms: "RoomsCount"
       # WindowsViewType из примеров вместо устаревшего WindowsView
       windows_view_type: "WindowsViewType" # yard|street|yardAndStreet
@@ -126,15 +82,27 @@ categories:
       building_build_year: "Building.BuildYear"
       building_material: "Building.MaterialType"
       building_ceiling_height: "Building.CeilingHeight"
+      building_passenger_lifts: "Building.PassengerLiftsCount"
+      building_cargo_lifts: "Building.CargoLiftsCount"
       building_series: "Building.Series"
       building_has_garbage_chute: "Building.HasGarbageChute"
       building_parking: "Building.Parking"
+      flat_number: "Apartment"
   roomSale:
     fields:
       total_area: "RoomArea"
       rooms_for_sale_count: "RoomsForSaleCount"
       floor_number: "FloorNumber"
-      room_type_ext: "RoomType"        # для комнаты допускается RoomType
+      room_type_ext: "RoomType"
+      building_floors: "Building.FloorsCount"
+      building_build_year: "Building.BuildYear"
+      building_material: "Building.MaterialType"
+      building_ceiling_height: "Building.CeilingHeight"
+      building_passenger_lifts: "Building.PassengerLiftsCount"
+      building_cargo_lifts: "Building.CargoLiftsCount"
+      building_series: "Building.Series"
+      building_has_garbage_chute: "Building.HasGarbageChute"
+      building_parking: "Building.Parking"
   houseSale:
     fields:
       house_type: "HouseType"
@@ -160,6 +128,10 @@ categories:
       gas_supply_type: "Gas.Type"            # main|border|gasHolder|gasBottle
       sewerage_type: "Drainage.Type"         # central|septicTank|cesspool|none
       water_supply_type: "Water.SuburbanWaterType" # central|borehole|well|none
+      has_electricity: "HasElectricity"
+      has_gas: "HasGas"
+      has_water: "HasWater"
+      has_drainage: "HasDrainage"
       power: "Electricity.Power"
       has_terrace: "HasTerrace"
       has_cellar: "HasCellar"
