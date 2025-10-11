@@ -133,236 +133,60 @@
   {% if prop %}
     <hr>
     <h3>Фотографии</h3>
-    <form method="post" action="{% url 'panel_add_photo' pk=prop.id %}" enctype="multipart/form-data" data-preserve-scroll="true">
+
+    <div class="photo-bulk-actions"
+         data-bulk-delete-url="{% url 'panel_photos_bulk_delete' %}"
+         data-property-id="{% if prop %}{{ prop.id }}{% endif %}">
+      <button type="button" id="photo-select-all">Выбрать все</button>
+      <button type="button" id="photo-clear-selection">Снять</button>
+      <button type="button" id="photo-delete-selected" disabled>Удалить выбранные</button>
+      <button type="button" id="photo-delete-all" {% if not photos %}disabled{% endif %}>Удалить все</button>
+    </div>
+
+    <form id="uploadForm" method="post" enctype="multipart/form-data" action="{% url 'panel_add_photo' prop.id %}">
       {% csrf_token %}
-      <div class="form-row">
-        <label>Файлы (можно выбрать несколько)</label>
-        <input type="file" id="images-input" name="images" multiple accept="image/*">
-        <div id="images-preview" class="photos" style="margin-top:.5rem;"></div>
-        <script>
-          const input = document.getElementById('images-input');
-          const box   = document.getElementById('images-preview');
-          if (input && box) {
-            input.addEventListener('change', () => {
-              box.innerHTML = '';
-              Array.from(input.files || []).forEach(f => {
-                const url = URL.createObjectURL(f);
-                const img = document.createElement('img');
-                img.src = url;
-                img.style.width='100%'; img.style.height='140px';
-                img.style.objectFit='cover'; img.style.borderRadius='6px';
-                img.onload = () => URL.revokeObjectURL(url);
-                const wrap = document.createElement('div'); wrap.style.padding='.25rem 0';
-                wrap.appendChild(img); box.appendChild(wrap);
-              });
-            });
-          }
-        </script>
-      </div>
-      <div class="form-row row-2">
-        <div><input type="url" name="full_url" placeholder="или URL изображения"></div>
-        <label style="display:flex;gap:.4rem;align-items:center;">
-          <input type="checkbox" name="is_default" value="1">
-          Сделать главное
-        </label>
-      </div>
+      <label>Файлы (можно выбрать несколько)</label>
+      <input type="file" name="images" multiple>
       <button type="submit">Загрузить</button>
     </form>
 
-    <style>
-      .photos {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-        margin-top: 1rem;
-      }
-
-      .photo-card {
-        position: relative;
-        background: #1b1e27;
-        padding: .5rem;
-        border-radius: 8px;
-        width: 200px;
-        transition: box-shadow .2s ease;
-      }
-
-      .photo-card img {
-        width: 100%;
-        height: 200px;
-        object-fit: cover;
-        border-radius: 6px;
-      }
-
-      .photo-card.selected {
-        box-shadow: 0 0 0 3px rgba(77, 163, 255, 0.6);
-      }
-
-      .drag-handle {
-        position: absolute;
-        top: 6px;
-        right: 8px;
-        cursor: grab;
-        opacity: .6;
-        user-select: none;
-      }
-
-      .drag-handle:active {
-        cursor: grabbing;
-      }
-
-      .badge-default {
-        position: absolute;
-        top: 6px;
-        left: 8px;
-        background: #dff4df;
-        color: #1c6724;
-        padding: .1rem .4rem;
-        border-radius: .4rem;
-        font-size: .75rem;
-        font-weight: 600;
-      }
-
-      .select-checkbox {
-        position: absolute;
-        top: 8px;
-        right: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 24px;
-        height: 24px;
-        background: rgba(255, 255, 255, 0.12);
-        border-radius: 4px;
-      }
-
-      .select-checkbox input {
-        width: 16px;
-        height: 16px;
-        cursor: pointer;
-      }
-
-      .meta {
-        margin-top: .35rem;
-        font-size: .85rem;
-        color: #99a;
-      }
-
-      .actions {
-        display: flex;
-        gap: .4rem;
-        margin-top: .35rem;
-        flex-wrap: wrap;
-      }
-
-      .icon-btn {
-        background: none;
-        border: none;
-        padding: .15rem .4rem;
-        font-size: 1.1rem;
-        line-height: 1;
-        cursor: pointer;
-        color: #cfe;
-      }
-
-      .icon-btn:hover {
-        opacity: .85;
-      }
-
-      .icon-btn.danger {
-        color: #d66;
-      }
-
-      .icon-btn[disabled] {
-        opacity: .5;
-        cursor: wait;
-      }
-
-      .photo-bulk-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: .5rem;
-        align-items: center;
-        margin-top: 1rem;
-      }
-
-      .photo-bulk-actions .bulk-btn {
-        padding: .35rem .75rem;
-        border-radius: 6px;
-        border: none;
-        cursor: pointer;
-        background: #2a2f3d;
-        color: #eef;
-      }
-
-      .photo-bulk-actions .bulk-btn[disabled] {
-        opacity: .5;
-        cursor: not-allowed;
-      }
-
-      .photo-bulk-actions .bulk-btn.danger {
-        background: #7a2f36;
-        color: #fff;
-      }
-
-      .photo-bulk-actions .selection-info {
-        font-size: .85rem;
-        color: #99a;
-      }
-    </style>
-
-    {% if photos %}
-    <div class="photo-bulk-actions" data-property-id="{{ prop.id }}" data-bulk-delete-url="{% url 'panel_photos_bulk_delete' %}">
-      <button type="button" class="bulk-btn" id="photo-select-all">Выбрать все</button>
-      <button type="button" class="bulk-btn" id="photo-clear-selection" disabled>Снять</button>
-      <button type="button" class="bulk-btn danger" id="photo-delete-selected" disabled>Удалить выбранные</button>
-      <button type="button" class="bulk-btn danger" id="photo-delete-all">Удалить все</button>
-      <span class="selection-info" id="photo-selection-info"></span>
-    </div>
-    {% endif %}
-
-    <div id="photos" class="photos" data-empty-text="Фото пока нет">
+    <div id="photos" data-empty-text="Фото пока нет">
       {% for ph in photos %}
-        <div class="photo-card" data-photo-id="{{ ph.id }}" data-rotate-url="{% url 'panel_photo_rotate' ph.id %}">
-          <div class="drag-handle" title="Перетащить">⋮⋮</div>
-
-          <label class="select-checkbox no-drag">
+        <div class="photo-card"
+             data-photo-id="{{ ph.id }}"
+             data-rotate-url="{% url 'panel_photo_rotate' ph.id %}">
+          <label class="photo-thumb">
             <input type="checkbox" class="photo-select" value="{{ ph.id }}">
+            <img src="{{ ph.image.url|default:ph.full_url }}" alt="Фото {{ forloop.counter }}">
           </label>
 
-          {% if ph.is_default %}
-            <span class="badge-default">Главное</span>
-          {% endif %}
+          <div class="photo-actions">
+            <button type="button" data-action="rotate" data-dir="left" title="Повернуть влево">↺</button>
+            <button type="button" data-action="rotate" data-dir="right" title="Повернуть вправо">↻</button>
 
-          <img src="{{ ph.src }}" alt="" />
-
-          <div class="meta">
+            {% if ph.is_default %}<span class="badge">Главное</span>{% endif %}
             <span class="size">{{ ph.human_size }}</span>
-          </div>
 
-          <div class="actions">
-            <button type="button" class="icon-btn" title="Повернуть влево" data-dir="left" data-action="rotate">↺</button>
-            <button type="button" class="icon-btn" title="Повернуть вправо" data-dir="right" data-action="rotate">↻</button>
-            <form class="no-drag" method="post" action="{% url 'panel_photo_set_default' ph.id %}" data-preserve-scroll="true">
+            <form method="post" action="{% url 'panel_photo_set_default' ph.id %}" style="display:inline">
               {% csrf_token %}
-              <button type="submit" class="icon-btn" title="Сделать главным">
-                {% if ph.is_default %}★{% else %}☆{% endif %}
-              </button>
+              <button type="submit" title="Сделать главным">{% if ph.is_default %}★{% else %}☆{% endif %}</button>
             </form>
-            <form class="no-drag" method="post" action="{% url 'panel_photo_delete' ph.id %}" data-preserve-scroll="true">
+
+            <form method="post" action="{% url 'panel_photo_delete' ph.id %}" style="display:inline">
               {% csrf_token %}
-              <button type="submit" class="icon-btn danger" title="Удалить">✖</button>
+              <button type="submit" title="Удалить">✖</button>
             </form>
           </div>
         </div>
       {% empty %}
-        <p>Фото пока нет</p>
+        <!-- Пустое состояние отрисует JS через data-empty-text -->
       {% endfor %}
     </div>
 
     {% if photos %}
-    <form id="reorderForm" method="post" action="{% url 'panel_photos_reorder' prop.id %}" style="margin-top:1rem;" data-preserve-scroll="true">
+    <form id="reorderForm" method="post" action="{% url 'panel_photos_reorder' prop.id %}">
       {% csrf_token %}
-      <input type="hidden" name="order" id="orderInput">
+      <input type="hidden" name="order" value="">
       <button type="submit">Сохранить порядок</button>
     </form>
     {% endif %}
@@ -381,7 +205,6 @@
     }
 
     new Sortable(list, {
-      handle: '.drag-handle',
       animation: 150,
       fallbackTolerance: 5,
     });
@@ -395,7 +218,7 @@
       const ids = Array.from(document.querySelectorAll('#photos .photo-card')).map(
         (el) => el.dataset.photoId
       );
-      const orderInput = document.getElementById('orderInput');
+      const orderInput = reorderForm.querySelector('input[name="order"]');
       if (orderInput) {
         orderInput.value = ids.join(',');
       }
