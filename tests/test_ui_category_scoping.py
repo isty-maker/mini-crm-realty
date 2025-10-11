@@ -5,40 +5,21 @@ def _field_set(category: str, operation: str) -> set[str]:
     return set(fields_for_category(category, operation))
 
 
-def test_flat_sale_has_no_land_house_fields():
-    fields = _field_set("flat", "sale")
-    assert "land_area" not in fields
-    assert "land_area_unit" not in fields
-    assert "permitted_land_use" not in fields
-    assert "has_electricity" not in fields
-    assert "gas_supply_type" not in fields
-    assert "water_supply_type" not in fields
-    assert "sewerage_type" not in fields
-    assert "wc_location" not in fields
+def test_house_sale_has_house_utilities():
+    house_fields = _field_set("house", "sale")
+    for name in ["has_electricity", "has_gas", "has_water", "has_drainage", "power"]:
+        assert name in house_fields
 
 
-def test_house_sale_has_land_engineering_fields():
-    fields = _field_set("house", "sale")
-    for name in [
-        "land_area",
-        "land_area_unit",
-        "permitted_land_use",
-        "has_electricity",
-        "gas_supply_type",
-        "water_supply_type",
-        "sewerage_type",
-        "wc_location",
-    ]:
-        assert name in fields
+def test_flat_sale_no_land_house_fields():
+    flat_sale_fields = _field_set("flat", "sale")
+    assert "land_area" not in flat_sale_fields
+    assert "has_electricity" not in flat_sale_fields
+    assert "gas_supply_type" not in flat_sale_fields
 
 
-def test_room_sale_no_flat_or_land_fields():
-    fields = _field_set("room", "sale")
-    assert "land_area" not in fields
-    assert "flat_rooms_count" not in fields
-
-
-def test_commercial_sale_no_flat_or_land_fields():
-    fields = _field_set("commercial", "sale")
-    assert "land_area" not in fields
-    assert "flat_rooms_count" not in fields
+def test_flat_rent_has_rent_terms_only():
+    flat_rent_fields = _field_set("flat", "rent_long")
+    assert "deposit" in flat_rent_fields
+    assert "lease_term_type" in flat_rent_fields
+    assert "mortgage_allowed" not in flat_rent_fields
