@@ -44,7 +44,7 @@ except ImportError:  # pragma: no cover - support for trimmed Pillow stub
     ImageOps = _StubImageOps()  # type: ignore
 
 from .cian import build_cian_feed, resolve_category
-from .forms import PropertyForm
+from .forms import PropertyForm, UI_EXCLUDE, fields_for_category, group_fields
 from .models import Photo, Property
 from .utils.image_pipeline import InvalidImage, compress_to_jpeg
 
@@ -437,12 +437,64 @@ def _panel_form_context(form, prop, photos):
         getattr(form, "subtypes_map", PropertyForm.SUBTYPE_CHOICES_MAP),
         ensure_ascii=False,
     )
+    if form.is_bound:
+        category_value = form.data.get("category", "")
+        operation_value = form.data.get("operation", "")
+    else:
+        category_value = form.initial.get("category", "") if form.initial else ""
+        operation_value = form.initial.get("operation", "") if form.initial else ""
+
+    if not category_value and getattr(form.instance, "category", None):
+        category_value = form.instance.category
+    if not operation_value and getattr(form.instance, "operation", None):
+        operation_value = form.instance.operation
+
+    category_value = (category_value or "").strip()
+    operation_value = (operation_value or "").strip()
+
+    cat_fields = fields_for_category(category_value, operation_value)
+    cat_fields = [name for name in cat_fields if name in form.fields]
+
+    field_groups, category_misc = group_fields(cat_fields)
+
+    manual_fields = {
+        "category",
+        "operation",
+        "subtype",
+        "status",
+        "export_to_cian",
+        "export_to_domklik",
+        "is_archived",
+        "title",
+    }
+
+    visible_field_names = [bound.name for bound in form.visible_fields()]
+    cat_fields_set = set(cat_fields)
+
+    extra_fallback = [
+        name
+        for name in visible_field_names
+        if name not in manual_fields and name not in cat_fields_set and name not in UI_EXCLUDE
+    ]
+
+    bound_groups = []
+    for title, names in field_groups:
+        bound_fields = [form[name] for name in names if name in form.fields]
+        if bound_fields:
+            bound_groups.append((title, bound_fields))
+
+    category_misc_bound = [form[name] for name in category_misc if name in form.fields]
+    extra_fallback_bound = [form[name] for name in extra_fallback if name in form.fields]
+
+    field_fallback = category_misc_bound + extra_fallback_bound
     return {
         "form": form,
         "prop": prop,
         "photos": photos,
         "subtypes_map_json": subtypes_map_json,
         "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
+        "field_groups": bound_groups,
+        "field_fallback": field_fallback,
     }
 
 
