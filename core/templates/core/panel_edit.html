@@ -141,6 +141,7 @@
       <button type="button" id="photo-clear-selection">Снять</button>
       <button type="button" id="photo-delete-selected" disabled>Удалить выбранные</button>
       <button type="button" id="photo-delete-all" {% if not photos %}disabled{% endif %}>Удалить все</button>
+      <span id="photo-selection-info"></span>
     </div>
 
     <form id="uploadForm" method="post" enctype="multipart/form-data" action="{% url 'panel_add_photo' prop.id %}">
@@ -152,17 +153,19 @@
 
     <div id="photos" data-empty-text="Фото пока нет">
       {% for ph in photos %}
-        <div class="photo-card"
+        <div class="photo-card{% if not ph.image %} no-rotate{% endif %}"
              data-photo-id="{{ ph.id }}"
-             data-rotate-url="{% url 'panel_photo_rotate' ph.id %}">
+             {% if ph.image %}data-rotate-url="{% url 'panel_photo_rotate' ph.id %}"{% endif %}>
           <label class="photo-thumb">
             <input type="checkbox" class="photo-select" value="{{ ph.id }}">
-            <img src="{{ ph.image.url|default:ph.full_url }}" alt="Фото {{ forloop.counter }}">
+            <img src="{{ ph.src }}" alt="Фото {{ forloop.counter }}">
           </label>
 
           <div class="photo-actions">
+            {% if ph.image %}
             <button type="button" data-action="rotate" data-dir="left" title="Повернуть влево">↺</button>
             <button type="button" data-action="rotate" data-dir="right" title="Повернуть вправо">↻</button>
+            {% endif %}
 
             {% if ph.is_default %}<span class="badge">Главное</span>{% endif %}
             <span class="size">{{ ph.human_size }}</span>
