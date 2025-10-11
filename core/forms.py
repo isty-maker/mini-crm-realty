@@ -76,6 +76,9 @@ FORMS_EXCLUDE = {
     "furnishing_details",
 }
 
+# Поля, которые мы сознательно не показываем на UI (ЖК/метро/служебные)
+UI_EXCLUDE = set(FORMS_EXCLUDE)
+
 
 def _required_form_fields_from_registry():
     registry = load_registry()
@@ -88,6 +91,190 @@ def _required_form_fields_from_registry():
     # Phones are configured separately in the registry
     fields |= {"phone_country", "phone_number", "phone_number2"}
     return tuple(sorted(field for field in fields if field not in FORMS_EXCLUDE))
+
+
+def fields_for_category(category: str, operation: str):
+    """Вернуть отсортированный список имён полей, которые нужно показывать на UI
+    для выбранной категории + операции (с учётом исключений)."""
+
+    registry = load_registry()
+
+    fields = set(registry.get("common", {}).get("fields", {}).keys())
+    fields |= set(registry.get("deal_terms", {}).get("fields", {}).keys())
+
+    normalized_category = (category or "").strip()
+    normalized_operation = (operation or "").strip()
+
+    category_map = {
+        ("flat", "sale"): "flatSale",
+        ("flat", "rent"): "flatRent",
+        ("room", "sale"): "roomSale",
+        ("house", "sale"): "houseSale",
+    }
+
+    category_key = None
+    if normalized_category == "flat" and normalized_operation.startswith("rent"):
+        category_key = "flatRent"
+    else:
+        category_key = category_map.get((normalized_category, normalized_operation))
+
+    if category_key:
+        fields |= set(
+            registry.get("categories", {})
+            .get(category_key, {})
+            .get("fields", {})
+            .keys()
+        )
+
+    fields |= {"phone_country", "phone_number", "phone_number2"}
+
+    return [name for name in sorted(fields) if name not in UI_EXCLUDE]
+
+
+def group_fields(field_names):
+    """Положить поля в логические группы для аккуратного UI."""
+
+    groups_definition = [
+        (
+            "Основное",
+            [
+                "external_id",
+                "description",
+                "address",
+                "flat_number",
+                "house_type",
+                "house_condition",
+                "permitted_land_use",
+                "land_category",
+                "is_land_with_contract",
+                "is_apartments",
+                "is_penthouse",
+                "is_rent_by_parts",
+                "rent_by_parts_desc",
+            ],
+        ),
+        ("Гео", ["lat", "lng"]),
+        (
+            "Площадь и планировка",
+            [
+                "total_area",
+                "living_area",
+                "kitchen_area",
+                "floor_number",
+                "rooms",
+                "flat_rooms_count",
+                "rooms_for_sale_count",
+                "room_type",
+                "room_type_ext",
+                "beds_count",
+                "bedrooms_count",
+                "loggias_count",
+                "balconies_count",
+                "windows_view_type",
+                "separate_wcs_count",
+                "combined_wcs_count",
+                "repair_type",
+                "ceiling_height",
+                "building_ceiling_height",
+                "land_area",
+                "land_area_unit",
+                "wc_location",
+            ],
+        ),
+        (
+            "Здание",
+            [
+                "building_floors",
+                "building_build_year",
+                "building_material",
+                "building_passenger_lifts",
+                "building_cargo_lifts",
+                "building_series",
+                "building_has_garbage_chute",
+                "building_parking",
+            ],
+        ),
+        (
+            "Инженерия (дом/участок)",
+            [
+                "has_electricity",
+                "has_gas",
+                "has_water",
+                "has_drainage",
+                "gas_supply_type",
+                "water_supply_type",
+                "sewerage_type",
+                "heating_type",
+                "power",
+                "has_parking",
+                "parking_places",
+                "has_garage",
+                "has_pool",
+                "has_bathhouse",
+                "has_security",
+                "has_ramp",
+            ],
+        ),
+        (
+            "Удобства",
+            [
+                "has_internet",
+                "has_furniture",
+                "has_kitchen_furniture",
+                "has_tv",
+                "has_washer",
+                "has_conditioner",
+                "has_refrigerator",
+                "has_dishwasher",
+                "has_shower",
+                "has_bathtub",
+                "has_phone",
+            ],
+        ),
+        (
+            "Условия сделки",
+            [
+                "price",
+                "currency",
+                "sale_type",
+                "mortgage_allowed",
+                "agent_bonus_value",
+                "agent_bonus_is_percent",
+                "lease_term_type",
+                "prepay_months",
+                "deposit",
+                "security_deposit",
+                "client_fee",
+                "agent_fee",
+                "utilities_terms",
+                "bargain_allowed",
+                "bargain_price",
+                "bargain_conditions",
+                "min_rent_term_months",
+            ],
+        ),
+        ("Документы", ["cadastral_number"]),
+        ("Медиа", ["layout_photo_url"]),
+        ("Контакты", ["phone_country", "phone_number", "phone_number2"]),
+    ]
+
+    field_names_set = list(field_names)
+
+    def only_known(names):
+        return [name for name in names if name in field_names_set]
+
+    grouped = []
+    used = set()
+
+    for title, names in groups_definition:
+        filtered = only_known(names)
+        if filtered:
+            grouped.append((title, filtered))
+            used.update(filtered)
+
+    misc = [name for name in field_names_set if name not in used]
+
+    return grouped, misc
 
 
 class PropertyForm(forms.ModelForm):
