@@ -286,6 +286,24 @@
         {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
+      {% with field=form.has_gas %}
+      <div class="form-row">
+        <label>{{ field }} {{ field.label }}</label>
+        {% include "core/includes/field_errors.html" %}
+      </div>
+      {% endwith %}
+      {% with field=form.has_water %}
+      <div class="form-row">
+        <label>{{ field }} {{ field.label }}</label>
+        {% include "core/includes/field_errors.html" %}
+      </div>
+      {% endwith %}
+      {% with field=form.has_drainage %}
+      <div class="form-row">
+        <label>{{ field }} {{ field.label }}</label>
+        {% include "core/includes/field_errors.html" %}
+      </div>
+      {% endwith %}
       <div class="form-row form-row--checkboxes">
         <div class="checkboxes-title">Дополнительно</div>
         <div class="checkboxes">
@@ -751,6 +769,25 @@
         <label>{{ form.has_bathtub }} {{ form.has_bathtub.label }}</label>
       </div>
     </section>
+
+    {% if auto_feed_field_names %}
+    <section class="group">
+      <h3>Прочее</h3>
+      {% for field_name in auto_feed_field_names %}
+        {% with field=form[field_name] %}
+        <div class="form-row">
+          {% if field.field.widget.input_type == "checkbox" %}
+            <label>{{ field }} {{ field.label }}</label>
+          {% else %}
+            {{ field.label_tag }}
+            {{ field }}
+          {% endif %}
+          {% include "core/includes/field_errors.html" %}
+        </div>
+        {% endwith %}
+      {% endfor %}
+    </section>
+    {% endif %}
 
     <button type="submit">Сохранить</button>
   </form>

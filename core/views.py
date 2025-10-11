@@ -55,6 +55,110 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 INVALID_IMAGE_MESSAGE = "Неподдерживаемый формат или повреждённое изображение."
 
 
+PANEL_MANUALLY_RENDERED_FIELDS = {
+    "address",
+    "agent_bonus_is_percent",
+    "agent_bonus_value",
+    "balconies_count",
+    "bedrooms_count",
+    "building_build_year",
+    "building_cargo_lifts",
+    "building_ceiling_height",
+    "building_floors",
+    "building_material",
+    "building_name",
+    "building_passenger_lifts",
+    "cadastral_number",
+    "category",
+    "ceiling_height",
+    "combined_wcs_count",
+    "commercial_type",
+    "currency",
+    "description",
+    "export_to_cian",
+    "export_to_domklik",
+    "flat_number",
+    "flat_rooms_count",
+    "flat_type",
+    "floor_number",
+    "furnishing_details",
+    "gas_supply_type",
+    "has_bathhouse",
+    "has_bathtub",
+    "has_cellar",
+    "has_conditioner",
+    "has_dishwasher",
+    "has_drainage",
+    "has_electricity",
+    "has_furniture",
+    "has_garage",
+    "has_gas",
+    "has_internet",
+    "has_kitchen_furniture",
+    "has_parking",
+    "has_phone",
+    "has_pool",
+    "has_ramp",
+    "has_refrigerator",
+    "has_security",
+    "has_shower",
+    "has_terrace",
+    "has_tv",
+    "has_water",
+    "has_washer",
+    "heating_type",
+    "house_condition",
+    "house_id",
+    "house_name",
+    "is_apartments",
+    "is_archived",
+    "is_euro_flat",
+    "is_land_with_contract",
+    "is_penthouse",
+    "is_rent_by_parts",
+    "jk_id",
+    "jk_name",
+    "kitchen_area",
+    "land_area",
+    "land_area_unit",
+    "land_category",
+    "land_type",
+    "lat",
+    "layout_photo_url",
+    "living_area",
+    "lng",
+    "loggias_count",
+    "min_rent_term_months",
+    "mortgage_allowed",
+    "object_tour_url",
+    "operation",
+    "parking_places",
+    "permitted_land_use",
+    "phone_country",
+    "phone_number",
+    "phone_number2",
+    "power",
+    "price",
+    "rent_by_parts_desc",
+    "repair_type",
+    "room_type",
+    "room_type_ext",
+    "rooms",
+    "sale_type",
+    "section_number",
+    "security_deposit",
+    "separate_wcs_count",
+    "sewerage_type",
+    "status",
+    "subtype",
+    "title",
+    "total_area",
+    "water_supply_type",
+    "wc_location",
+    "windows_view_type",
+}
+
+
 def _check_decoder_available(kind: str) -> bool:
     """Return True if Pillow reports decoder support for *kind* ("jpeg"/"webp"/"png")."""
 
@@ -437,12 +541,27 @@ def _panel_form_context(form, prop, photos):
         getattr(form, "subtypes_map", PropertyForm.SUBTYPE_CHOICES_MAP),
         ensure_ascii=False,
     )
+    auto_feed_field_names = []
+    seen = set()
+    for field_name in getattr(form, "FEED_RELATED_FIELDS", ()):
+        if field_name in seen:
+            continue
+        seen.add(field_name)
+        if field_name in PANEL_MANUALLY_RENDERED_FIELDS:
+            continue
+        field = form.fields.get(field_name)
+        if not field:
+            continue
+        if getattr(field.widget, "is_hidden", False):
+            continue
+        auto_feed_field_names.append(field_name)
     return {
         "form": form,
         "prop": prop,
         "photos": photos,
         "subtypes_map_json": subtypes_map_json,
         "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
+        "auto_feed_field_names": auto_feed_field_names,
     }
 
 
