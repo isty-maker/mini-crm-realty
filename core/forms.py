@@ -116,7 +116,7 @@ def fields_for_category(category: str, operation: str):
 
     registry = load_registry()
 
-    fields = set(registry.get("common", {}).get("fields", {}).keys())
+    fields = set()
 
     raw_deal_terms = (registry.get("deal_terms", {}) or {}).get("fields", {}) or {}
     if hasattr(raw_deal_terms, "keys"):
@@ -145,12 +145,15 @@ def fields_for_category(category: str, operation: str):
         category_key = category_map.get((normalized_category, normalized_operation))
 
     if category_key:
-        fields |= set(
-            registry.get("categories", {})
+        category_fields = set(
+            (registry.get("categories", {}) or {})
             .get(category_key, {})
             .get("fields", {})
             .keys()
         )
+        fields |= category_fields
+    else:
+        category_fields = set()
 
     if normalized_operation.startswith("rent"):
         fields |= common_terms | rent_terms
@@ -158,6 +161,58 @@ def fields_for_category(category: str, operation: str):
         fields |= common_terms | sale_terms
     else:
         fields |= common_terms
+
+    common_all = set((registry.get("common", {}) or {}).get("fields", {}).keys())
+
+    HOUSE_LAND_ONLY = {
+        "land_area",
+        "land_area_unit",
+        "permitted_land_use",
+        "is_land_with_contract",
+        "land_category",
+        "wc_location",
+        "has_garage",
+        "has_pool",
+        "has_bathhouse",
+        "has_security",
+        "has_terrace",
+        "has_cellar",
+        "gas_supply_type",
+        "water_supply_type",
+        "sewerage_type",
+        "heating_type",
+        "has_drainage",
+        "has_water",
+        "has_gas",
+        "has_electricity",
+        "power",
+    }
+    FLAT_ONLY = {
+        "flat_rooms_count",
+        "is_apartments",
+        "is_penthouse",
+        "loggias_count",
+        "balconies_count",
+        "rooms",
+        "windows_view_type",
+        "building_passenger_lifts",
+        "building_cargo_lifts",
+        "building_has_garbage_chute",
+    }
+    ROOM_ONLY = {"rooms_for_sale_count", "room_type_ext"}
+    COMMERCIAL_ONLY = {"is_rent_by_parts", "rent_by_parts_desc", "has_ramp", "parking_places"}
+
+    universal = common_all - (HOUSE_LAND_ONLY | FLAT_ONLY | ROOM_ONLY | COMMERCIAL_ONLY)
+    fields |= universal
+
+    if normalized_category == "flat":
+        fields -= HOUSE_LAND_ONLY | ROOM_ONLY | COMMERCIAL_ONLY
+    elif normalized_category == "room":
+        fields -= HOUSE_LAND_ONLY | FLAT_ONLY | COMMERCIAL_ONLY
+    elif normalized_category == "house":
+        fields -= FLAT_ONLY | ROOM_ONLY | COMMERCIAL_ONLY
+    elif normalized_category in {"commercial", "garage", "land"}:
+        fields -= FLAT_ONLY | ROOM_ONLY
 
     fields |= {"phone_country", "phone_number", "phone_number2"}
 
