@@ -1,0 +1,94 @@
+.photo-bulk-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+#photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+#photos:empty {
+  display: block;
+}
+
+.photo-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 0.5rem;
+  position: relative;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease, transform 0.2s ease, outline 0.2s ease;
+}
+
+.photo-card.selected {
+  outline: 2px solid #4a90e2;
+  outline-offset: 2px;
+  box-shadow: 0 2px 6px rgba(74, 144, 226, 0.35);
+}
+
+.photo-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.photo-card label.photo-thumb {
+  display: block;
+  cursor: pointer;
+}
+
+.photo-card img {
+  display: block;
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #f3f3f3;
+}
+
+.photo-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.photo-actions button {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.photo-card.no-rotate [data-action="rotate"] {
+  display: none;
+}
+
+.photo-card .badge {
+  background: #ffcc00;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.photo-card .size {
+  color: #666;
+  font-size: 0.75rem;
+  margin-left: auto;
+}
+
+@media (max-width: 720px) {
+  #photos {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+
+  .photo-card img {
+    height: 120px;
+  }
+}
