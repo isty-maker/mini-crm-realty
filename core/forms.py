@@ -205,12 +205,15 @@ def fields_for_category(category: str, operation: str):
     universal = common_all - (HOUSE_LAND_ONLY | FLAT_ONLY | ROOM_ONLY | COMMERCIAL_ONLY)
     fields |= universal
 
+    HOUSE_BASELINE = {"has_electricity", "has_gas", "has_water", "has_drainage", "power"}
+
     if normalized_category == "flat":
         fields -= HOUSE_LAND_ONLY | ROOM_ONLY | COMMERCIAL_ONLY
     elif normalized_category == "room":
         fields -= HOUSE_LAND_ONLY | FLAT_ONLY | COMMERCIAL_ONLY
     elif normalized_category == "house":
         fields -= FLAT_ONLY | ROOM_ONLY | COMMERCIAL_ONLY
+        fields |= HOUSE_BASELINE
     elif normalized_category in {"commercial", "garage", "land"}:
         fields -= FLAT_ONLY | ROOM_ONLY
 
