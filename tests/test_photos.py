@@ -2,12 +2,44 @@ import json
 import tempfile
 from io import BytesIO
 
+import pytest
+
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
-from PIL import Image
+try:
+    from PIL import Image
+except Exception as exc:  # pragma: no cover - defensive guard
+    pytest.skip(f"Pillow is required for photo tests ({exc})", allow_module_level=True)
+
+try:  # pragma: no cover - optional dependency in stubbed environments
+    from PIL import ImageOps
+except Exception:  # pragma: no cover - pillow stub without ImageOps
+    ImageOps = None  # type: ignore[assignment]
+
+
+def _supports_rotation_api() -> bool:
+    image_cls = getattr(Image, "Image", None)
+    if image_cls is None:
+        return False
+    module_requirements = ("open", "new")
+    if any(not hasattr(Image, attr) for attr in module_requirements):
+        return False
+    instance_requirements = ("rotate", "transpose", "convert", "getexif")
+    if any(not hasattr(image_cls, attr) for attr in instance_requirements):
+        return False
+    if ImageOps is None:
+        return False
+    exif_transpose = getattr(ImageOps, "exif_transpose", None)
+    return callable(exif_transpose)
+
+
+_skip_rotate = pytest.mark.skipif(
+    not _supports_rotation_api(),
+    reason="rotate requires real Pillow support",
+)
 
 from core.models import Photo, Property
 
@@ -16,6 +48,7 @@ class PhotoManagementTests(TestCase):
     def _create_property(self):
         return Property.objects.create(title="Тест", address="Москва")
 
+    @_skip_rotate
     def test_upload_rotates_by_exif_portrait(self):
         with tempfile.TemporaryDirectory() as tmpdir, self.settings(MEDIA_ROOT=tmpdir):
             prop = self._create_property()
@@ -61,6 +94,7 @@ class PhotoManagementTests(TestCase):
             remaining = list(Photo.objects.filter(property=prop).values_list("id", flat=True))
             self.assertEqual(remaining, [p3.id])
 
+    @_skip_rotate
     def test_rotate_endpoint(self):
         with tempfile.TemporaryDirectory() as tmpdir, self.settings(MEDIA_ROOT=tmpdir):
             prop = self._create_property()
