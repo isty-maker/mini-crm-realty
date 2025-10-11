@@ -222,134 +222,159 @@ def fields_for_category(category: str, operation: str):
     return [name for name in sorted(fields) if name not in UI_EXCLUDE]
 
 
-def group_fields(field_names):
-    """Положить поля в логические группы для аккуратного UI."""
+def group_fields(field_names, category: str = ""):
+    """Логически сгруппировать поля (разные наборы для flat/room/house)."""
 
-    groups_definition = [
-        (
-            "Основное",
-            [
-                "external_id",
-                "description",
-                "address",
-                "flat_number",
-                "house_type",
-                "house_condition",
-                "permitted_land_use",
-                "land_category",
-                "is_land_with_contract",
-                "is_apartments",
-                "is_penthouse",
-                "is_rent_by_parts",
-                "rent_by_parts_desc",
-            ],
-        ),
+    cat = (category or "").strip().lower()
+
+    base_groups = [
+        ("Основное", ["external_id", "description", "address", "is_rent_by_parts", "rent_by_parts_desc"]),
         ("Гео", ["lat", "lng"]),
-        (
-            "Площадь и планировка",
-            [
-                "total_area",
-                "living_area",
-                "kitchen_area",
-                "floor_number",
-                "rooms",
-                "flat_rooms_count",
-                "rooms_for_sale_count",
-                "room_type",
-                "room_type_ext",
-                "beds_count",
-                "bedrooms_count",
-                "loggias_count",
-                "balconies_count",
-                "windows_view_type",
-                "separate_wcs_count",
-                "combined_wcs_count",
-                "repair_type",
-                "ceiling_height",
-                "building_ceiling_height",
-                "land_area",
-                "land_area_unit",
-                "wc_location",
-            ],
-        ),
-        (
-            "Здание",
-            [
-                "building_floors",
-                "building_build_year",
-                "building_material",
-                "building_passenger_lifts",
-                "building_cargo_lifts",
-                "building_series",
-                "building_has_garbage_chute",
-                "building_parking",
-            ],
-        ),
-        (
-            "Инженерия (дом/участок)",
-            [
-                "has_electricity",
-                "has_gas",
-                "has_water",
-                "has_drainage",
-                "gas_supply_type",
-                "water_supply_type",
-                "sewerage_type",
-                "heating_type",
-                "power",
-                "has_parking",
-                "parking_places",
-                "has_garage",
-                "has_pool",
-                "has_bathhouse",
-                "has_security",
-                "has_ramp",
-            ],
-        ),
-        (
-            "Удобства",
-            [
-                "has_internet",
-                "has_furniture",
-                "has_kitchen_furniture",
-                "has_tv",
-                "has_washer",
-                "has_conditioner",
-                "has_refrigerator",
-                "has_dishwasher",
-                "has_shower",
-                "has_bathtub",
-                "has_phone",
-            ],
-        ),
-        (
-            "Условия сделки",
-            [
-                "price",
-                "currency",
-                "sale_type",
-                "mortgage_allowed",
-                "agent_bonus_value",
-                "agent_bonus_is_percent",
-                "lease_term_type",
-                "prepay_months",
-                "deposit",
-                "security_deposit",
-                "client_fee",
-                "agent_fee",
-                "utilities_terms",
-                "bargain_allowed",
-                "bargain_price",
-                "bargain_conditions",
-                "min_rent_term_months",
-            ],
-        ),
+    ]
+
+    flat_group = (
+        "Площадь и планировка",
+        [
+            "flat_number",
+            "total_area",
+            "living_area",
+            "kitchen_area",
+            "floor_number",
+            "rooms",
+            "flat_rooms_count",
+            "rooms_for_sale_count",
+            "room_type_ext",
+            "beds_count",
+            "bedrooms_count",
+            "loggias_count",
+            "balconies_count",
+            "windows_view_type",
+            "separate_wcs_count",
+            "combined_wcs_count",
+            "ceiling_height",
+            "is_apartments",
+            "is_penthouse",
+        ],
+    )
+
+    house_area_group = (
+        "Дом и участок",
+        [
+            "house_type",
+            "total_area",
+            "bedrooms_count",
+            "ceiling_height",
+            "building_floors",
+            "building_build_year",
+            "building_material",
+            "house_condition",
+            "land_area",
+            "land_area_unit",
+            "permitted_land_use",
+            "is_land_with_contract",
+            "land_category",
+            "wc_location",
+            "separate_wcs_count",
+            "combined_wcs_count",
+        ],
+    )
+
+    building_group = (
+        "Здание",
+        [
+            "building_floors",
+            "building_build_year",
+            "building_material",
+            "building_ceiling_height",
+            "building_passenger_lifts",
+            "building_cargo_lifts",
+            "building_series",
+            "building_has_garbage_chute",
+            "building_parking",
+        ],
+    )
+
+    engineering_group = (
+        "Инженерия (дом/участок)",
+        [
+            "has_electricity",
+            "has_gas",
+            "has_water",
+            "has_drainage",
+            "gas_supply_type",
+            "water_supply_type",
+            "sewerage_type",
+            "heating_type",
+            "power",
+            "has_parking",
+            "parking_places",
+            "has_garage",
+            "has_pool",
+            "has_bathhouse",
+            "has_security",
+            "has_terrace",
+            "has_cellar",
+            "has_ramp",
+        ],
+    )
+
+    amenities_group = (
+        "Удобства",
+        [
+            "is_euro_flat",
+            "has_internet",
+            "has_furniture",
+            "has_kitchen_furniture",
+            "has_tv",
+            "has_washer",
+            "has_conditioner",
+            "has_refrigerator",
+            "has_dishwasher",
+            "has_shower",
+            "has_bathtub",
+            "has_phone",
+            "repair_type",
+        ],
+    )
+
+    bargain_group = (
+        "Условия сделки",
+        [
+            "price",
+            "currency",
+            "sale_type",
+            "mortgage_allowed",
+            "agent_bonus_value",
+            "agent_bonus_is_percent",
+            "lease_term_type",
+            "prepay_months",
+            "deposit",
+            "security_deposit",
+            "client_fee",
+            "agent_fee",
+            "utilities_terms",
+            "bargain_allowed",
+            "bargain_price",
+            "bargain_conditions",
+            "min_rent_term_months",
+        ],
+    )
+
+    docs_media_contacts = [
         ("Документы", ["cadastral_number"]),
         ("Медиа", ["layout_photo_url"]),
         ("Контакты", ["phone_country", "phone_number", "phone_number2"]),
     ]
 
-    field_names_set = list(field_names)
+    if cat == "house":
+        groups_definition = base_groups + [house_area_group, engineering_group, amenities_group, bargain_group] + docs_media_contacts
+    elif cat == "room":
+        groups_definition = base_groups + [flat_group, building_group, amenities_group, bargain_group] + docs_media_contacts
+    else:
+        groups_definition = base_groups + [flat_group, building_group, amenities_group, bargain_group] + docs_media_contacts
+
+    field_names_list = list(field_names)
+    field_names_set = set(field_names_list)
 
     def only_known(names):
         return [name for name in names if name in field_names_set]
@@ -363,7 +388,7 @@ def group_fields(field_names):
             grouped.append((title, filtered))
             used.update(filtered)
 
-    misc = [name for name in field_names_set if name not in used]
+    misc = [name for name in field_names_list if name not in used]
 
     return grouped, misc
 
