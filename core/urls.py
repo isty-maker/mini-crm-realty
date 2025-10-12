@@ -44,6 +44,16 @@ urlpatterns = [
         views.panel_toggle_archive,
         name="panel_toggle_archive",
     ),
+    path(
+        "panel/<int:pk>/toggle-export/cian/",
+        views.panel_toggle_export_cian,
+        name="panel_toggle_export_cian",
+    ),
+    path(
+        "panel/<int:pk>/toggle-export/domklik/",
+        views.panel_toggle_export_dom,
+        name="panel_toggle_export_dom",
+    ),
     path("panel/<int:pk>/delete/", views.panel_delete, name="panel_delete"),
     path("feed/cian.xml", views.export_cian, name="export_cian"),
     path("feed/domklik.xml", views.export_domklik, name="export_domklik"),

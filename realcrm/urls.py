@@ -40,5 +40,15 @@ urlpatterns = [
         core_views.panel_toggle_archive,
         name="panel_toggle_archive",
     ),
+    path(
+        "panel/<int:pk>/toggle-export/cian/",
+        core_views.panel_toggle_export_cian,
+        name="panel_toggle_export_cian",
+    ),
+    path(
+        "panel/<int:pk>/toggle-export/domklik/",
+        core_views.panel_toggle_export_dom,
+        name="panel_toggle_export_dom",
+    ),
     path("panel/<int:pk>/delete/", core_views.panel_delete, name="panel_delete"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -27,6 +27,7 @@
     .tag { display: inline-flex; align-items: center; padding: .15rem .45rem; border-radius: .5rem; background: #eef2ff; color: #2f3a5d; font-size: .78rem; font-weight: 600; }
     .tag + .tag { margin-left: .25rem; }
     .tag-archived-label { background: #f0f0f0; color: #444; }
+    .tag-extid { display: inline-flex; align-items: center; margin-left: .4rem; padding: .05rem .35rem; border-radius: .35rem; border: 1px solid #d3d6e0; background: #f5f7ff; color: #2f3a5d; font-size: .75rem; line-height: 1; vertical-align: baseline; }
     .form-row { display:grid; grid-template-columns: 1fr; gap:.6rem; margin:.4rem 0; }
     .form-row.row-2 { grid-template-columns: 1fr 1fr; }
     .form-row.row-2 .form-row { margin: 0; }
@@ -74,6 +75,31 @@
       table.tbl td.addr { max-width: 240px; }
       .btn { font-size: .9rem; }
       .btn-sm { font-size: .8rem; }
+    }
+    .topbar { display:flex; align-items:center; gap:.5rem; margin:.2rem 0 .6rem; flex-wrap:wrap; }
+    .topbar h1 { margin:0; font-size:1.2rem; }
+    .panel-search { display:flex; align-items:center; gap:.35rem; flex-wrap:nowrap; }
+    .panel-search input[type="text"] { min-width:180px; height:28px; padding:.15rem .45rem; font-size:.9rem; }
+    .panel-search button { height:28px; display:flex; align-items:center; justify-content:center; padding:.1rem .5rem; }
+    .arch-toggle { display:flex; align-items:center; gap:.25rem; cursor:pointer; font-size:.85rem; margin:0; white-space:nowrap; }
+    .arch-toggle input { margin:0; }
+    .chip { display:inline-flex; align-items:center; padding:.1rem .45rem; border-radius:.45rem; font-size:.82rem; border:1px solid #bbb; color:#555; background:transparent; cursor:pointer; user-select:none; transition:background-color .15s ease, color .15s ease, border-color .15s ease; }
+    .chip.off { background:transparent; color:#555; border-color:#bbb; }
+    .chip.on.cian { background:#3aa3ff; color:#fff; border-color:#3aa3ff; }
+    .chip.on.dom { background:#16a34a; color:#fff; border-color:#16a34a; }
+    .panel-table-wrap { margin-top:.3rem; }
+    .panel-table th,
+    .panel-table td { border-bottom:1px solid #eceff4; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; padding:.35rem .45rem; }
+    .panel-table .addr { max-width:520px; }
+    .panel-table .price-cell { font-weight:600; cursor:pointer; }
+    .panel-table .col-type,
+    .panel-table .col-floor,
+    .panel-table .col-actions { width:1%; }
+    .panel-table .dates { white-space:normal; line-height:1.05; font-size:.85rem; }
+    .panel-table tr.is-archived { opacity:.6; }
+    @media (max-width:600px) {
+      .panel-table .addr { max-width:220px; }
+      .panel-search input[type="text"] { min-width:140px; }
     }
   </style>
   {% block extra_head %}{% endblock %}

@@ -1,106 +1,89 @@
 {% extends "base.html" %}
 {% block title %}Объекты — Мини-CRM{% endblock %}
 {% block content %}
-  <section style="display:flex; flex-direction:column; gap:1.2rem;">
-    <div style="display:flex; flex-wrap:wrap; justify-content:space-between; gap:1rem; align-items:flex-end;">
-      <div>
-        <h1 style="margin-bottom:.3rem;">Объекты</h1>
-        <div class="muted">Всего: <strong data-total-count>{{ total_count }}</strong></div>
-      </div>
-      <div style="display:flex; gap:.6rem; flex-wrap:wrap;">
-        <a class="btn" href="/panel/new/">+ Создать объект</a>
-      </div>
-    </div>
+<div class="topbar">
+  <h1>Объекты</h1>
+  <a href="{% url 'panel_new' %}" class="btn btn-sm">+ Создать объект</a>
+  <form method="get" action="{% url 'panel_list' %}" class="panel-search" autocomplete="off">
+    <input type="text" name="q" value="{{ q }}" placeholder="Поиск" />
+    <button type="submit" class="btn btn-sm" title="Найти">🔎</button>
+    <label class="arch-toggle">
+      <input type="checkbox" name="include_archived" value="1" {% if include_archived %}checked{% endif %}>
+      <span>Арх.</span>
+    </label>
+    {% if show %}<input type="hidden" name="show" value="{{ show }}">{% endif %}
+  </form>
+  <a href="{% url 'export_cian_check' %}" class="btn btn-sm">Проверить перед экспортом</a>
+  <a href="{% url 'export_cian' %}" class="btn btn-sm">CIAN фид</a>
+  <a href="{% url 'export_domklik' %}" class="btn btn-sm">DomClick фид</a>
+</div>
 
-    <div style="display:flex; flex-wrap:wrap; gap:1rem; align-items:center;">
-      <div class="muted">Показывать:</div>
-      <div style="display:flex; gap:.6rem; flex-wrap:wrap;">
-        <a class="btn btn-sm{% if not show and not include_archived %} secondary{% endif %}" href="/panel/">Активные</a>
-        <a class="btn btn-sm{% if show == "archived" %} secondary{% endif %}" href="/panel/?show=archived">Архив</a>
-        <a class="btn btn-sm{% if include_archived or show == "all" %} secondary{% endif %}" href="/panel/?include_archived=1">Все</a>
-      </div>
-    </div>
-
-    <form method="get" action="/panel/" style="display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-end;">
-      <label style="flex:1 1 280px; display:flex; flex-direction:column; gap:.35rem;">
-        <span class="muted">Поиск</span>
-        <input type="text" name="q" value="{{ q }}" placeholder="Адрес, заголовок или ExternalId">
-        {% if show == "archived" %}
-          <input type="hidden" name="show" value="archived">
-        {% endif %}
-      </label>
-      <label style="display:flex; gap:.4rem; align-items:center; margin:0;">
-        <input type="checkbox" name="include_archived" value="1" {% if include_archived %}checked{% endif %}>
-        Показывать архив
-      </label>
-      <button type="submit" class="btn">Искать</button>
-    </form>
-
-    <div style="display:flex; flex-wrap:wrap; gap:.6rem; align-items:center;">
-      <span class="muted">Фиды:</span>
-      <a class="btn btn-sm" href="/panel/export/cian/check/">Проверить перед экспортом</a>
-      <a class="btn btn-sm" href="{% url 'export_cian' %}">CIAN фид</a>
-      <a class="btn btn-sm" href="{% url 'export_domklik' %}">DomClick фид</a>
-    </div>
-
-    <div class="table-wrap">
-      <table class="tbl" data-panel-table>
-        <thead>
-          <tr>
-            <th>Тип</th>
-            <th>Адрес</th>
-            <th>Этажность</th>
-            <th>Дата доб.</th>
-            <th>Дата изм.</th>
-            <th>Телефон</th>
-            <th>Цена</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-        {% for item in items %}
-          <tr class="{% if item.is_archived %}is-archived{% endif %}" data-prop-id="{{ item.prop.pk }}" data-archived="{% if item.is_archived %}1{% else %}0{% endif %}" data-price-url="{% url 'panel_update_price' item.prop.pk %}" data-toggle-url="{% url 'panel_toggle_archive' item.prop.pk %}" data-delete-url="{% url 'panel_delete' item.prop.pk %}">
-            <td>
-              <div style="display:flex; flex-direction:column; gap:.25rem;">
-                <div style="font-weight:600;">{{ item.category }}</div>
-                <div class="muted" style="font-size:.78rem;">ID: {{ item.prop.pk }}{% if item.external_id %} · Ext: {{ item.external_id }}{% endif %}</div>
-                <div class="tag-list">
-                  {% if item.export_to_cian %}<span class="tag">CIAN</span>{% endif %}
-                  {% if item.export_to_domklik %}<span class="tag">DomClick</span>{% endif %}
-                  {% if item.is_archived %}<span class="tag tag-archived-label">Архив</span>{% endif %}
-                </div>
-              </div>
-            </td>
-            <td class="addr" title="{{ item.prop.address }}">{{ item.address|default:item.prop.address|default:"—" }}</td>
-            <td>{{ item.floors|default:"—" }}</td>
-            <td>{{ item.created|default:"—" }}</td>
-            <td>{{ item.updated|default:"—" }}</td>
-            <td>{{ item.phone|default:"—" }}</td>
-            <td class="price-cell">
-              <span class="price-value" data-price="{{ item.price_raw }}">{{ item.price_display }}</span>
-            </td>
-            <td style="white-space:nowrap;">
-              <div style="display:flex; gap:.4rem;">
-                <a class="btn btn-sm" href="/panel/edit/{{ item.prop.pk }}/">Открыть</a>
-                <button type="button" class="btn btn-sm js-toggle-archive" data-label-archive="В архив" data-label-restore="Вернуть">{% if item.is_archived %}Вернуть{% else %}В архив{% endif %}</button>
-                <button type="button" class="btn btn-sm btn-danger js-delete" title="Удалить">✖</button>
-              </div>
-            </td>
-          </tr>
-        {% empty %}
-          <tr><td colspan="8">Пока нет объектов</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
+<div class="table-wrap panel-table-wrap">
+  <table class="tbl panel-table">
+    <thead>
+      <tr>
+        <th class="col-type">Тип</th>
+        <th class="col-address">Адрес</th>
+        <th class="col-price">Цена</th>
+        <th class="col-floor">эт.</th>
+        <th class="col-export">Экспорт</th>
+        <th class="col-actions">Действия</th>
+        <th class="col-dates">Даты</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in rows %}
+      <tr
+        data-id="{{ row.id }}"
+        data-price-url="{% url 'panel_update_price' row.id %}"
+        data-archive-url="{% url 'panel_toggle_archive' row.id %}"
+        data-delete-url="{% url 'panel_delete' row.id %}"
+        data-toggle-cian-url="{% url 'panel_toggle_export_cian' row.id %}"
+        data-toggle-dom-url="{% url 'panel_toggle_export_dom' row.id %}"
+        class="{% if row.is_archived %}is-archived{% endif %}"
+      >
+        <td class="col-type">{{ row.type|default:"" }}</td>
+        <td class="addr" title="{{ row.full_address }}">
+          {{ row.address|default:"—" }}
+          {% if row.external_id %}
+            <span class="tag tag-extid" title="Внешний код">{{ row.external_id }}</span>
+          {% endif %}
+        </td>
+        <td class="price-cell" data-price-raw="{{ row.price_raw }}">
+          <span class="price-text">{{ row.price_display|default:"—" }}</span>
+        </td>
+        <td class="col-floor">{{ row.floors }}</td>
+        <td class="col-export">
+          <span class="chip {% if row.export_to_cian %}on cian{% else %}off{% endif %}" data-action="toggle-cian">CIAN</span>
+          <span class="chip {% if row.export_to_domklik %}on dom{% else %}off{% endif %}" data-action="toggle-dom">Dom</span>
+        </td>
+        <td class="col-actions">
+          <a href="{% url 'panel_edit' row.id %}" class="btn btn-sm">Открыть</a>
+          {% if row.is_archived %}
+            <button type="button" class="btn btn-sm act-restore">ВЕРН</button>
+          {% else %}
+            <button type="button" class="btn btn-sm act-archive">АРХ</button>
+          {% endif %}
+          <button type="button" class="btn btn-sm btn-danger act-delete" title="Удалить">✖</button>
+        </td>
+        <td class="dates">
+          <div>изм {{ row.updated|default:"—" }}</div>
+          <div>доб {{ row.created|default:"—" }}</div>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="7">Пока нет объектов</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
   {{ block.super }}
   <script>
-    (function() {
-      const table = document.querySelector('[data-panel-table]');
+    (function () {
+      const table = document.querySelector('.panel-table');
       if (!table) {
         return;
       }
@@ -114,55 +97,64 @@
         return '';
       };
 
-      const csrfToken = getCookie('csrftoken');
-      const totalCountEl = document.querySelector('[data-total-count]');
+      const csrftoken = getCookie('csrftoken');
 
-      function updateArchiveButton(btn, isArchived) {
-        if (!btn) return;
-        btn.textContent = isArchived ? btn.dataset.labelRestore : btn.dataset.labelArchive;
-      }
+      const post = (url, data) => {
+        return fetch(url, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': csrftoken,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          },
+          body: new URLSearchParams(data || {}),
+        }).then((response) => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          return response.json();
+        });
+      };
 
-      table.querySelectorAll('.js-toggle-archive').forEach((btn) => {
-        const row = btn.closest('tr');
-        if (!row) return;
-        const isArchived = row.dataset.archived === '1';
-        updateArchiveButton(btn, isArchived);
-      });
-
-      let activeEditor = null;
-
-      function cancelEditor() {
-        if (!activeEditor) return;
-        const { cell, originalHTML } = activeEditor;
-        cell.innerHTML = originalHTML;
-        cell.classList.remove('editing');
-        activeEditor = null;
-      }
-
-      function formatPrice(value) {
-        if (!value) return '—';
-        return value.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₽';
-      }
-
-      function startEdit(cell) {
-        if (activeEditor) {
-          cancelEditor();
+      const searchForm = document.querySelector('.panel-search');
+      if (searchForm) {
+        const includeArchivedInput = searchForm.querySelector('input[name="include_archived"]');
+        if (includeArchivedInput) {
+          includeArchivedInput.addEventListener('change', () => {
+            searchForm.submit();
+          });
         }
-        cell.classList.add('editing');
-        const valueEl = cell.querySelector('.price-value');
-        const originalHTML = cell.innerHTML;
-        const currentRaw = valueEl ? valueEl.dataset.price || '' : '';
+      }
 
-        const wrapper = document.createElement('div');
-        wrapper.style.display = 'flex';
-        wrapper.style.alignItems = 'center';
-        wrapper.style.gap = '.3rem';
+      const formatSpaces = (value) => {
+        const digits = String(value || '').replace(/\D/g, '');
+        if (!digits) {
+          return '—';
+        }
+        return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+      };
+
+      const startPriceEdit = (cell) => {
+        if (cell.classList.contains('editing')) {
+          return;
+        }
+        const row = cell.closest('tr');
+        if (!row) {
+          return;
+        }
+        const url = row.dataset.priceUrl;
+        if (!url) {
+          return;
+        }
+        const originalRaw = cell.dataset.priceRaw || '';
+        const originalHTML = cell.innerHTML;
+        cell.classList.add('editing');
+        cell.innerHTML = '';
 
         const input = document.createElement('input');
         input.type = 'number';
         input.min = '0';
-        input.step = '1000';
-        input.value = currentRaw;
+        input.value = originalRaw;
         input.style.width = '120px';
 
         const okBtn = document.createElement('button');
@@ -175,147 +167,154 @@
         cancelBtn.className = 'btn btn-sm';
         cancelBtn.textContent = '✖';
 
-        wrapper.appendChild(input);
-        wrapper.appendChild(okBtn);
-        wrapper.appendChild(cancelBtn);
-        cell.innerHTML = '';
-        cell.appendChild(wrapper);
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'flex';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.gap = '.25rem';
+        wrapper.append(input, okBtn, cancelBtn);
+        cell.append(wrapper);
         input.focus();
 
-        const row = cell.closest('tr');
-        const url = row ? row.dataset.priceUrl : null;
+        const rollback = () => {
+          cell.innerHTML = originalHTML;
+          cell.classList.remove('editing');
+        };
 
-        function submit() {
-          if (!url) {
-            cancelEditor();
-            return;
-          }
-          const formData = new URLSearchParams();
-          formData.append('price', input.value);
-          fetch(url, {
-            method: 'POST',
-            headers: {
-              'X-CSRFToken': csrfToken,
-              'X-Requested-With': 'XMLHttpRequest',
-            },
-            body: formData,
-          })
-            .then((res) => res.json().then((data) => ({ status: res.status, data })))
-            .then(({ status, data }) => {
-              if (status >= 400 || !data.ok) {
-                alert('Не удалось обновить цену');
-                cancelEditor();
-                return;
+        const updateCell = (raw, display) => {
+          const span = document.createElement('span');
+          span.className = 'price-text';
+          span.textContent = display || '—';
+          cell.dataset.priceRaw = raw || '';
+          cell.innerHTML = '';
+          cell.append(span);
+          cell.classList.remove('editing');
+        };
+
+        okBtn.addEventListener('click', () => {
+          post(url, { price: input.value || '' })
+            .then((data) => {
+              if (!data || !data.ok) {
+                throw new Error('Invalid response');
               }
-              const priceValue = data.price || '';
-              const display = data.price_formatted || formatPrice(priceValue);
-              cell.innerHTML = `<span class="price-value" data-price="${priceValue}">${display}</span>`;
-              cell.classList.remove('editing');
-              activeEditor = null;
+              updateCell(data.price || '', data.price_display || data.price_formatted || formatSpaces(data.price));
             })
             .catch(() => {
-              alert('Ошибка сети при сохранении цены');
-              cancelEditor();
+              rollback();
+              alert('Не удалось сохранить цену');
             });
-        }
+        });
 
-        okBtn.addEventListener('click', submit);
-        cancelBtn.addEventListener('click', cancelEditor);
+        cancelBtn.addEventListener('click', rollback);
         input.addEventListener('keydown', (event) => {
           if (event.key === 'Enter') {
             event.preventDefault();
-            submit();
+            okBtn.click();
           }
           if (event.key === 'Escape') {
             event.preventDefault();
-            cancelEditor();
+            rollback();
           }
         });
-        input.addEventListener('blur', (event) => {
-          if (!cell.contains(event.relatedTarget)) {
-            cancelEditor();
-          }
-        }, true);
+      };
 
-        activeEditor = { cell, originalHTML };
-      }
-
-      table.addEventListener('click', (event) => {
-        const priceCell = event.target.closest('.price-cell');
-        if (priceCell && table.contains(priceCell)) {
-          if (!priceCell.classList.contains('editing')) {
-            startEdit(priceCell);
-          }
-          return;
-        }
-
-        const toggleBtn = event.target.closest('.js-toggle-archive');
-        if (toggleBtn) {
-          const row = toggleBtn.closest('tr');
-          if (!row) return;
-          const url = row.dataset.toggleUrl;
-          fetch(url, {
-            method: 'POST',
-            headers: {
-              'X-CSRFToken': csrfToken,
-              'X-Requested-With': 'XMLHttpRequest',
-            },
-          })
-            .then((res) => res.json())
-            .then((data) => {
-              if (!data || !data.ok) {
-                alert('Не удалось изменить статус');
-                return;
-              }
-              const archived = !!data.is_archived;
-              row.dataset.archived = archived ? '1' : '0';
-              row.classList.toggle('is-archived', archived);
-              updateArchiveButton(toggleBtn, archived);
-              const tag = row.querySelector('.tag-archived-label');
-              if (archived) {
-                if (!tag) {
-                  const span = document.createElement('span');
-                  span.className = 'tag tag-archived-label';
-                  span.textContent = 'Архив';
-                  row.querySelector('.tag-list')?.appendChild(span);
-                }
-              } else if (tag) {
-                tag.remove();
-              }
-            })
-            .catch(() => alert('Ошибка сети при изменении статуса'));
-          return;
-        }
-
-        const deleteBtn = event.target.closest('.js-delete');
-        if (deleteBtn) {
-          const row = deleteBtn.closest('tr');
-          if (!row) return;
-          if (!confirm('Удалить объект?')) {
+      table.querySelectorAll('td.price-cell').forEach((cell) => {
+        cell.addEventListener('click', (event) => {
+          if (event.target.closest('button')) {
             return;
           }
-          fetch(row.dataset.deleteUrl, {
-            method: 'POST',
-            headers: {
-              'X-CSRFToken': csrfToken,
-              'X-Requested-With': 'XMLHttpRequest',
-            },
-          })
-            .then((res) => res.json())
+          startPriceEdit(cell);
+        });
+      });
+
+      const updateArchiveButton = (button, isArchived) => {
+        if (!button) {
+          return;
+        }
+        button.textContent = isArchived ? 'ВЕРН' : 'АРХ';
+        button.classList.toggle('act-archive', !isArchived);
+        button.classList.toggle('act-restore', isArchived);
+      };
+
+      table.addEventListener('click', (event) => {
+        const archiveBtn = event.target.closest('.act-archive, .act-restore');
+        if (archiveBtn) {
+          const row = archiveBtn.closest('tr');
+          if (!row) {
+            return;
+          }
+          const url = row.dataset.archiveUrl;
+          if (!url) {
+            return;
+          }
+          post(url)
             .then((data) => {
-              if (!data || !data.deleted) {
-                alert('Не удалось удалить объект');
-                return;
+              if (!data || !data.ok) {
+                throw new Error('Invalid response');
+              }
+              const archived = !!data.is_archived;
+              row.classList.toggle('is-archived', archived);
+              updateArchiveButton(archiveBtn, archived);
+            })
+            .catch(() => alert('Не удалось изменить статус объекта'));
+          return;
+        }
+
+        const deleteBtn = event.target.closest('.act-delete');
+        if (deleteBtn) {
+          const row = deleteBtn.closest('tr');
+          if (!row) {
+            return;
+          }
+          if (!confirm('Удалить объект безвозвратно?')) {
+            return;
+          }
+          const url = row.dataset.deleteUrl;
+          if (!url) {
+            return;
+          }
+          post(url)
+            .then((data) => {
+              if (!data || !data.ok && !data.deleted) {
+                throw new Error('Invalid response');
               }
               row.remove();
-              if (totalCountEl) {
-                const current = parseInt(totalCountEl.textContent || '0', 10);
-                if (!Number.isNaN(current) && current > 0) {
-                  totalCountEl.textContent = current - 1;
+            })
+            .catch(() => alert('Не удалось удалить объект'));
+          return;
+        }
+
+        const chip = event.target.closest('.chip');
+        if (chip) {
+          const row = chip.closest('tr');
+          if (!row) {
+            return;
+          }
+          const action = chip.dataset.action;
+          const url = action === 'toggle-cian' ? row.dataset.toggleCianUrl : row.dataset.toggleDomUrl;
+          if (!url) {
+            return;
+          }
+          post(url)
+            .then((data) => {
+              if (!data || !data.ok) {
+                throw new Error('Invalid response');
+              }
+              if (Object.prototype.hasOwnProperty.call(data, 'export_to_cian')) {
+                const cianChip = row.querySelector('.chip[data-action="toggle-cian"]');
+                if (cianChip) {
+                  cianChip.classList.toggle('on', !!data.export_to_cian);
+                  cianChip.classList.toggle('off', !data.export_to_cian);
+                }
+              }
+              if (Object.prototype.hasOwnProperty.call(data, 'export_to_domklik')) {
+                const domChip = row.querySelector('.chip[data-action="toggle-dom"]');
+                if (domChip) {
+                  domChip.classList.toggle('on', !!data.export_to_domklik);
+                  domChip.classList.toggle('off', !data.export_to_domklik);
                 }
               }
             })
-            .catch(() => alert('Ошибка сети при удалении'));
+            .catch(() => alert('Не удалось изменить настройки экспорта'));
         }
       });
     })();
