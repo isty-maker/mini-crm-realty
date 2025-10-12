@@ -127,16 +127,23 @@ def _compact_address(prop) -> str:
     ).strip()
     base_address = (getattr(prop, "address", "") or "").strip()
 
-    if not street and not house and base_address:
-        street = base_address
-
     nb = "\xa0"
     # Убираем "г. Новокузнецк" в любых форматах (с точками, пробелами, NBSP, словом "город", лишними запятыми).
     pattern_city = rf"(?:^|[,\s{nb}]+)(?:г\.?|город)?\s*Новокузнецк\.?\s*(?:,|{nb})?"
-    cleaned_base = re.sub(pattern_city, " ", base_address, flags=re.IGNORECASE)
-    cleaned_base = re.sub(rf"[\s{nb}]+", " ", cleaned_base).strip()
-    cleaned_base = re.sub(r"\s*,\s*,+", ", ", cleaned_base)
-    cleaned_base = cleaned_base.strip(", ").strip()
+
+    def strip_city(value: str) -> str:
+        cleaned = re.sub(pattern_city, " ", value or "", flags=re.IGNORECASE)
+        cleaned = re.sub(rf"[\s{nb}]+", " ", cleaned).strip()
+        cleaned = re.sub(r"\s*,\s*,+", ", ", cleaned)
+        return cleaned.strip(", ").strip()
+
+    street_from_base = False
+    if not street and not house and base_address:
+        # Фоллбек: берём street из полного адреса, но сразу чистим "г. Новокузнецк".
+        street = strip_city(base_address)
+        street_from_base = True
+
+    cleaned_base = strip_city(base_address)
 
     locality_part = ""
     for candidate in (locality, city):
@@ -145,13 +152,23 @@ def _compact_address(prop) -> str:
             break
 
     house_part = house
+    merged_into_street = False
     if apartment:
-        # Всегда дом-квартира через дефис (например, 10-15). Если дома нет, выводим только квартиру без лишних знаков.
-        suffix = f"-{apartment}"
-        house_part = f"{house}{suffix}" if house else apartment
+        if not house:
+            tail_pattern = r"(?<!-)(\d+[^\s,]*)\s*$"
+            if street and re.search(tail_pattern, street) and not re.search(rf"-\s*{re.escape(apartment)}\s*$", street):
+                street = re.sub(tail_pattern, rf"\1-{apartment}", street).strip()
+                merged_into_street = True
+        if not merged_into_street:
+            # Всегда дом-квартира через дефис (например, 10-15). Если дома нет, выводим только квартиру без лишних знаков.
+            suffix = f"-{apartment}"
+            house_part = f"{house}{suffix}" if house else apartment
 
-    parts = [street, house_part]
+    parts = [street] if merged_into_street else [street, house_part]
     tail = ", ".join([piece for piece in parts if piece])
+    if street_from_base and locality_part and street and street.lower().startswith(locality_part.lower()):
+        locality_part = ""
+
     components = [comp for comp in (locality_part, tail) if comp]
 
     if components:
