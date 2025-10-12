@@ -130,13 +130,13 @@ def _compact_address(prop) -> str:
     if not street and not house and base_address:
         street = base_address
 
-    cleaned_base = re.sub(
-        r"(?:г\.?\s*)?Новокузнецк,?",
-        "",
-        base_address,
-        flags=re.IGNORECASE,
-    )
-    cleaned_base = re.sub(r"\s+", " ", cleaned_base).strip(", ").strip()
+    nb = "\xa0"
+    # Убираем "г. Новокузнецк" в любых форматах (с точками, пробелами, NBSP, словом "город", лишними запятыми).
+    pattern_city = rf"(?:^|[,\s{nb}]+)(?:г\.?|город)?\s*Новокузнецк\.?\s*(?:,|{nb})?"
+    cleaned_base = re.sub(pattern_city, " ", base_address, flags=re.IGNORECASE)
+    cleaned_base = re.sub(rf"[\s{nb}]+", " ", cleaned_base).strip()
+    cleaned_base = re.sub(r"\s*,\s*,+", ", ", cleaned_base)
+    cleaned_base = cleaned_base.strip(", ").strip()
 
     locality_part = ""
     for candidate in (locality, city):
@@ -146,6 +146,7 @@ def _compact_address(prop) -> str:
 
     house_part = house
     if apartment:
+        # Всегда дом-квартира через дефис (например, 10-15). Если дома нет, выводим только квартиру без лишних знаков.
         suffix = f"-{apartment}"
         house_part = f"{house}{suffix}" if house else apartment
 
