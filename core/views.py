@@ -59,75 +59,109 @@ INVALID_IMAGE_MESSAGE = "Неподдерживаемый формат или п
 
 
 def _ensure_migrated():
-    """Auto-apply migrations in preview environments when enabled."""
+    """Best-effort auto-migrate in preview/PR containers to avoid 500 errors."""
 
     if os.getenv("AUTO_APPLY_MIGRATIONS", "0") != "1":
         return
 
     loader = MigrationLoader(connection, ignore_no_migrations=True)
     nodes = set(loader.graph.nodes.keys())
-    pending = [(app, name) for (app, name) in nodes if (app, name) not in loader.applied_migrations]
-    if not pending:
-        return
-
-    try:
-        call_command("migrate", interactive=False, run_syncdb=True, verbosity=0)
-    except Exception:
-        # Another worker may race us on the first request – ignore failures.
-        pass
+    if any((app_label, migration_name) not in loader.applied_migrations for app_label, migration_name in nodes):
+        try:
+            call_command("migrate", interactive=False, run_syncdb=True, verbosity=0)
+        except Exception:
+            # Races are fine if multiple workers call this concurrently.
+            pass
 
 
 def _short_category(prop) -> str:
-    category = (getattr(prop, "category", "") or "").strip()
-    if category == "flat":
-        rooms = getattr(prop, "flat_rooms_count", None) or getattr(prop, "rooms_for_sale_count", None)
-        if rooms:
-            return f"Квартира ({rooms}к)"
-        return "Квартира"
-    if category == "house":
-        return "Дом"
-    if category == "room":
-        return "Комната"
-    if category == "land":
-        return "Земля"
-    if category == "commercial":
-        return "Коммерч."
-    if category == "garage":
-        return "Гараж"
-    return "Объект"
+    category = (getattr(prop, "category", "") or "").strip().lower()
+    if category in {"flat", "apartment", "квартира"}:
+        rooms = (
+            getattr(prop, "flat_rooms_count", None)
+            or getattr(prop, "rooms", None)
+            or getattr(prop, "rooms_for_sale_count", None)
+        )
+        try:
+            rooms_int = int(rooms)
+        except (TypeError, ValueError):
+            rooms_int = None
+        if rooms_int:
+            return f"{rooms_int}к кв."
+        studio_flags = (
+            getattr(prop, "is_studio", None),
+            getattr(prop, "flat_type", None),
+        )
+        if any(str(flag).lower() in {"1", "true", "yes", "studio"} for flag in studio_flags if flag not in (None, "")):
+            return "ст кв."
+        return "Кв."
+    mapping = {
+        "house": "Дом",
+        "дом": "Дом",
+        "room": "Комн.",
+        "комната": "Комн.",
+        "land": "Зем.",
+        "земля": "Зем.",
+        "commercial": "Ком.",
+        "коммерция": "Ком.",
+        "garage": "Гар.",
+        "гараж": "Гар.",
+    }
+    if category in mapping:
+        return mapping[category]
+    return category[:1].upper() + category[1:] if category else ""
 
 
 def _compact_address(prop) -> str:
-    address = (getattr(prop, "address", "") or "").strip()
-    if not address:
-        return ""
+    ref_city = "Новокузнецк"
 
-    parts = [part.strip() for part in address.split(",") if part.strip()]
-    filtered = []
-    for part in parts:
-        part_lower = part.lower()
-        if part_lower.replace(" ", "") in {"г.новокузнецк", "г новокузнецк", "городновокузнецк", "новокузнецк"}:
-            continue
-        filtered.append(part)
+    locality = (getattr(prop, "locality", "") or "").strip()
+    city = (getattr(prop, "city", "") or "").strip()
+    street = (getattr(prop, "street", "") or "").strip()
+    house = (getattr(prop, "house_number", "") or getattr(prop, "house", "") or "").strip()
+    apartment = (
+        getattr(prop, "apartment", "")
+        or getattr(prop, "flat_number", "")
+        or getattr(prop, "flat", "")
+        or ""
+    ).strip()
+    base_address = (getattr(prop, "address", "") or "").strip()
 
-    if not filtered:
-        return ""
+    if not street and not house and base_address:
+        street = base_address
 
-    street_hints = ("ул", "улиц", "пр", "просп", "пер", "мкр", "ш", "шос", "бул", "б-р", "туп", "тракт", "дор")
-    locality = ""
-    rest_parts = list(filtered)
-    first = filtered[0].lower()
-    if not any(hint in first for hint in street_hints):
-        locality = filtered[0]
-        rest_parts = filtered[1:]
+    cleaned_base = base_address.replace("г. Новокузнецк", "").replace("г.Новокузнецк", "").strip(", ")
 
-    segments = []
-    if locality:
-        segments.append(locality)
-    if rest_parts:
-        segments.append(", ".join(rest_parts))
+    locality_part = ""
+    for candidate in (locality, city):
+        if candidate and candidate != ref_city:
+            locality_part = candidate
+            break
 
-    return ", ".join(segments) if segments else ""
+    house_part = house
+    if apartment:
+        suffix = f"-{apartment}"
+        house_part = f"{house}{suffix}" if house else apartment
+
+    parts = [street, house_part]
+    tail = ", ".join([piece for piece in parts if piece])
+    components = [comp for comp in (locality_part, tail) if comp]
+
+    if components:
+        return ", ".join(components)
+
+    return cleaned_base
+
+
+def _format_price_compact(value) -> str:
+    if value in (None, ""):
+        return "—"
+    try:
+        quantized = Decimal(value)
+    except (InvalidOperation, TypeError):
+        return "—"
+    amount = int(quantized)
+    return f"{amount:,}".replace(",", " ")
 
 
 def _format_phone_10(value: str) -> str:
@@ -635,12 +669,8 @@ def panel_list(request):
     props = props.order_by("-updated_at", "-id")
     props_list = list(props)
 
-    panel_items = []
+    rows = []
     for prop in props_list:
-        phone_value = _format_phone_10(getattr(prop, "phone_number", ""))
-        if not phone_value:
-            phone_value = _format_phone_10(getattr(prop, "phone_number2", ""))
-
         floor_number = getattr(prop, "floor_number", None)
         building_floors = getattr(prop, "building_floors", None)
         has_floor = floor_number not in (None, "")
@@ -662,21 +692,20 @@ def panel_list(request):
             except (InvalidOperation, TypeError, ValueError):
                 raw_price = ""
 
-        panel_items.append(
+        rows.append(
             {
-                "prop": prop,
-                "category": _short_category(prop),
-                "address": _compact_address(prop),
+                "id": prop.pk,
+                "type": _short_category(prop),
+                "address": _compact_address(prop) or (getattr(prop, "address", "") or ""),
+                "full_address": getattr(prop, "address", "") or "",
                 "floors": floors_display,
                 "created": _format_date(getattr(prop, "created_at", None)),
                 "updated": _format_date(getattr(prop, "updated_at", None)),
-                "phone": phone_value,
-                "price_display": _format_price(price_value),
+                "price_display": _format_price_compact(price_value),
                 "price_raw": raw_price,
-                "is_archived": getattr(prop, "is_archived", False),
-                "export_to_cian": getattr(prop, "export_to_cian", False),
-                "export_to_domklik": getattr(prop, "export_to_domklik", False),
-                "external_id": (getattr(prop, "external_id", "") or "").strip(),
+                "is_archived": bool(getattr(prop, "is_archived", False)),
+                "export_to_cian": bool(getattr(prop, "export_to_cian", False)),
+                "export_to_domklik": bool(getattr(prop, "export_to_domklik", False)),
             }
         )
 
@@ -685,8 +714,7 @@ def panel_list(request):
         request,
         "core/panel_list.html",
         {
-            "items": panel_items,
-            "total_count": len(panel_items),
+            "rows": rows,
             "q": q,
             "show": show,
             "include_archived": show_archived_flag,
@@ -703,8 +731,8 @@ def panel_update_price(request, pk):
     if not raw:
         prop.price = None
         prop.save(update_fields=["price", "updated_at"])
-        formatted = _format_price(prop.price)
-        return JsonResponse({"ok": True, "price": "", "price_formatted": formatted})
+        formatted = _format_price_compact(prop.price)
+        return JsonResponse({"ok": True, "price": "", "price_display": formatted, "price_formatted": formatted})
 
     digits = re.sub(r"\D", "", raw)
     if not digits:
@@ -718,8 +746,8 @@ def panel_update_price(request, pk):
     prop.price = value
     prop.save(update_fields=["price", "updated_at"])
 
-    formatted = _format_price(prop.price)
-    return JsonResponse({"ok": True, "price": str(prop.price), "price_formatted": formatted})
+    formatted = _format_price_compact(prop.price)
+    return JsonResponse({"ok": True, "price": str(prop.price), "price_display": formatted, "price_formatted": formatted})
 
 
 @require_POST
@@ -730,6 +758,24 @@ def panel_toggle_archive(request, pk):
     prop.status = "archived" if prop.is_archived else "active"
     prop.save(update_fields=["is_archived", "status", "updated_at"])
     return JsonResponse({"ok": True, "is_archived": prop.is_archived})
+
+
+@require_POST
+def panel_toggle_export_cian(request, pk: int):
+    _ensure_migrated()
+    prop = get_object_or_404(Property, pk=pk)
+    prop.export_to_cian = not bool(prop.export_to_cian)
+    prop.save(update_fields=["export_to_cian", "updated_at"])
+    return JsonResponse({"ok": True, "export_to_cian": prop.export_to_cian})
+
+
+@require_POST
+def panel_toggle_export_dom(request, pk: int):
+    _ensure_migrated()
+    prop = get_object_or_404(Property, pk=pk)
+    prop.export_to_domklik = not bool(prop.export_to_domklik)
+    prop.save(update_fields=["export_to_domklik", "updated_at"])
+    return JsonResponse({"ok": True, "export_to_domklik": prop.export_to_domklik})
 
 
 @require_POST
