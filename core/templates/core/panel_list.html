@@ -1,5 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Объекты — Мини-CRM{% endblock %}
+{% block extra_head %}
+  {{ block.super }}
+  <style>
+    .panel-table .addr-link { text-decoration: underline; color: inherit; }
+    .panel-table .type-line { font-weight: 600; }
+    .panel-table .chips-line { display: flex; gap: .25rem; margin-top: .15rem; flex-wrap: wrap; }
+    .panel-table .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+  </style>
+{% endblock %}
+
 {% block content %}
 <div class="topbar">
   <h1>Объекты</h1>
@@ -26,7 +36,6 @@
         <th class="col-address">Адрес</th>
         <th class="col-price">Цена</th>
         <th class="col-floor">эт.</th>
-        <th class="col-export">Экспорт</th>
         <th class="col-actions">Действия</th>
         <th class="col-dates">Даты</th>
       </tr>
@@ -42,21 +51,21 @@
         data-toggle-dom-url="{% url 'panel_toggle_export_dom' row.id %}"
         class="{% if row.is_archived %}is-archived{% endif %}"
       >
-        <td class="col-type">{{ row.type|default:"" }}</td>
-        <td class="addr" title="{{ row.full_address }}">
-          {{ row.address|default:"—" }}
-          {% if row.external_id %}
-            <span class="tag tag-extid" title="Внешний код">{{ row.external_id }}</span>
-          {% endif %}
+        <td class="col-type">
+          <div class="type-line">{{ row.type|default:"" }}</div>
+          <div class="chips-line">
+            <span class="chip {% if row.export_to_cian %}on cian{% else %}off{% endif %}" data-action="toggle-cian">CIAN</span>
+            <span class="chip {% if row.export_to_domklik %}on dom{% else %}off{% endif %}" data-action="toggle-dom">Dom</span>
+          </div>
+          {% if row.external_id %}<span class="sr-only external-id">{{ row.external_id }}</span>{% endif %}
+        </td>
+        <td class="addr" title="{{ row.full_address|default:row.address }}">
+          <a class="addr-link" href="{% url 'panel_edit' row.id %}">{{ row.address|default:"—" }}</a>
         </td>
         <td class="price-cell" data-price-raw="{{ row.price_raw }}">
           <span class="price-text">{{ row.price_display|default:"—" }}</span>
         </td>
         <td class="col-floor">{{ row.floors }}</td>
-        <td class="col-export">
-          <span class="chip {% if row.export_to_cian %}on cian{% else %}off{% endif %}" data-action="toggle-cian">CIAN</span>
-          <span class="chip {% if row.export_to_domklik %}on dom{% else %}off{% endif %}" data-action="toggle-dom">Dom</span>
-        </td>
         <td class="col-actions">
           <a href="{% url 'panel_edit' row.id %}" class="btn btn-sm">Открыть</a>
           {% if row.is_archived %}
@@ -72,7 +81,7 @@
         </td>
       </tr>
     {% empty %}
-      <tr><td colspan="7">Пока нет объектов</td></tr>
+      <tr><td colspan="6">Пока нет объектов</td></tr>
     {% endfor %}
     </tbody>
   </table>
