@@ -38,5 +38,13 @@ urlpatterns = [
         views.panel_photos_bulk_delete,
         name="panel_photos_bulk_delete",
     ),
+    path("panel/<int:pk>/price/", views.panel_update_price, name="panel_update_price"),
+    path(
+        "panel/<int:pk>/toggle-archive/",
+        views.panel_toggle_archive,
+        name="panel_toggle_archive",
+    ),
+    path("panel/<int:pk>/delete/", views.panel_delete, name="panel_delete"),
     path("feed/cian.xml", views.export_cian, name="export_cian"),
+    path("feed/domklik.xml", views.export_domklik, name="export_domklik"),
 ]

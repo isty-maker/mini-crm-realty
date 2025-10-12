@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+from decimal import Decimal, InvalidOperation
 from functools import lru_cache
 from typing import Optional
 from io import BytesIO
@@ -12,6 +13,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import FieldDoesNotExist
 from django.core.files.base import ContentFile
+from django.core.management import call_command
 from django.db import connection, transaction
 from django.db.migrations.loader import MigrationLoader
 from django.db.models import Max, Q
@@ -21,6 +23,7 @@ from django.http import (
     JsonResponse,
 )
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 try:
@@ -53,6 +56,107 @@ log = logging.getLogger("upload")
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 INVALID_IMAGE_MESSAGE = "Неподдерживаемый формат или повреждённое изображение."
+
+
+def _ensure_migrated():
+    """Auto-apply migrations in preview environments when enabled."""
+
+    if os.getenv("AUTO_APPLY_MIGRATIONS", "0") != "1":
+        return
+
+    loader = MigrationLoader(connection, ignore_no_migrations=True)
+    nodes = set(loader.graph.nodes.keys())
+    pending = [(app, name) for (app, name) in nodes if (app, name) not in loader.applied_migrations]
+    if not pending:
+        return
+
+    try:
+        call_command("migrate", interactive=False, run_syncdb=True, verbosity=0)
+    except Exception:
+        # Another worker may race us on the first request – ignore failures.
+        pass
+
+
+def _short_category(prop) -> str:
+    category = (getattr(prop, "category", "") or "").strip()
+    if category == "flat":
+        rooms = getattr(prop, "flat_rooms_count", None) or getattr(prop, "rooms_for_sale_count", None)
+        if rooms:
+            return f"Квартира ({rooms}к)"
+        return "Квартира"
+    if category == "house":
+        return "Дом"
+    if category == "room":
+        return "Комната"
+    if category == "land":
+        return "Земля"
+    if category == "commercial":
+        return "Коммерч."
+    if category == "garage":
+        return "Гараж"
+    return "Объект"
+
+
+def _compact_address(prop) -> str:
+    address = (getattr(prop, "address", "") or "").strip()
+    if not address:
+        return ""
+
+    parts = [part.strip() for part in address.split(",") if part.strip()]
+    filtered = []
+    for part in parts:
+        part_lower = part.lower()
+        if part_lower.replace(" ", "") in {"г.новокузнецк", "г новокузнецк", "городновокузнецк", "новокузнецк"}:
+            continue
+        filtered.append(part)
+
+    if not filtered:
+        return ""
+
+    street_hints = ("ул", "улиц", "пр", "просп", "пер", "мкр", "ш", "шос", "бул", "б-р", "туп", "тракт", "дор")
+    locality = ""
+    rest_parts = list(filtered)
+    first = filtered[0].lower()
+    if not any(hint in first for hint in street_hints):
+        locality = filtered[0]
+        rest_parts = filtered[1:]
+
+    segments = []
+    if locality:
+        segments.append(locality)
+    if rest_parts:
+        segments.append(", ".join(rest_parts))
+
+    return ", ".join(segments) if segments else ""
+
+
+def _format_phone_10(value: str) -> str:
+    digits = re.sub(r"\D", "", value or "")
+    if len(digits) < 10:
+        return ""
+    digits = digits[-10:]
+    return f"{digits[:3]}-{digits[3:6]}-{digits[6:8]}-{digits[8:]}"
+
+
+def _format_date(dt) -> str:
+    if not dt:
+        return ""
+    try:
+        dt_value = timezone.localtime(dt)
+    except (ValueError, TypeError, AttributeError):
+        dt_value = dt
+    return dt_value.strftime("%d.%m.%y")
+
+
+def _format_price(value) -> str:
+    if value in (None, ""):
+        return "—"
+    try:
+        quantized = Decimal(value)
+    except (InvalidOperation, TypeError):
+        return "—"
+    amount = int(quantized)
+    return f"{amount:,}".replace(",", " ") + " ₽"
 
 
 def _pillow_supports_rotation() -> bool:
@@ -501,6 +605,8 @@ def _panel_form_context(form, prop, photos):
 
 
 def panel_list(request):
+    _ensure_migrated()
+
     q = request.GET.get("q", "").strip()
     show = request.GET.get("show")
     include_archived = request.GET.get("include_archived") == "1"
@@ -525,13 +631,62 @@ def panel_list(request):
                     | Q(external_id__icontains=variant)
                 )
             props = props.filter(token_q)
+
     props = props.order_by("-updated_at", "-id")
+    props_list = list(props)
+
+    panel_items = []
+    for prop in props_list:
+        phone_value = _format_phone_10(getattr(prop, "phone_number", ""))
+        if not phone_value:
+            phone_value = _format_phone_10(getattr(prop, "phone_number2", ""))
+
+        floor_number = getattr(prop, "floor_number", None)
+        building_floors = getattr(prop, "building_floors", None)
+        has_floor = floor_number not in (None, "")
+        has_building_floors = building_floors not in (None, "")
+        if has_floor and has_building_floors:
+            floors_display = f"{floor_number}/{building_floors}"
+        elif has_floor:
+            floors_display = str(floor_number)
+        elif has_building_floors:
+            floors_display = f"—/{building_floors}"
+        else:
+            floors_display = ""
+
+        price_value = getattr(prop, "price", None)
+        raw_price = ""
+        if price_value not in (None, ""):
+            try:
+                raw_price = str(int(Decimal(price_value)))
+            except (InvalidOperation, TypeError, ValueError):
+                raw_price = ""
+
+        panel_items.append(
+            {
+                "prop": prop,
+                "category": _short_category(prop),
+                "address": _compact_address(prop),
+                "floors": floors_display,
+                "created": _format_date(getattr(prop, "created_at", None)),
+                "updated": _format_date(getattr(prop, "updated_at", None)),
+                "phone": phone_value,
+                "price_display": _format_price(price_value),
+                "price_raw": raw_price,
+                "is_archived": getattr(prop, "is_archived", False),
+                "export_to_cian": getattr(prop, "export_to_cian", False),
+                "export_to_domklik": getattr(prop, "export_to_domklik", False),
+                "external_id": (getattr(prop, "external_id", "") or "").strip(),
+            }
+        )
+
     show_archived_flag = include_archived or show == "all"
     return render(
         request,
         "core/panel_list.html",
         {
-            "props": props,
+            "items": panel_items,
+            "total_count": len(panel_items),
             "q": q,
             "show": show,
             "include_archived": show_archived_flag,
@@ -539,20 +694,50 @@ def panel_list(request):
     )
 
 
-def panel_archive(request, pk):
+@require_POST
+def panel_update_price(request, pk):
+    _ensure_migrated()
     prop = get_object_or_404(Property, pk=pk)
-    prop.status = "archived"
-    prop.is_archived = True
-    prop.save(update_fields=["status", "is_archived"])
-    return redirect("/panel/")
+
+    raw = (request.POST.get("price") or "").strip()
+    if not raw:
+        prop.price = None
+        prop.save(update_fields=["price", "updated_at"])
+        formatted = _format_price(prop.price)
+        return JsonResponse({"ok": True, "price": "", "price_formatted": formatted})
+
+    digits = re.sub(r"\D", "", raw)
+    if not digits:
+        return JsonResponse({"ok": False, "error": "invalid_price"}, status=400)
+
+    try:
+        value = Decimal(digits)
+    except (InvalidOperation, ValueError):
+        return JsonResponse({"ok": False, "error": "invalid_price"}, status=400)
+
+    prop.price = value
+    prop.save(update_fields=["price", "updated_at"])
+
+    formatted = _format_price(prop.price)
+    return JsonResponse({"ok": True, "price": str(prop.price), "price_formatted": formatted})
 
 
-def panel_restore(request, pk):
+@require_POST
+def panel_toggle_archive(request, pk):
+    _ensure_migrated()
     prop = get_object_or_404(Property, pk=pk)
-    prop.status = "active"
-    prop.is_archived = False
-    prop.save(update_fields=["status", "is_archived"])
-    return redirect("/panel/?show=archived")
+    prop.is_archived = not prop.is_archived
+    prop.status = "archived" if prop.is_archived else "active"
+    prop.save(update_fields=["is_archived", "status", "updated_at"])
+    return JsonResponse({"ok": True, "is_archived": prop.is_archived})
+
+
+@require_POST
+def panel_delete(request, pk):
+    _ensure_migrated()
+    prop = get_object_or_404(Property, pk=pk)
+    prop.delete()
+    return JsonResponse({"ok": True, "deleted": True})
 
 def panel_new(request):
     if request.method != "GET":
@@ -592,6 +777,7 @@ def panel_create(request):
 
 
 def panel_edit(request, pk):
+    _ensure_migrated()
     prop = get_object_or_404(Property, pk=pk)
     if request.method == "POST":
         form = PropertyForm(request.POST, request.FILES or None, instance=prop)
@@ -831,6 +1017,7 @@ def panel_photos_bulk_delete(request):
     return JsonResponse({"ok": True, "deleted": deleted_ids})
 
 def export_cian(request):
+    _ensure_migrated()
     # В фид попадают только отмеченные для выгрузки
     qs = (
         Property.objects.filter(export_to_cian=True, is_archived=False)
@@ -862,6 +1049,25 @@ def export_cian(request):
     feeds_dir = os.path.join(settings.MEDIA_ROOT, "feeds")
     os.makedirs(feeds_dir, exist_ok=True)
     out_path = os.path.join(feeds_dir, "cian.xml")
+    with open(out_path, "wb") as fh:
+        fh.write(xml_bytes)
+
+    return HttpResponse(xml_bytes, content_type="application/xml; charset=utf-8")
+
+
+def export_domklik(request):
+    _ensure_migrated()
+    qs = (
+        Property.objects.filter(export_to_domklik=True, is_archived=False)
+        .order_by("id")
+        .prefetch_related("photos")
+    )
+    feed_result = build_cian_feed(qs)
+    xml_bytes = feed_result.xml
+
+    feeds_dir = os.path.join(settings.MEDIA_ROOT, "feeds")
+    os.makedirs(feeds_dir, exist_ok=True)
+    out_path = os.path.join(feeds_dir, "domklik.xml")
     with open(out_path, "wb") as fh:
         fh.write(xml_bytes)
 
