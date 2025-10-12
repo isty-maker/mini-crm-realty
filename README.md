@@ -55,12 +55,18 @@ pytest -q
 ## Деплой на PythonAnywhere
 Подробная инструкция доступна в [docs/deploy_pa_NEW.md](docs/deploy_pa_NEW.md).
 
-## Экспорт данных
+## Экспорт фидов
+
 - Укажите публичный базовый URL для медиа в `.env`:
   ```env
   FEED_PUBLIC_BASE_URL=https://example.com
   ```
-- В админке доступен экспорт по адресу `/panel/export/cian`.
+- CIAN (вторичка): `GET /panel/export/cian/` — выбирает объекты с флагом `export_to_cian=True` и сохраняет файл в `media/feeds/cian.xml`.
+- Domclick (вторичка): `GET /panel/export/domclick/` — выбирает объекты с флагом `export_to_domklik=True` и сохраняет файл в `media/feeds/domclick.xml`.
+- Оба фида формируются в формате **CIAN Feed Version 2**; дополнительные promo-поля Домклик не используются. Провайдер-специфичная логика вынесена в `core/domclick.py`.
+
+### Локальная генерация CIAN-фида
+
 - Для локальной генерации выполните:
   ```bash
   python manage.py generate_cian_feed

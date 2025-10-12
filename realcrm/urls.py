@@ -32,6 +32,11 @@ urlpatterns = [
         name="panel_photos_bulk_delete",
     ),
     path("panel/export/cian/", core_views.export_cian, name="export_cian"),
+    path(
+        "panel/export/domclick/",
+        core_views.export_domclick,
+        name="export_domclick",
+    ),
     path("panel/export/cian/check/", core_views.export_cian_check, name="export_cian_check"),
     path("panel/archive/<int:pk>/", core_views.panel_archive, name="panel_archive"),
     path("panel/restore/<int:pk>/", core_views.panel_restore, name="panel_restore"),
