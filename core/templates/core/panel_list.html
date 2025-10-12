@@ -10,16 +10,23 @@
     }
     .panel-table .addr-sub {
       display: flex;
-      gap: .35rem;
-      margin-top: .2rem;
-      flex-wrap: wrap;
+      gap: .3rem;
+      margin-top: .15rem;
       align-items: center;
+      flex-wrap: wrap;
       font-size: .85rem;
       color: #555;
     }
-    .panel-table .addr-sub .addr-meta {
-      color: #444;
-      font-weight: 500;
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
   </style>
 {% endblock %}
@@ -71,9 +78,9 @@
         <td class="addr" title="{{ row.full_address|default:row.address }}">
           <a class="addr-link" href="{% url 'panel_edit' row.id %}">{{ row.address|default:"—" }}</a>
           <div class="addr-sub">
-            <span class="chip {% if row.export_to_cian %}on cian{% else %}off{% endif %}" data-action="toggle-cian">CIAN</span>
-            <span class="chip {% if row.export_to_domklik %}on dom{% else %}off{% endif %}" data-action="toggle-dom">Dom</span>
-            {% if row.external_id %}<span class="addr-meta">ID {{ row.external_id }}</span>{% endif %}
+            <span class="chip {{ row.export_to_cian|yesno:'on cian,off' }}" data-action="toggle-cian">CIAN</span>
+            <span class="chip {{ row.export_to_domklik|yesno:'on dom,off' }}" data-action="toggle-dom">Dom</span>
+            {% if row.external_id %}<span class="sr-only">{{ row.external_id }}</span>{% endif %}
           </div>
         </td>
         <td class="price-cell" data-price-raw="{{ row.price_raw|default:'' }}">
