@@ -43,7 +43,12 @@
         class="{% if row.is_archived %}is-archived{% endif %}"
       >
         <td class="col-type">{{ row.type|default:"" }}</td>
-        <td class="addr" title="{{ row.full_address }}">{{ row.address|default:"—" }}</td>
+        <td class="addr" title="{{ row.full_address }}">
+          {{ row.address|default:"—" }}
+          {% if row.external_id %}
+            <span class="tag tag-extid" title="Внешний код">{{ row.external_id }}</span>
+          {% endif %}
+        </td>
         <td class="price-cell" data-price-raw="{{ row.price_raw }}">
           <span class="price-text">{{ row.price_display|default:"—" }}</span>
         </td>
