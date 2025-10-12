@@ -44,6 +44,7 @@ except ImportError:  # pragma: no cover - support for trimmed Pillow stub
     ImageOps = _StubImageOps()  # type: ignore
 
 from .cian import build_cian_feed, resolve_category
+from .domclick import build_domclick_feed
 from .forms import PropertyForm, fields_for_category, group_fields
 from .models import Photo, Property
 from .utils.image_pipeline import InvalidImage, compress_to_jpeg
@@ -862,6 +863,45 @@ def export_cian(request):
     feeds_dir = os.path.join(settings.MEDIA_ROOT, "feeds")
     os.makedirs(feeds_dir, exist_ok=True)
     out_path = os.path.join(feeds_dir, "cian.xml")
+    with open(out_path, "wb") as fh:
+        fh.write(xml_bytes)
+
+    return HttpResponse(xml_bytes, content_type="application/xml; charset=utf-8")
+
+
+def export_domclick(request):
+    """Сформировать Domclick-фид в формате CIAN V2."""
+
+    qs = (
+        Property.objects.filter(export_to_domklik=True, is_archived=False)
+        .order_by("id")
+        .prefetch_related("photos")
+    )
+    feed_result = build_domclick_feed(qs)
+    xml_bytes = feed_result.xml
+
+    strict_mode = (request.GET.get("strict") or "").strip() == "1"
+    if settings.DEBUG or strict_mode:
+        uncovered = [
+            (result.prop, sorted(result.uncovered_fields))
+            for result in feed_result.objects
+            if result.uncovered_fields
+        ]
+        if uncovered:
+            export_log = logging.getLogger("core.domclick.export")
+            for prop_obj, fields in uncovered:
+                identifier = getattr(prop_obj, "external_id", None) or getattr(
+                    prop_obj, "pk", None
+                )
+                export_log.warning(
+                    "Domclick export uncovered fields for %s: %s",
+                    identifier,
+                    ", ".join(fields),
+                )
+
+    feeds_dir = os.path.join(settings.MEDIA_ROOT, "feeds")
+    os.makedirs(feeds_dir, exist_ok=True)
+    out_path = os.path.join(feeds_dir, "domclick.xml")
     with open(out_path, "wb") as fh:
         fh.write(xml_bytes)
 
