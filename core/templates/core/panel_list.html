@@ -80,7 +80,7 @@
           <div class="addr-sub">
             <span class="chip {{ row.export_to_cian|yesno:'on cian,off' }}" data-action="toggle-cian">CIAN</span>
             <span class="chip {{ row.export_to_domklik|yesno:'on dom,off' }}" data-action="toggle-dom">Dom</span>
-            {% if row.external_id %}<span class="sr-only">{{ row.external_id }}</span>{% endif %}
+            {% if row.external_id %}<span class="sr-only eid">{{ row.external_id }}</span>{% endif %}
           </div>
         </td>
         <td class="price-cell" data-price-raw="{{ row.price_raw|default:'' }}">
