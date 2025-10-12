@@ -76,10 +76,10 @@
       .btn { font-size: .9rem; }
       .btn-sm { font-size: .8rem; }
     }
-    .topbar { display:flex; align-items:center; gap:.5rem; margin:.2rem 0 .6rem; flex-wrap:wrap; }
-    .topbar h1 { margin:0; font-size:1.2rem; }
-    .panel-search { display:flex; align-items:center; gap:.35rem; flex-wrap:nowrap; }
-    .panel-search input[type="text"] { min-width:180px; height:28px; padding:.15rem .45rem; font-size:.9rem; }
+    .topbar { display:flex; align-items:center; gap:.35rem; margin:.15rem 0 .35rem; flex-wrap:wrap; }
+    .topbar h1 { margin:0; font-size:1.18rem; }
+    .panel-search { display:flex; align-items:center; gap:.3rem; flex-wrap:nowrap; }
+    .panel-search input[type="text"] { min-width:150px; height:28px; padding:.15rem .45rem; font-size:.9rem; }
     .panel-search button { height:28px; display:flex; align-items:center; justify-content:center; padding:.1rem .5rem; }
     .arch-toggle { display:flex; align-items:center; gap:.25rem; cursor:pointer; font-size:.85rem; margin:0; white-space:nowrap; }
     .arch-toggle input { margin:0; }
@@ -95,7 +95,11 @@
     .panel-table .col-type,
     .panel-table .col-floor,
     .panel-table .col-actions { width:1%; }
+    .panel-table .col-type { min-width:72px; }
+    .panel-table .col-actions { display:flex; align-items:center; gap:.25rem; }
+    .panel-table .col-actions .btn { flex-shrink:0; }
     .panel-table .dates { white-space:normal; line-height:1.05; font-size:.85rem; }
+    .panel-table .dates div { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .panel-table tr.is-archived { opacity:.6; }
     @media (max-width:600px) {
       .panel-table .addr { max-width:220px; }
