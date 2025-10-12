@@ -698,6 +698,7 @@ def panel_list(request):
                 "type": _short_category(prop),
                 "address": _compact_address(prop) or (getattr(prop, "address", "") or ""),
                 "full_address": getattr(prop, "address", "") or "",
+                "external_id": getattr(prop, "external_id", "") or "",
                 "floors": floors_display,
                 "created": _format_date(getattr(prop, "created_at", None)),
                 "updated": _format_date(getattr(prop, "updated_at", None)),
