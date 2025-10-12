@@ -1,86 +1,323 @@
 {% extends "base.html" %}
 {% block title %}Объекты — Мини-CRM{% endblock %}
 {% block content %}
-  <h1>Объекты</h1>
-
-  <p style="margin-bottom:1rem;">
-    <a href="/panel/">Активные</a>
-    |
-    <a href="/panel/?show=archived">Архив</a>
-    |
-    <a href="/panel/?include_archived=1">Все</a>
-  </p>
-
-  <form method="get" action="/panel/" class="grid-2" style="align-items:end; gap:1rem;">
-    <div>
-      <input type="text" name="q" value="{{ q }}" placeholder="Поиск: заголовок / адрес / ExternalId">
-      {% if show == "archived" %}
-        <input type="hidden" name="show" value="archived">
-      {% endif %}
+  <section style="display:flex; flex-direction:column; gap:1.2rem;">
+    <div style="display:flex; flex-wrap:wrap; justify-content:space-between; gap:1rem; align-items:flex-end;">
+      <div>
+        <h1 style="margin-bottom:.3rem;">Объекты</h1>
+        <div class="muted">Всего: <strong data-total-count>{{ total_count }}</strong></div>
+      </div>
+      <div style="display:flex; gap:.6rem; flex-wrap:wrap;">
+        <a class="btn" href="/panel/new/">+ Создать объект</a>
+      </div>
     </div>
-    <div style="display:flex; gap:1rem; align-items:center;">
+
+    <div style="display:flex; flex-wrap:wrap; gap:1rem; align-items:center;">
+      <div class="muted">Показывать:</div>
+      <div style="display:flex; gap:.6rem; flex-wrap:wrap;">
+        <a class="btn btn-sm{% if not show and not include_archived %} secondary{% endif %}" href="/panel/">Активные</a>
+        <a class="btn btn-sm{% if show == "archived" %} secondary{% endif %}" href="/panel/?show=archived">Архив</a>
+        <a class="btn btn-sm{% if include_archived or show == "all" %} secondary{% endif %}" href="/panel/?include_archived=1">Все</a>
+      </div>
+    </div>
+
+    <form method="get" action="/panel/" style="display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-end;">
+      <label style="flex:1 1 280px; display:flex; flex-direction:column; gap:.35rem;">
+        <span class="muted">Поиск</span>
+        <input type="text" name="q" value="{{ q }}" placeholder="Адрес, заголовок или ExternalId">
+        {% if show == "archived" %}
+          <input type="hidden" name="show" value="archived">
+        {% endif %}
+      </label>
       <label style="display:flex; gap:.4rem; align-items:center; margin:0;">
         <input type="checkbox" name="include_archived" value="1" {% if include_archived %}checked{% endif %}>
         Показывать архив
       </label>
-      <button type="submit">Искать</button>
+      <button type="submit" class="btn">Искать</button>
+    </form>
+
+    <div style="display:flex; flex-wrap:wrap; gap:.6rem; align-items:center;">
+      <span class="muted">Фиды:</span>
+      <a class="btn btn-sm" href="/panel/export/cian/check/">Проверить перед экспортом</a>
+      <a class="btn btn-sm" href="{% url 'export_cian' %}">CIAN фид</a>
+      <a class="btn btn-sm" href="{% url 'export_domklik' %}">DomClick фид</a>
     </div>
-  </form>
 
-  <article>
-    <header class="grid-3">
-      <div><span class="muted">Всего</span><h3 style="margin:0">{{ props|length }}</h3></div>
-      <div>
-        <span class="muted">Фиды</span>
-        <div style="display:flex; gap:.5rem; margin-top:.3rem; flex-wrap:wrap;">
-          <a role="button" class="secondary" href="/panel/export/cian/check/">Проверить перед экспортом</a>
-          <a role="button" href="/panel/export/cian/">Сгенерировать фид</a>
-        </div>
-        <p class="muted" style="margin-top:.4rem;">Файл сохраняется в <code>media/feeds/cian.xml</code></p>
-      </div>
-      <div style="text-align:right"><a role="button" href="/panel/new/">+ Создать объект</a></div>
-    </header>
+    <div class="table-wrap">
+      <table class="tbl" data-panel-table>
+        <thead>
+          <tr>
+            <th>Тип</th>
+            <th>Адрес</th>
+            <th>Этажность</th>
+            <th>Дата доб.</th>
+            <th>Дата изм.</th>
+            <th>Телефон</th>
+            <th>Цена</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for item in items %}
+          <tr class="{% if item.is_archived %}is-archived{% endif %}" data-prop-id="{{ item.prop.pk }}" data-archived="{% if item.is_archived %}1{% else %}0{% endif %}" data-price-url="{% url 'panel_update_price' item.prop.pk %}" data-toggle-url="{% url 'panel_toggle_archive' item.prop.pk %}" data-delete-url="{% url 'panel_delete' item.prop.pk %}">
+            <td>
+              <div style="display:flex; flex-direction:column; gap:.25rem;">
+                <div style="font-weight:600;">{{ item.category }}</div>
+                <div class="muted" style="font-size:.78rem;">ID: {{ item.prop.pk }}{% if item.external_id %} · Ext: {{ item.external_id }}{% endif %}</div>
+                <div class="tag-list">
+                  {% if item.export_to_cian %}<span class="tag">CIAN</span>{% endif %}
+                  {% if item.export_to_domklik %}<span class="tag">DomClick</span>{% endif %}
+                  {% if item.is_archived %}<span class="tag tag-archived-label">Архив</span>{% endif %}
+                </div>
+              </div>
+            </td>
+            <td class="addr" title="{{ item.prop.address }}">{{ item.address|default:item.prop.address|default:"—" }}</td>
+            <td>{{ item.floors|default:"—" }}</td>
+            <td>{{ item.created|default:"—" }}</td>
+            <td>{{ item.updated|default:"—" }}</td>
+            <td>{{ item.phone|default:"—" }}</td>
+            <td class="price-cell">
+              <span class="price-value" data-price="{{ item.price_raw }}">{{ item.price_display }}</span>
+            </td>
+            <td style="white-space:nowrap;">
+              <div style="display:flex; gap:.4rem;">
+                <a class="btn btn-sm" href="/panel/edit/{{ item.prop.pk }}/">Открыть</a>
+                <button type="button" class="btn btn-sm js-toggle-archive" data-label-archive="В архив" data-label-restore="Вернуть">{% if item.is_archived %}Вернуть{% else %}В архив{% endif %}</button>
+                <button type="button" class="btn btn-sm btn-danger js-delete" title="Удалить">✖</button>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="8">Пока нет объектов</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}
 
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Заголовок</th>
-          <th>Адрес</th>
-          <th>Обновлён</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for p in props %}
-        <tr>
-          <td>{{ p.pk }}</td>
-          <td>
-            <div>{{ p.title }}</div>
-            {% if p.external_id %}
-              <div class="muted" style="font-size:.8rem;">External ID: {{ p.external_id }}</div>
-            {% endif %}
-            <div class="badges">
-              {% if p.export_to_cian %}<span class="badge badge-cian">CIAN</span>{% endif %}
-              {% if p.export_to_domklik %}<span class="badge badge-domklik">DomClick</span>{% endif %}
-              {% if p.is_archived %}<span class="badge badge-archived">Архив</span>{% endif %}
-            </div>
-          </td>
-          <td>{{ p.address }}</td>
-          <td><span class="muted">{{ p.updated_at }}</span></td>
-          <td style="display:flex; gap:.5rem;">
-            <a href="/panel/edit/{{ p.pk }}/">Открыть</a>
-            {% if p.is_archived %}
-              <a href="/panel/restore/{{ p.pk }}/">Вернуть</a>
-            {% else %}
-              <a href="/panel/archive/{{ p.pk }}/">В архив</a>
-            {% endif %}
-          </td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="5">Пока нет объектов</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </article>
+{% block extra_scripts %}
+  {{ block.super }}
+  <script>
+    (function() {
+      const table = document.querySelector('[data-panel-table]');
+      if (!table) {
+        return;
+      }
+
+      const getCookie = (name) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) {
+          return parts.pop().split(';').shift();
+        }
+        return '';
+      };
+
+      const csrfToken = getCookie('csrftoken');
+      const totalCountEl = document.querySelector('[data-total-count]');
+
+      function updateArchiveButton(btn, isArchived) {
+        if (!btn) return;
+        btn.textContent = isArchived ? btn.dataset.labelRestore : btn.dataset.labelArchive;
+      }
+
+      table.querySelectorAll('.js-toggle-archive').forEach((btn) => {
+        const row = btn.closest('tr');
+        if (!row) return;
+        const isArchived = row.dataset.archived === '1';
+        updateArchiveButton(btn, isArchived);
+      });
+
+      let activeEditor = null;
+
+      function cancelEditor() {
+        if (!activeEditor) return;
+        const { cell, originalHTML } = activeEditor;
+        cell.innerHTML = originalHTML;
+        cell.classList.remove('editing');
+        activeEditor = null;
+      }
+
+      function formatPrice(value) {
+        if (!value) return '—';
+        return value.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₽';
+      }
+
+      function startEdit(cell) {
+        if (activeEditor) {
+          cancelEditor();
+        }
+        cell.classList.add('editing');
+        const valueEl = cell.querySelector('.price-value');
+        const originalHTML = cell.innerHTML;
+        const currentRaw = valueEl ? valueEl.dataset.price || '' : '';
+
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'flex';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.gap = '.3rem';
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '0';
+        input.step = '1000';
+        input.value = currentRaw;
+        input.style.width = '120px';
+
+        const okBtn = document.createElement('button');
+        okBtn.type = 'button';
+        okBtn.className = 'btn btn-sm';
+        okBtn.textContent = '✔';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'btn btn-sm';
+        cancelBtn.textContent = '✖';
+
+        wrapper.appendChild(input);
+        wrapper.appendChild(okBtn);
+        wrapper.appendChild(cancelBtn);
+        cell.innerHTML = '';
+        cell.appendChild(wrapper);
+        input.focus();
+
+        const row = cell.closest('tr');
+        const url = row ? row.dataset.priceUrl : null;
+
+        function submit() {
+          if (!url) {
+            cancelEditor();
+            return;
+          }
+          const formData = new URLSearchParams();
+          formData.append('price', input.value);
+          fetch(url, {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': csrfToken,
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: formData,
+          })
+            .then((res) => res.json().then((data) => ({ status: res.status, data })))
+            .then(({ status, data }) => {
+              if (status >= 400 || !data.ok) {
+                alert('Не удалось обновить цену');
+                cancelEditor();
+                return;
+              }
+              const priceValue = data.price || '';
+              const display = data.price_formatted || formatPrice(priceValue);
+              cell.innerHTML = `<span class="price-value" data-price="${priceValue}">${display}</span>`;
+              cell.classList.remove('editing');
+              activeEditor = null;
+            })
+            .catch(() => {
+              alert('Ошибка сети при сохранении цены');
+              cancelEditor();
+            });
+        }
+
+        okBtn.addEventListener('click', submit);
+        cancelBtn.addEventListener('click', cancelEditor);
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            submit();
+          }
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            cancelEditor();
+          }
+        });
+        input.addEventListener('blur', (event) => {
+          if (!cell.contains(event.relatedTarget)) {
+            cancelEditor();
+          }
+        }, true);
+
+        activeEditor = { cell, originalHTML };
+      }
+
+      table.addEventListener('click', (event) => {
+        const priceCell = event.target.closest('.price-cell');
+        if (priceCell && table.contains(priceCell)) {
+          if (!priceCell.classList.contains('editing')) {
+            startEdit(priceCell);
+          }
+          return;
+        }
+
+        const toggleBtn = event.target.closest('.js-toggle-archive');
+        if (toggleBtn) {
+          const row = toggleBtn.closest('tr');
+          if (!row) return;
+          const url = row.dataset.toggleUrl;
+          fetch(url, {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': csrfToken,
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              if (!data || !data.ok) {
+                alert('Не удалось изменить статус');
+                return;
+              }
+              const archived = !!data.is_archived;
+              row.dataset.archived = archived ? '1' : '0';
+              row.classList.toggle('is-archived', archived);
+              updateArchiveButton(toggleBtn, archived);
+              const tag = row.querySelector('.tag-archived-label');
+              if (archived) {
+                if (!tag) {
+                  const span = document.createElement('span');
+                  span.className = 'tag tag-archived-label';
+                  span.textContent = 'Архив';
+                  row.querySelector('.tag-list')?.appendChild(span);
+                }
+              } else if (tag) {
+                tag.remove();
+              }
+            })
+            .catch(() => alert('Ошибка сети при изменении статуса'));
+          return;
+        }
+
+        const deleteBtn = event.target.closest('.js-delete');
+        if (deleteBtn) {
+          const row = deleteBtn.closest('tr');
+          if (!row) return;
+          if (!confirm('Удалить объект?')) {
+            return;
+          }
+          fetch(row.dataset.deleteUrl, {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': csrfToken,
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              if (!data || !data.deleted) {
+                alert('Не удалось удалить объект');
+                return;
+              }
+              row.remove();
+              if (totalCountEl) {
+                const current = parseInt(totalCountEl.textContent || '0', 10);
+                if (!Number.isNaN(current) && current > 0) {
+                  totalCountEl.textContent = current - 1;
+                }
+              }
+            })
+            .catch(() => alert('Ошибка сети при удалении'));
+        }
+      });
+    })();
+  </script>
 {% endblock %}

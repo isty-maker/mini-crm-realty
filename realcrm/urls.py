@@ -32,7 +32,13 @@ urlpatterns = [
         name="panel_photos_bulk_delete",
     ),
     path("panel/export/cian/", core_views.export_cian, name="export_cian"),
+    path("panel/export/domklik/", core_views.export_domklik, name="export_domklik"),
     path("panel/export/cian/check/", core_views.export_cian_check, name="export_cian_check"),
-    path("panel/archive/<int:pk>/", core_views.panel_archive, name="panel_archive"),
-    path("panel/restore/<int:pk>/", core_views.panel_restore, name="panel_restore"),
+    path("panel/<int:pk>/price/", core_views.panel_update_price, name="panel_update_price"),
+    path(
+        "panel/<int:pk>/toggle-archive/",
+        core_views.panel_toggle_archive,
+        name="panel_toggle_archive",
+    ),
+    path("panel/<int:pk>/delete/", core_views.panel_delete, name="panel_delete"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
