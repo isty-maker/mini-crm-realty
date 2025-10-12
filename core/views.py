@@ -130,7 +130,13 @@ def _compact_address(prop) -> str:
     if not street and not house and base_address:
         street = base_address
 
-    cleaned_base = base_address.replace("г. Новокузнецк", "").replace("г.Новокузнецк", "").strip(", ")
+    cleaned_base = re.sub(
+        r"(?:г\.?\s*)?Новокузнецк,?",
+        "",
+        base_address,
+        flags=re.IGNORECASE,
+    )
+    cleaned_base = re.sub(r"\s+", " ", cleaned_base).strip(", ").strip()
 
     locality_part = ""
     for candidate in (locality, city):
