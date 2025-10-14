@@ -73,14 +73,13 @@
         class="{% if row.is_archived %}is-archived{% endif %}"
       >
         <td class="col-type">
-          {{ row.type|default:"" }}
+          {{ row.type|default:"" }}{% if row.external_id %}<br><span class="sr-only" aria-hidden="true">{{ row.external_id }}</span>{% endif %}
         </td>
         <td class="addr" title="{{ row.full_address|default:row.address }}">
           <a class="addr-link" href="{% url 'panel_edit' row.id %}">{{ row.address|default:"—" }}</a>
           <div class="addr-sub">
             <span class="chip {{ row.export_to_cian|yesno:'on cian,off' }}" data-action="toggle-cian">CIAN</span>
             <span class="chip {{ row.export_to_domklik|yesno:'on dom,off' }}" data-action="toggle-dom">Dom</span>
-            {% if row.external_id %}<span class="sr-only eid">{{ row.external_id }}</span>{% endif %}
           </div>
         </td>
         <td class="price-cell" data-price-raw="{{ row.price_raw|default:'' }}">

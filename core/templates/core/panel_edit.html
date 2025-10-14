@@ -232,4 +232,45 @@
     });
   });
   </script>
+  <script>
+    (function () {
+      var isNew = {% if prop %}false{% else %}true{% endif %};
+      if (!isNew) {
+        return;
+      }
+      var cat = document.querySelector('select[name="category"]');
+      var op = document.querySelector('select[name="operation"]');
+
+      function reload() {
+        var params = new URLSearchParams(window.location.search);
+        if (cat) {
+          if (cat.value) {
+            params.set('category', cat.value);
+          } else {
+            params.delete('category');
+          }
+        }
+        if (op) {
+          if (op.value) {
+            params.set('operation', op.value);
+          } else {
+            params.delete('operation');
+          }
+        }
+        var basePath = window.location.pathname;
+        if (basePath.indexOf('/panel/create/') === -1) {
+          basePath = '/panel/create/';
+        }
+        var query = params.toString();
+        window.location.href = query ? basePath + '?' + query : basePath;
+      }
+
+      if (cat) {
+        cat.addEventListener('change', reload);
+      }
+      if (op) {
+        op.addEventListener('change', reload);
+      }
+    })();
+  </script>
 {% endblock %}
