@@ -240,8 +240,9 @@
       }
       var cat = document.querySelector('select[name="category"]');
       var op = document.querySelector('select[name="operation"]');
+      var subtype = document.querySelector('select[name="subtype"]');
 
-      function reload() {
+      function reload(event) {
         var params = new URLSearchParams(window.location.search);
         if (cat) {
           if (cat.value) {
@@ -255,6 +256,15 @@
             params.set('operation', op.value);
           } else {
             params.delete('operation');
+          }
+        }
+        if (subtype) {
+          if (event && event.target === cat) {
+            params.delete('subtype');
+          } else if (subtype.value) {
+            params.set('subtype', subtype.value);
+          } else {
+            params.delete('subtype');
           }
         }
         var basePath = window.location.pathname;
