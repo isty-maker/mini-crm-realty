@@ -621,12 +621,14 @@ def _panel_form_context(form, prop, photos):
         getattr(form, "subtypes_map", PropertyForm.SUBTYPE_CHOICES_MAP),
         ensure_ascii=False,
     )
+    # For NEW object we rely on form.initial (from GET) to decide which field groups to show.
+    # For EDIT (bound or with instance), same logic still works.
     if form.is_bound:
         category_value = form.data.get("category", "")
         operation_value = form.data.get("operation", "")
     else:
-        category_value = form.initial.get("category", "") if form.initial else ""
-        operation_value = form.initial.get("operation", "") if form.initial else ""
+        category_value = (form.initial or {}).get("category", "")
+        operation_value = (form.initial or {}).get("operation", "")
 
     if not category_value and getattr(form.instance, "category", None):
         category_value = form.instance.category
@@ -648,8 +650,8 @@ def _panel_form_context(form, prop, photos):
             bound_groups.append((title, bound_fields))
 
     category_misc_bound = [form[name] for name in category_misc if name in form.fields]
-    # Показываем в «Прочем» только хвост категорийных полей. Остальные поля либо
-    # выводятся в явных секциях шаблона, либо сознательно скрыты.
+    # Keep UI tight: no massive fallback list — only category_misc goes to «Прочее».
+    # (extra_fallback intentionally disabled to prevent «all fields everywhere».)
     field_fallback = category_misc_bound
     return {
         "form": form,
@@ -811,28 +813,32 @@ def panel_delete(request, pk):
     return JsonResponse({"ok": True, "deleted": True})
 
 def panel_new(request):
+    """Step 1: choose category/operation for a new object."""
+    _ensure_migrated()
     if request.method != "GET":
         return HttpResponseNotAllowed(["GET"])
+
+    cat = (request.GET.get("category") or "").strip()
+    op = (request.GET.get("operation") or "").strip()
+    if cat:
+        form = PropertyForm(initial={"category": cat, "operation": op})
+        return render(request, "core/panel_edit.html", _panel_form_context(form, None, []))
+
     form = PropertyForm()
-    return render(
-        request,
-        "core/panel_edit.html",
-        _panel_form_context(form, None, []),
-    )
+    return render(request, "core/panel_new_step1.html", {"form": form})
 
 
 def panel_create(request):
+    _ensure_migrated()
+    # GET: show full form for NEW object given category/operation selected on step1.
     if request.method == "GET":
         initial = {
-            "category": request.GET.get("category", ""),
-            "operation": request.GET.get("operation", ""),
+            "category": (request.GET.get("category") or "").strip(),
+            "operation": (request.GET.get("operation") or "").strip(),
         }
         form = PropertyForm(initial=initial)
-        return render(
-            request,
-            "core/panel_edit.html",
-            _panel_form_context(form, None, []),
-        )
+        return render(request, "core/panel_edit.html", _panel_form_context(form, None, []))
+
     if request.method != "POST":
         return HttpResponseNotAllowed(["GET", "POST"])
     form = PropertyForm(request.POST, request.FILES or None)

@@ -1,12 +1,17 @@
 {% extends "base.html" %}
+{% block title %}Новый объект — Мини-CRM{% endblock %}
 {% block content %}
   <h1>Новый объект</h1>
-  <form method="post">{% csrf_token %}
-    <div class="form-row">{{ form.category.label_tag }} {{ form.category }}</div>
-    <div class="form-row">{{ form.operation.label_tag }} {{ form.operation }}</div>
-    <button type="submit">Далее</button>
+  <form method="get" action="{% url 'panel_create' %}" class="grid-2" autocomplete="off">
+    <div>
+      {{ form.category.label_tag }} {{ form.category }}
+    </div>
+    <div>
+      {{ form.operation.label_tag }} {{ form.operation }}
+    </div>
+    <div>
+      <button type="submit" class="btn btn-sm">Далее</button>
+    </div>
   </form>
-  <p style="font-size:.9em;color:#666;margin-top:.5rem;">
-    Запись будет создана только после нажатия «Сохранить» на следующем шаге.
-  </p>
+  <p class="muted">Запись будет создана только после нажатия «Сохранить» на следующем шаге.</p>
 {% endblock %}
