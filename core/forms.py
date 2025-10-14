@@ -6,42 +6,7 @@ from django.core.exceptions import FieldDoesNotExist
 
 from .cian import load_registry
 from .models import Property, Photo
-
-
-PROPERTY_SUBTYPE_CHOICES = {
-    "house": [
-        ("house", "Жилой дом"),
-        ("dacha", "Дача"),
-        ("townhouse", "Таунхаус"),
-        ("duplex", "Дуплекс"),
-    ],
-    "flat": [
-        ("apartment", "Квартира"),
-        ("studio", "Студия"),
-        ("euro", "Евро-формат"),
-        ("apartments", "Апартаменты"),
-    ],
-    "room": [
-        ("room", "Комната"),
-        ("share", "Доля"),
-    ],
-    "commercial": [
-        ("office", "Офис"),
-        ("retail", "Торговая"),
-        ("warehouse", "Склад"),
-        ("production", "Производство"),
-        ("free_use", "Свободное назначение"),
-    ],
-    "land": [
-        ("individual_housing", "ИЖС"),
-        ("agricultural", "С/Х"),
-        ("garden", "Сад/ДНП"),
-    ],
-    "garage": [
-        ("garage", "Гараж"),
-        ("parking", "Машиноместо"),
-    ],
-}
+from .subtypes import CATEGORY_TO_SUBTYPE_FIELD, PROPERTY_SUBTYPE_CHOICES
 
 STATUS_FALLBACK_CHOICES = [
     ("draft", "Черновик"),
@@ -570,6 +535,45 @@ class PropertyForm(forms.ModelForm):
         def need(field_name):
             return field_name in self.fields
 
+        def first_non_empty(*values):
+            for value in values:
+                if value is None:
+                    continue
+                text = str(value).strip()
+                if text:
+                    return text
+            return ""
+
+        category_key_raw = first_non_empty(
+            category,
+            (self.initial or {}).get("category"),
+            getattr(self.instance, "category", ""),
+        )
+        category_key = category_key_raw.lower()
+
+        subtype_value = first_non_empty(
+            cleaned_data.get("subtype"),
+            (self.initial or {}).get("subtype"),
+            getattr(self.instance, "subtype", ""),
+        )
+        allowed_values = {
+            value for value, _ in self.SUBTYPE_CHOICES_MAP.get(category_key, [])
+        }
+        if subtype_value and allowed_values and subtype_value not in allowed_values:
+            self.add_error(
+                "subtype", "Выберите допустимый подтип для выбранной категории.",
+            )
+
+        target_field = CATEGORY_TO_SUBTYPE_FIELD.get(category_key)
+        if (
+            subtype_value
+            and target_field
+            and need(target_field)
+            and not cleaned_data.get(target_field)
+            and (not allowed_values or subtype_value in allowed_values)
+        ):
+            cleaned_data[target_field] = subtype_value
+
         if category == "commercial" and need("commercial_type") and not cleaned_data.get("commercial_type"):
             self.add_error(
                 "commercial_type",
@@ -604,18 +608,6 @@ class PropertyForm(forms.ModelForm):
                 "rooms_for_sale_count",
                 "Для продажи комнаты укажите «Комнат продаётся».",
             )
-
-        subtype_value = (cleaned_data.get("subtype") or "").strip()
-        if subtype_value:
-            category_key = category or getattr(self.instance, "category", "") or ""
-            category_key = str(category_key).strip()
-            if not category_key and self.initial:
-                category_key = str(self.initial.get("category", "")).strip()
-            allowed_values = {
-                value for value, _ in self.SUBTYPE_CHOICES_MAP.get(category_key, [])
-            }
-            if subtype_value not in allowed_values:
-                self.add_error("subtype", "Выберите допустимый подтип для выбранной категории.")
 
         status_value = (cleaned_data.get("status") or "").strip()
         if not status_value:
