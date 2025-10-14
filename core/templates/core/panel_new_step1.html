@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Новый объект — Мини-CRM{% endblock %}
 {% block content %}
   <h1>Новый объект</h1>
-  <form method="get" action="{% url 'panel_create' %}" class="grid-2" autocomplete="off">
+  <form method="get" action="{% url 'panel_create' %}" class="grid-3" autocomplete="off">
     <div>
       {{ form.category.label_tag }} {{ form.category }}
     </div>
@@ -10,8 +11,19 @@
       {{ form.operation.label_tag }} {{ form.operation }}
     </div>
     <div>
+      {{ form.subtype.label_tag }} {{ form.subtype }}
+    </div>
+    <div id="subtypes-data"
+         data-subtypes='{{ subtypes_map_json|default:"{}"|safe }}'
+         data-placeholder="{{ subtypes_placeholder }}"
+         hidden></div>
+    <div>
       <button type="submit" class="btn btn-sm">Далее</button>
     </div>
   </form>
   <p class="muted">Запись будет создана только после нажатия «Сохранить» на следующем шаге.</p>
+{% endblock %}
+{% block extra_scripts %}
+  {{ block.super }}
+  <script src="{% static 'core/form.js' %}"></script>
 {% endblock %}

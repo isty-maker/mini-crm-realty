@@ -820,12 +820,27 @@ def panel_new(request):
 
     cat = (request.GET.get("category") or "").strip()
     op = (request.GET.get("operation") or "").strip()
+    subtype = (request.GET.get("subtype") or "").strip()
     if cat:
-        form = PropertyForm(initial={"category": cat, "operation": op})
+        form = PropertyForm(
+            initial={"category": cat, "operation": op, "subtype": subtype}
+        )
         return render(request, "core/panel_edit.html", _panel_form_context(form, None, []))
 
     form = PropertyForm()
-    return render(request, "core/panel_new_step1.html", {"form": form})
+    subtypes_map_json = json.dumps(
+        PropertyForm.SUBTYPE_CHOICES_MAP,
+        ensure_ascii=False,
+    )
+    return render(
+        request,
+        "core/panel_new_step1.html",
+        {
+            "form": form,
+            "subtypes_map_json": subtypes_map_json,
+            "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
+        },
+    )
 
 
 def panel_create(request):
@@ -835,6 +850,7 @@ def panel_create(request):
         initial = {
             "category": (request.GET.get("category") or "").strip(),
             "operation": (request.GET.get("operation") or "").strip(),
+            "subtype": (request.GET.get("subtype") or "").strip(),
         }
         form = PropertyForm(initial=initial)
         return render(request, "core/panel_edit.html", _panel_form_context(form, None, []))
