@@ -15,6 +15,8 @@ except Exception:  # pragma: no cover - fallback parser is used
 from django.conf import settings
 from django.utils.encoding import smart_str
 
+from .subtypes import CATEGORY_TO_SUBTYPE_FIELD, PROPERTY_SUBTYPE_CHOICES
+
 log = logging.getLogger(__name__)
 
 
@@ -389,6 +391,18 @@ def build_ad_xml(prop) -> AdBuildResult:
     filled_fields = _collect_filled_fields(prop, stop_fields)
     exported_fields: Set[str] = set()
 
+    fallback_values: Dict[str, str] = {}
+    subtype_helper = smart_str(getattr(prop, "subtype", "")).strip()
+    category_raw = smart_str(getattr(prop, "category", "")).strip().lower()
+    if subtype_helper and category_raw:
+        allowed_values = {
+            value for value, _ in PROPERTY_SUBTYPE_CHOICES.get(category_raw, [])
+        }
+        if not allowed_values or subtype_helper in allowed_values:
+            target_field = CATEGORY_TO_SUBTYPE_FIELD.get(category_raw)
+            if target_field and not _value_is_present(getattr(prop, target_field, None)):
+                fallback_values[target_field] = subtype_helper
+
     values_registry: Dict[str, Dict] = registry.get("values", {})
 
     def _process(fields_map: Dict[str, object]) -> None:
@@ -399,6 +413,8 @@ def build_ad_xml(prop) -> AdBuildResult:
                     continue
 
             raw_value = getattr(prop, field_name, None)
+            if field_name in fallback_values and not _value_is_present(raw_value):
+                raw_value = fallback_values[field_name]
             values_map: Dict = values_registry.get(field_name, {})
 
             if not _value_is_present(raw_value):
