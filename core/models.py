@@ -3,6 +3,8 @@ import builtins
 import random
 
 from django.db import models
+from django.db.models.signals import post_delete, pre_save
+from django.dispatch import receiver
 from django.utils import timezone
 
 
@@ -371,14 +373,7 @@ class Photo(models.Model):
         super().save(*args, **kwargs)
 
     def delete(self, using=None, keep_parents=False):
-        storage = getattr(self.image, "storage", None)
-        name = getattr(self.image, "name", None)
         super().delete(using=using, keep_parents=keep_parents)
-        try:
-            if storage and name:
-                storage.delete(name)
-        except Exception:
-            pass
 
     def file_size_bytes(self):
         try:
@@ -417,3 +412,43 @@ class Photo(models.Model):
         except Exception:
             pass
         return self.full_url or ""
+
+
+@receiver(post_delete, sender=Photo)
+def delete_photo_image_on_delete(sender, instance, **kwargs):
+    image = getattr(instance, "image", None)
+    if not image:
+        return
+    storage = getattr(image, "storage", None)
+    name = getattr(image, "name", None)
+    if not storage or not name:
+        return
+    try:
+        storage.delete(name)
+    except Exception:
+        pass
+
+
+@receiver(pre_save, sender=Photo)
+def delete_old_photo_image_on_change(sender, instance, **kwargs):
+    if not instance.pk:
+        return
+    try:
+        old_instance = sender.objects.get(pk=instance.pk)
+    except sender.DoesNotExist:
+        return
+    old_image = getattr(old_instance, "image", None)
+    if not old_image:
+        return
+    new_image = getattr(instance, "image", None)
+    new_name = getattr(new_image, "name", None)
+    if new_name and new_name == old_image.name:
+        return
+    storage = getattr(old_image, "storage", None)
+    name = getattr(old_image, "name", None)
+    if not storage or not name:
+        return
+    try:
+        storage.delete(name)
+    except Exception:
+        pass
