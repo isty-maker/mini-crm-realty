@@ -152,15 +152,21 @@ def resolve_category(prop) -> str:
 
     if category == "flat" and operation.startswith("rent"):
         return "flatRent"
+    if category == "room":
+        if operation in {"rent_long", "rent_daily"}:
+            return "roomRent"
+        if operation == "sale":
+            return "roomSale"
 
     mapping = {
         "flat": "flatSale",
-        "room": "roomSale",
         "house": "houseSale",
         "land": "landSale",
         "commercial": "commercialSale",
         "garage": "garageSale",
     }
+    if category == "room":
+        return "roomSale"
     return mapping.get(category, "flatSale")
 
 
@@ -402,6 +408,12 @@ def build_ad_xml(prop) -> AdBuildResult:
             target_field = CATEGORY_TO_SUBTYPE_FIELD.get(category_raw)
             if target_field and not _value_is_present(getattr(prop, target_field, None)):
                 fallback_values[target_field] = subtype_helper
+
+    rooms_count_value = getattr(prop, "rooms", None)
+    if not _value_is_present(rooms_count_value):
+        flat_rooms_value = getattr(prop, "flat_rooms_count", None)
+        if _value_is_present(flat_rooms_value):
+            fallback_values["rooms"] = flat_rooms_value
 
     values_registry: Dict[str, Dict] = registry.get("values", {})
 

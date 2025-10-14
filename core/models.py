@@ -196,6 +196,13 @@ class Property(models.Model):
     flat_rooms_count = models.PositiveSmallIntegerField("Кол-во комнат (кв.)", null=True, blank=True)
     room_type_ext = models.CharField(max_length=30, choices=ROOM_SUBTYPE_CHOICES, null=True, blank=True, verbose_name="Подтип комнаты")
     rooms_for_sale_count = models.PositiveSmallIntegerField("Комнат продаётся", null=True, blank=True)
+    room_area = models.DecimalField(
+        "Площадь комнаты, м²",
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
     is_euro_flat = models.BooleanField("Европланировка", default=False)
     is_apartments = models.BooleanField("Апартаменты (юрид.)", default=False)
     is_penthouse = models.BooleanField("Пентхаус", default=False)

@@ -75,7 +75,7 @@ def _required_form_fields_from_registry():
     return tuple(sorted(field for field in fields if field not in FORMS_EXCLUDE))
 
 
-def fields_for_category(category: str, operation: str):
+def fields_for_category(category: str, operation: str, *, _inherit_from_flat: bool = False):
     """Вернуть отсортированный список имён полей, которые нужно показывать на UI
     для выбранной категории + операции (с учётом исключений)."""
 
@@ -104,6 +104,23 @@ def fields_for_category(category: str, operation: str):
     }
 
     category_key = None
+    if (
+        normalized_category == "room"
+        and not _inherit_from_flat
+    ):
+        base_fields = set(
+            fields_for_category(
+                "flat",
+                normalized_operation,
+                _inherit_from_flat=True,
+            )
+        )
+        base_fields.discard("flat_rooms_count")
+        base_fields.update({"rooms_for_sale_count", "room_area", "room_type_ext"})
+        if normalized_operation.startswith("rent"):
+            base_fields.update({"room_type", "beds_count"})
+        return [name for name in sorted(base_fields) if name not in UI_EXCLUDE]
+
     if normalized_category == "flat" and normalized_operation.startswith("rent"):
         category_key = "flatRent"
     else:
@@ -164,7 +181,7 @@ def fields_for_category(category: str, operation: str):
         "building_cargo_lifts",
         "building_has_garbage_chute",
     }
-    ROOM_ONLY = {"rooms_for_sale_count", "room_type_ext"}
+    ROOM_ONLY = {"rooms_for_sale_count", "room_type_ext", "room_area"}
     COMMERCIAL_ONLY = {"is_rent_by_parts", "rent_by_parts_desc", "has_ramp", "parking_places"}
 
     universal = common_all - (HOUSE_LAND_ONLY | FLAT_ONLY | ROOM_ONLY | COMMERCIAL_ONLY)
@@ -207,7 +224,6 @@ def group_fields(field_names, category: str = ""):
             "floor_number",
             "rooms",
             "flat_rooms_count",
-            "rooms_for_sale_count",
             "room_type_ext",
             "beds_count",
             "bedrooms_count",
@@ -220,6 +236,11 @@ def group_fields(field_names, category: str = ""):
             "is_apartments",
             "is_penthouse",
         ],
+    )
+
+    room_group = (
+        "Комната",
+        ["rooms_for_sale_count", "room_area", "room_type", "beds_count"],
     )
 
     house_area_group = (
@@ -334,7 +355,11 @@ def group_fields(field_names, category: str = ""):
     if cat == "house":
         groups_definition = base_groups + [house_area_group, engineering_group, amenities_group, bargain_group] + docs_media_contacts
     elif cat == "room":
-        groups_definition = base_groups + [flat_group, building_group, amenities_group, bargain_group] + docs_media_contacts
+        flat_group_for_room = (
+            flat_group[0],
+            [name for name in flat_group[1] if name not in {"beds_count"}],
+        )
+        groups_definition = base_groups + [flat_group_for_room, room_group, building_group, amenities_group, bargain_group] + docs_media_contacts
     else:
         groups_definition = base_groups + [flat_group, building_group, amenities_group, bargain_group] + docs_media_contacts
 
