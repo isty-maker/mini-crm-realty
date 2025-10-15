@@ -14,7 +14,16 @@ STATUS_FALLBACK_CHOICES = [
     ("archived", "Архив"),
 ]
 
+# --- guard: fetch choices from model field safely ---
+def _model_field_choices(model_cls, field_name):
+    try:
+        return list(getattr(model_cls._meta.get_field(field_name), "choices", ())) or []
+    except Exception:
+        return []
 
+
+# pretty labels from choices (value,label)-> just the same structure used by Django
+# we reuse as-is to avoid migrations and schema changes
 def _build_choices(model_attr_name, fallback_values, field_name=None):
     choices = getattr(Property, model_attr_name, None)
     if choices:
@@ -599,11 +608,11 @@ class PropertyForm(forms.ModelForm):
         normalized_category = (cat_from_data or "").lower()
 
         if normalized_category == "house":
-            _rebuild_single_choice("heating_type", Property.HEATING_TYPE_CHOICES)
-            _rebuild_single_choice("house_condition", Property.HOUSE_CONDITION_CHOICES)
-            _rebuild_multi_choice("building_material", Property.MATERIAL_TYPE_CHOICES)
+            _rebuild_single_choice("heating_type", _model_field_choices(Property, "heating_type"))
+            _rebuild_single_choice("house_condition", _model_field_choices(Property, "house_condition"))
+            _rebuild_multi_choice("building_material", _model_field_choices(Property, "building_material"))
         else:
-            _rebuild_single_choice("building_material", Property.MATERIAL_TYPE_CHOICES)
+            _rebuild_single_choice("building_material", _model_field_choices(Property, "building_material"))
 
     def clean(self):
         cleaned_data = super().clean()
@@ -774,7 +783,7 @@ class PropertyForm(forms.ModelForm):
         codes = _split_multi_value(values)
         if not codes:
             return ""
-        allowed = {value for value, _ in Property.MATERIAL_TYPE_CHOICES}
+        allowed = {value for value, _ in _model_field_choices(Property, "building_material")}
         normalized = []
         for code in codes:
             if code not in allowed:
