@@ -38,7 +38,10 @@ def test_room_sale_has_room_specific_but_not_flat_or_land():
 
 def test_grouping_house_is_sensible():
     names = sorted(fields_for_category("house", "sale"))
-    groups, misc = group_fields(names, "house")
-    assert "Дом и участок" in [title for title, _ in groups]
-    assert "Инженерия (дом/участок)" in [title for title, _ in groups]
+    groups, misc = group_fields(names, "house", "sale")
+    titles = [title for title, _ in groups]
+    assert "Площадь и планировка" in titles
+    assert "Дом и участок" in titles
+    assert "Инженерия (дом/участок)" in titles
+    assert "Удобства" not in titles, "sale house should hide amenities section"
     assert misc == []

@@ -214,6 +214,8 @@
     new Sortable(list, {
       animation: 150,
       fallbackTolerance: 5,
+      draggable: '.photo-card',
+      handle: '.photo-thumb img',
     });
 
     const reorderForm = document.getElementById('reorderForm');

@@ -1,6 +1,8 @@
 # core/forms.py
 import re
 
+from typing import Optional
+
 from django import forms
 from django.core.exceptions import FieldDoesNotExist
 
@@ -15,13 +17,31 @@ STATUS_FALLBACK_CHOICES = [
 ]
 
 
-def _choices_from_model(field_name: str):
-    """Return choices for Property.<field_name> from the model field, or [] if missing."""
+def _choices_from_model(field_name: str, attr_name: Optional[str] = None):
+    """Return choices defined on the model field or fall back to class-level constants."""
 
     try:
-        return list(Property._meta.get_field(field_name).choices or [])
-    except Exception:
-        return []
+        model_field = Property._meta.get_field(field_name)
+    except FieldDoesNotExist:
+        model_field = None
+
+    if model_field is not None:
+        field_choices = list(model_field.choices or [])
+        if field_choices:
+            return field_choices
+
+    attr_candidates = []
+    if attr_name:
+        attr_candidates.append(attr_name)
+    else:
+        attr_candidates.append(f"{field_name.upper()}_CHOICES")
+
+    for candidate in attr_candidates:
+        choices = getattr(Property, candidate, None)
+        if choices:
+            return list(choices)
+
+    return []
 
 
 def _build_choices(model_attr_name, fallback_values, field_name=None):
@@ -213,10 +233,11 @@ def fields_for_category(category: str, operation: str, *, _inherit_from_flat: bo
     return [name for name in sorted(fields) if name not in UI_EXCLUDE]
 
 
-def group_fields(field_names, category: str = ""):
+def group_fields(field_names, category: str = "", operation: str = ""):
     """Логически сгруппировать поля (разные наборы для flat/room/house)."""
 
     cat = (category or "").strip().lower()
+    op = (operation or "").strip().lower()
 
     base_groups = [
         ("Основное", ["external_id", "description", "address", "is_rent_by_parts", "rent_by_parts_desc"]),
@@ -252,25 +273,33 @@ def group_fields(field_names, category: str = ""):
         ["rooms_for_sale_count", "room_area", "room_type", "beds_count"],
     )
 
-    house_area_group = (
-        "Дом и участок",
+    house_plan_group = (
+        "Площадь и планировка",
         [
             "house_type",
             "total_area",
             "bedrooms_count",
             "ceiling_height",
+            "house_floors_total",
             "building_floors",
             "building_build_year",
             "building_material",
             "house_condition",
+            "separate_wcs_count",
+            "combined_wcs_count",
+            "repair_type",
+        ],
+    )
+
+    house_land_group = (
+        "Дом и участок",
+        [
             "land_area",
             "land_area_unit",
             "permitted_land_use",
             "is_land_with_contract",
             "land_category",
             "wc_location",
-            "separate_wcs_count",
-            "combined_wcs_count",
         ],
     )
 
@@ -313,23 +342,26 @@ def group_fields(field_names, category: str = ""):
         ],
     )
 
-    amenities_group = (
+    amenities_fields = [
+        "is_euro_flat",
+        "has_internet",
+        "has_furniture",
+        "has_kitchen_furniture",
+        "has_tv",
+        "has_washer",
+        "has_conditioner",
+        "has_refrigerator",
+        "has_dishwasher",
+        "has_shower",
+        "has_bathtub",
+        "has_phone",
+        "repair_type",
+    ]
+
+    amenities_group = ("Удобства", amenities_fields)
+    amenities_group_house = (
         "Удобства",
-        [
-            "is_euro_flat",
-            "has_internet",
-            "has_furniture",
-            "has_kitchen_furniture",
-            "has_tv",
-            "has_washer",
-            "has_conditioner",
-            "has_refrigerator",
-            "has_dishwasher",
-            "has_shower",
-            "has_bathtub",
-            "has_phone",
-            "repair_type",
-        ],
+        [name for name in amenities_fields if name != "repair_type"],
     )
 
     bargain_group = (
@@ -361,19 +393,41 @@ def group_fields(field_names, category: str = ""):
         ("Контакты", ["phone_country", "phone_number", "phone_number2"]),
     ]
 
+    include_amenities = op.startswith("rent")
+
+    suppressed_for_sale = set(amenities_fields)
     if cat == "house":
-        groups_definition = base_groups + [house_area_group, engineering_group, amenities_group, bargain_group] + docs_media_contacts
+        suppressed_for_sale.discard("repair_type")
+
+    field_names_list = [
+        name
+        for name in list(field_names)
+        if include_amenities or name not in suppressed_for_sale
+    ]
+    field_names_set = set(field_names_list)
+
+    if cat == "house":
+        groups_definition = base_groups + [house_plan_group, house_land_group, engineering_group]
+        if include_amenities:
+            groups_definition.append(amenities_group_house)
+        groups_definition.append(bargain_group)
+        groups_definition += docs_media_contacts
     elif cat == "room":
         flat_group_for_room = (
             flat_group[0],
             [name for name in flat_group[1] if name not in {"beds_count"}],
         )
-        groups_definition = base_groups + [flat_group_for_room, room_group, building_group, amenities_group, bargain_group] + docs_media_contacts
+        groups_definition = base_groups + [flat_group_for_room, room_group, building_group]
+        if include_amenities:
+            groups_definition.append(amenities_group)
+        groups_definition.append(bargain_group)
+        groups_definition += docs_media_contacts
     else:
-        groups_definition = base_groups + [flat_group, building_group, amenities_group, bargain_group] + docs_media_contacts
-
-    field_names_list = list(field_names)
-    field_names_set = set(field_names_list)
+        groups_definition = base_groups + [flat_group, building_group]
+        if include_amenities:
+            groups_definition.append(amenities_group)
+        groups_definition.append(bargain_group)
+        groups_definition += docs_media_contacts
 
     def only_known(names):
         return [name for name in names if name in field_names_set]
@@ -558,12 +612,18 @@ class PropertyForm(forms.ModelForm):
 
             field.choices = normalized_choices
 
-        _rebuild_single_choice("heating_type", _choices_from_model("heating_type"))
+        _rebuild_single_choice(
+            "heating_type",
+            _choices_from_model("heating_type", "HEATING_TYPE_CHOICES"),
+        )
         _rebuild_single_choice(
             "building_material",
-            _choices_from_model("building_material"),
+            _choices_from_model("building_material", "MATERIAL_TYPE_CHOICES"),
         )
-        _rebuild_single_choice("house_condition", _choices_from_model("house_condition"))
+        _rebuild_single_choice(
+            "house_condition",
+            _choices_from_model("house_condition", "HOUSE_CONDITION_CHOICES"),
+        )
 
         def has_paren(choices):
             for choice in choices or []:
