@@ -15,6 +15,15 @@ STATUS_FALLBACK_CHOICES = [
 ]
 
 
+def _choices_from_model(field_name: str):
+    """Return choices for Property.<field_name> from the model field, or [] if missing."""
+
+    try:
+        return list(Property._meta.get_field(field_name).choices or [])
+    except Exception:
+        return []
+
+
 def _build_choices(model_attr_name, fallback_values, field_name=None):
     choices = getattr(Property, model_attr_name, None)
     if choices:
@@ -505,6 +514,56 @@ class PropertyForm(forms.ModelForm):
                     status_field.initial = instance_status or status_field.initial
                 else:
                     status_field.initial = status_field.initial or "draft"
+
+        def _current_value(field_name):
+            if self.is_bound:
+                prefixed = self.add_prefix(field_name)
+                if prefixed in self.data:
+                    return self.data.get(prefixed)
+                return self.data.get(field_name)
+            if field_name in self.initial:
+                return self.initial[field_name]
+            if hasattr(self.instance, field_name):
+                return getattr(self.instance, field_name)
+            field = self.fields.get(field_name)
+            return getattr(field, "initial", None)
+
+        def _flatten_choice_values(choice_list):
+            values = set()
+
+            def _collect(choices):
+                for choice in choices or []:
+                    if not isinstance(choice, (list, tuple)):
+                        continue
+                    if len(choice) == 2 and isinstance(choice[1], (list, tuple)):
+                        _collect(choice[1])
+                    elif len(choice) >= 1:
+                        values.add(choice[0])
+
+            _collect(choice_list)
+            return values
+
+        def _rebuild_single_choice(name, choices):
+            field = self.fields.get(name)
+            if not field:
+                return
+
+            normalized_choices = list(choices or [])
+            current_value = _current_value(name)
+
+            if current_value not in (None, ""):
+                existing_values = _flatten_choice_values(normalized_choices)
+                if current_value not in existing_values:
+                    normalized_choices = normalized_choices + [(current_value, current_value)]
+
+            field.choices = normalized_choices
+
+        _rebuild_single_choice("heating_type", _choices_from_model("heating_type"))
+        _rebuild_single_choice(
+            "building_material",
+            _choices_from_model("building_material"),
+        )
+        _rebuild_single_choice("house_condition", _choices_from_model("house_condition"))
 
         def has_paren(choices):
             for choice in choices or []:
