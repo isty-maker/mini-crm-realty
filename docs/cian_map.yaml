@@ -149,13 +149,13 @@ categories:
     fields:
       house_type: "HouseType"
       total_area: "TotalArea"
-      building_floors: "HouseFloorsCount"
+      building_floors: "Building.FloorsCount"
       building_build_year: "BuildYear"
-      building_material: "MaterialType"
+      building_material: "MaterialTypes.MaterialType"
       bedrooms_count: "BedroomsCount"
       # Пример использует WcLocationType
       wc_location: "WcLocationType"        # inside|outside
-      heating_type: "HeatingType"      # central|gas|electric|solid
+      heating_type: "HeatingType"
       ceiling_height: "CeilingHeight"
       # Per example, tag name is <Condition>…</Condition> (value type ConditionType)
       house_condition: "Condition"
@@ -170,6 +170,37 @@ categories:
       gas_supply_type: "Gas.Type"            # main|border|gasHolder|gasBottle
       sewerage_type: "Drainage.Type"         # central|septicTank|cesspool|none
       water_supply_type: "Water.SuburbanWaterType" # central|borehole|well|none
+      has_electricity: "HasElectricity"
+      has_gas: "HasGas"
+      has_water: "HasWater"
+      has_drainage: "HasDrainage"
+      power: "Electricity.Power"
+      has_terrace: "HasTerrace"
+      has_cellar: "HasCellar"
+      has_pool: "HasPool"
+      has_bathhouse: "HasBathhouse"
+      has_security: "HasSecurity"
+  houseRent:
+    fields:
+      house_type: "HouseType"
+      total_area: "TotalArea"
+      building_floors: "Building.FloorsCount"
+      building_build_year: "BuildYear"
+      building_material: "MaterialTypes.MaterialType"
+      bedrooms_count: "BedroomsCount"
+      wc_location: "WcLocationType"
+      heating_type: "HeatingType"
+      ceiling_height: "CeilingHeight"
+      house_condition: "Condition"
+      has_garage: "HasGarage"
+      land_area: "Land.Area"
+      land_area_unit: "Land.AreaUnitType"
+      permitted_land_use: "Land.PermittedLandUse"
+      is_land_with_contract: "Land.IsLandWithContract"
+      land_category: "Land.LandCategory"
+      gas_supply_type: "Gas.Type"
+      sewerage_type: "Drainage.Type"
+      water_supply_type: "Water.SuburbanWaterType"
       has_electricity: "HasElectricity"
       has_gas: "HasGas"
       has_water: "HasWater"
@@ -264,10 +295,71 @@ values:
     inside: inside
     outside: outside
   heating_type:
-    central: central
-    gas: gas
+    Автономное газовое: autonomousGas
+    autonomousGas: autonomousGas
+    Центральное угольное: centralCoal
+    centralCoal: centralCoal
+    Центральное газовое: centralGas
+    centralGas: centralGas
+    Дизельное: diesel
+    diesel: diesel
+    Электрическое: electric
     electric: electric
-    solid: solid
+    Камин: fireplace
+    fireplace: fireplace
+    Нет: no
+    no: no
+    Твердотопливный котел: solidFuelBoiler
+    solidFuelBoiler: solidFuelBoiler
+    Печь: stove
+    stove: stove
+  house_condition:
+    Без внутренней отделки: interiorDecorationRequired
+    interiorDecorationRequired: interiorDecorationRequired
+    Требует капитального ремонта или под снос: majorRepairsRequired
+    majorRepairsRequired: majorRepairsRequired
+    Готов к проживанию: ready
+    ready: ready
+    Недостроенный: unfinished
+    unfinished: unfinished
+  building_material:
+    Газобетонный блок: aerocreteBlock
+    aerocreteBlock: aerocreteBlock
+    Арболит: arbolit
+    arbolit: arbolit
+    Щитовой: boards
+    boards: boards
+    Кирпичный: brick
+    brick: brick
+    Керамзитобетон: expandedClayConcrete
+    expandedClayConcrete: expandedClayConcrete
+    Пенобетонный блок: foamConcreteBlock
+    foamConcreteBlock: foamConcreteBlock
+    Газосиликатный блок: gasSilicateBlock
+    gasSilicateBlock: gasSilicateBlock
+    Клееный брус: gluedLaminatedTimber
+    gluedLaminatedTimber: gluedLaminatedTimber
+    Металлокаркас: metalFrame
+    metalFrame: metalFrame
+    Монолитный: monolith
+    monolith: monolith
+    Железобетонные панели: reinforcedConcretePanels
+    reinforcedConcretePanels: reinforcedConcretePanels
+    Сип-панели: sipPanels
+    sipPanels: sipPanels
+    Шлакобетон: slagConcrete
+    slagConcrete: slagConcrete
+    Цельное дерево (брус, бревно): solidWood
+    solidWood: solidWood
+    Каркасный: wireframe
+    wireframe: wireframe
+    Деревянный: wood
+    wood: wood
+  sale_type:
+    Свободная продажа: free
+    free: free
+    Альтернативная: alternative
+    alternative: alternative
   gas_supply_type:
     main_on_plot: main
     border: border
