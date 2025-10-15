@@ -287,7 +287,7 @@ class TestCianMapping(TestCase):
             land_area=Decimal("6.5"),
             land_area_unit="sotka",
             wc_location="inside",
-            heating_type="gas",
+            heating_type="centralGas",
             land_category="settlements",
             permitted_land_use="individualHousingConstruction",
             price=Decimal("18500000"),
@@ -304,6 +304,7 @@ class TestCianMapping(TestCase):
         self.assertEqual(land.findtext("Area"), "6.5")
         self.assertEqual(land.findtext("AreaUnitType"), "sotka")
         self.assertEqual(obj.findtext("WcLocationType"), "inside")
+        self.assertEqual(obj.findtext("HeatingType"), "centralGas")
 
     def test_flat_rent_terms_and_beds(self):
         prop = Property.objects.create(

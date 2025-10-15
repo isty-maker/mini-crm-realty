@@ -61,10 +61,10 @@ def test_full_coverage_flat_house_land_commercial_garage():
         total_area=Decimal("180.0"),
         building_floors=2,
         building_build_year=2012,
-        building_material="brick",
+        building_material="brick,wood",
         bedrooms_count=4,
         wc_location="inside",
-        heating_type="gas",
+        heating_type="centralGas",
         ceiling_height=Decimal("3.2"),
         house_condition="ready",
         has_garage=True,
@@ -161,6 +161,8 @@ def test_full_coverage_flat_house_land_commercial_garage():
     assert "<Land><Area>8.5</Area>" in house_xml
     assert "<HasElectricity>true</HasElectricity>" in house_xml
     assert "<Electricity><Power>15</Power></Electricity>" in house_xml
+    assert "<HeatingType>centralGas</HeatingType>" in house_xml
+    assert "<MaterialTypes><MaterialType>brick</MaterialType><MaterialType>wood</MaterialType></MaterialTypes>" in house_xml
 
     land_xml = tostring(results[2].element, encoding="unicode")
     assert "<Area>12.4</Area>" in land_xml
