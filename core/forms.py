@@ -29,22 +29,6 @@ def _build_choices(model_attr_name, fallback_values, field_name=None):
     return [(value, value) for value in fallback_values]
 
 
-def _split_multi_value(value):
-    if value is None:
-        return []
-    if isinstance(value, (list, tuple, set)):
-        result = []
-        for item in value:
-            text = str(item).strip()
-            if text:
-                result.append(text)
-        return result
-    text = str(value).strip()
-    if not text:
-        return []
-    return [part.strip() for part in text.split(",") if part.strip()]
-
-
 FORMS_EXCLUDE = {
     "jk_id",
     "jk_name",
@@ -544,67 +528,6 @@ class PropertyForm(forms.ModelForm):
 
         self.subtypes_map = self.SUBTYPE_CHOICES_MAP
 
-        def _field_meta(field_name):
-            try:
-                return self._meta.model._meta.get_field(field_name)
-            except FieldDoesNotExist:
-                return None
-
-        def _rebuild_single_choice(field_name, choices):
-            field = self.fields.get(field_name)
-            if not field:
-                return
-            meta = _field_meta(field_name)
-            label = getattr(field, "label", None) or getattr(meta, "verbose_name", None) or field_name
-            help_text = getattr(field, "help_text", "") or getattr(meta, "help_text", "")
-            attrs = {}
-            if getattr(field, "widget", None) is not None:
-                attrs.update(getattr(field.widget, "attrs", {}) or {})
-            new_field = forms.ChoiceField(
-                choices=[("", "— не выбрано —")] + list(choices),
-                required=False,
-                label=label,
-                help_text=help_text,
-                widget=forms.Select(attrs=attrs),
-            )
-            self.fields[field_name] = new_field
-
-        def _rebuild_multi_choice(field_name, choices):
-            field = self.fields.get(field_name)
-            if not field:
-                return
-            meta = _field_meta(field_name)
-            label = getattr(field, "label", None) or getattr(meta, "verbose_name", None) or field_name
-            help_text = getattr(field, "help_text", "") or getattr(meta, "help_text", "")
-            attrs = {}
-            if getattr(field, "widget", None) is not None:
-                attrs.update(getattr(field.widget, "attrs", {}) or {})
-            new_field = forms.MultipleChoiceField(
-                choices=list(choices),
-                required=False,
-                label=label,
-                help_text=help_text,
-                widget=forms.SelectMultiple(attrs=attrs),
-            )
-            self.fields[field_name] = new_field
-            if not self.is_bound:
-                existing = self.initial.get(field_name)
-                if existing is None:
-                    existing = getattr(self.instance, field_name, None)
-                initial_list = _split_multi_value(existing)
-                if initial_list:
-                    new_field.initial = initial_list
-                    self.initial[field_name] = initial_list
-
-        normalized_category = (cat_from_data or "").lower()
-
-        if normalized_category == "house":
-            _rebuild_single_choice("heating_type", Property.HEATING_TYPE_CHOICES)
-            _rebuild_single_choice("house_condition", Property.HOUSE_CONDITION_CHOICES)
-            _rebuild_multi_choice("building_material", Property.MATERIAL_TYPE_CHOICES)
-        else:
-            _rebuild_single_choice("building_material", Property.MATERIAL_TYPE_CHOICES)
-
     def clean(self):
         cleaned_data = super().clean()
 
@@ -766,22 +689,6 @@ class PropertyForm(forms.ModelForm):
             "parking_places": forms.NumberInput(attrs={"placeholder": "Количество мест"}),
             "total_area": forms.NumberInput(attrs={"placeholder": "м²"}),
         }
-
-    def clean_building_material(self):
-        if "building_material" not in self.fields:
-            return self.cleaned_data.get("building_material")
-        values = self.cleaned_data.get("building_material")
-        codes = _split_multi_value(values)
-        if not codes:
-            return ""
-        allowed = {value for value, _ in Property.MATERIAL_TYPE_CHOICES}
-        normalized = []
-        for code in codes:
-            if code not in allowed:
-                raise forms.ValidationError("Выберите допустимые материалы.")
-            if code not in normalized:
-                normalized.append(code)
-        return ",".join(normalized)
 
 class PhotoForm(forms.ModelForm):
     image = forms.FileField(required=False)

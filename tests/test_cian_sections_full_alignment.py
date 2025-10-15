@@ -31,7 +31,7 @@ def test_house_sale_utilities_and_condition():
         sewerage_type="septic",
         house_condition="ready",
         wc_location="inside",
-        heating_type="centralGas",
+        heating_type="gas",
         price=Decimal("10000000"),
         currency="rur",
         export_to_cian=True,
@@ -63,7 +63,7 @@ def test_house_sale_utilities_and_condition():
     assert drainage.findtext("Type") == "septicTank"
 
     assert obj.findtext("Condition") == "ready"
-    assert obj.findtext("HeatingType") == "centralGas"
+    assert obj.findtext("HeatingType") == "gas"
     assert obj.findtext("WcLocationType") == "inside"
 
 

@@ -68,33 +68,19 @@ LAND_SUBTYPE_CHOICES = [
 WINDOWS_VIEW_CHOICES = [("street","На улицу"),("yard","Во двор"),("yardAndStreet","На улицу и двор")]
 REPAIR_TYPE_CHOICES = [("cosmetic","Косметический"),("design","Дизайнерский"),("euro","Евроремонт"),("no","Без ремонта")]
 MATERIAL_TYPE_CHOICES = [
-    ("aerocreteBlock", "Газобетонный блок"),
-    ("arbolit", "Арболит"),
-    ("boards", "Щитовой"),
-    ("brick", "Кирпичный"),
-    ("expandedClayConcrete", "Керамзитобетон"),
-    ("foamConcreteBlock", "Пенобетонный блок"),
-    ("gasSilicateBlock", "Газосиликатный блок"),
-    ("gluedLaminatedTimber", "Клееный брус"),
-    ("metalFrame", "Металлокаркас"),
-    ("monolith", "Монолитный"),
-    ("reinforcedConcretePanels", "Железобетонные панели"),
-    ("sipPanels", "Сип-панели"),
-    ("slagConcrete", "Шлакобетон"),
-    ("solidWood", "Цельное дерево (брус, бревно)"),
-    ("wireframe", "Каркасный"),
-    ("wood", "Деревянный"),
+    ("aerocreteBlock","Газобетонный блок"),("arbolit","Арболит"),("boards","Щитовой"),
+    ("brick","Кирпичный"),("expandedClayConcrete","Керамзитобетон"),
+    ("foamConcreteBlock","Пенобетонный блок"),("gasSilicateBlock","Газосиликатный блок"),
+    ("gluedLaminatedTimber","Клееный брус"),("metalFrame","Металлокаркас"),
+    ("monolith","Монолит"),("reinforcedConcretePanels","ЖБ панели"),
+    ("sipPanels","СИП-панели"),("slagConcrete","Шлакобетон"),
+    ("solidWood","Цельное дерево"),("wireframe","Каркасный"),("wood","Деревянный"),
 ]
 HEATING_TYPE_CHOICES = [
-    ("autonomousGas", "Автономное газовое"),
-    ("centralCoal", "Центральное угольное"),
-    ("centralGas", "Центральное газовое"),
-    ("diesel", "Дизельное"),
-    ("electric", "Электрическое"),
-    ("fireplace", "Камин"),
-    ("no", "Нет"),
-    ("solidFuelBoiler", "Твердотопливный котел"),
-    ("stove", "Печь"),
+    ("central", "Центральное"),
+    ("gas", "Газовое"),
+    ("electric", "Электро"),
+    ("solid", "Твёрдое топливо"),
 ]
 WC_LOCATION_CHOICES = [("outside", "На улице"), ("inside", "В доме")]
 SEWERAGE_TYPE_CHOICES = [
@@ -116,10 +102,10 @@ GAS_SUPPLY_TYPE_CHOICES = [
     ("none", "Нет"),
 ]
 HOUSE_CONDITION_CHOICES = [
-    ("interiorDecorationRequired", "Без внутренней отделки"),
-    ("majorRepairsRequired", "Требует капитального ремонта или под снос"),
-    ("ready", "Готов к проживанию"),
-    ("unfinished", "Недостроенный"),
+    ("ready", "Можно жить"),
+    ("needs_repair", "Нужен ремонт"),
+    ("need_finish", "Нужно достроить"),
+    ("needs_capital_or_demolition", "Нужен капремонт или под снос"),
 ]
 LAND_AREA_UNIT_CHOICES = [("sotka", "Сотка"), ("sqm", "м²")]
 PERMITTED_LAND_USE_CHOICES = [

@@ -157,8 +157,6 @@ def resolve_category(prop) -> str:
             return "roomRent"
         if operation == "sale":
             return "roomSale"
-    if category == "house" and operation.startswith("rent"):
-        return "houseRent"
 
     mapping = {
         "flat": "flatSale",
@@ -191,23 +189,6 @@ def emit(parent: Element, path: str, value: str) -> None:
         node = _ensure_child(node, tag)
     leaf = _ensure_child(node, parts[-1])
     leaf.text = smart_str(value)
-
-
-def emit_multiple(parent: Element, path: str, values: Sequence[str]) -> None:
-    parts = [part for part in path.split(".") if part]
-    if not parts:
-        return
-
-    node = parent
-    for tag in parts[:-1]:
-        node = _ensure_child(node, tag)
-
-    leaf_tag = parts[-1]
-    for value in values:
-        if value in (None, ""):
-            continue
-        leaf = SubElement(node, leaf_tag)
-        leaf.text = smart_str(value)
 
 
 def _normalize_decimal(value) -> str:
@@ -243,22 +224,6 @@ def map_value(field: str, raw) -> Optional[str]:
     if isinstance(raw, (float, int)):
         return _normalize_decimal(raw)
     return smart_str(raw)
-
-
-def _split_codes(raw) -> List[str]:
-    if raw is None:
-        return []
-    if isinstance(raw, (list, tuple, set)):
-        result: List[str] = []
-        for item in raw:
-            text = smart_str(item).strip()
-            if text:
-                result.append(text)
-        return result
-    text = smart_str(raw).strip()
-    if not text:
-        return []
-    return [part.strip() for part in text.split(",") if part.strip()]
 
 
 def _value_is_present(value) -> bool:
@@ -479,6 +444,10 @@ def build_ad_xml(prop) -> AdBuildResult:
                 if should_continue:
                     continue
 
+            mapped_value = map_value(field_name, raw_value)
+            if mapped_value in (None, ""):
+                continue
+
             if isinstance(path, (list, tuple)):
                 paths_to_emit: List[str] = []
                 for sub_path in path:
@@ -495,30 +464,6 @@ def build_ad_xml(prop) -> AdBuildResult:
                 paths_to_emit = [smart_str(path)]
 
             if not paths_to_emit:
-                continue
-
-            if field_name == "building_material":
-                raw_values = _split_codes(raw_value)
-                if not raw_values:
-                    continue
-                mapped_values: List[str] = []
-                for candidate in raw_values:
-                    mapped_candidate = map_value(field_name, candidate)
-                    if mapped_candidate in (None, ""):
-                        continue
-                    mapped_values.append(mapped_candidate)
-                if not mapped_values:
-                    continue
-                for sub_path in paths_to_emit:
-                    if "MaterialTypes." in sub_path:
-                        emit_multiple(element, sub_path, mapped_values)
-                    else:
-                        emit(element, sub_path, mapped_values[0])
-                exported_fields.add(field_name)
-                continue
-
-            mapped_value = map_value(field_name, raw_value)
-            if mapped_value in (None, ""):
                 continue
 
             for sub_path in paths_to_emit:
