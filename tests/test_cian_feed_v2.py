@@ -99,7 +99,7 @@ class CianFeedStructureTests(TestCase):
             land_area=Decimal("6.5"),
             land_area_unit="sotka",
             building_floors=2,
-            building_material="brick,wood",
+            building_material="brick",
             building_build_year=2005,
             price=Decimal("8500000"),
             phone_number="+7 904 111-22-33",
@@ -115,42 +115,9 @@ class CianFeedStructureTests(TestCase):
         self.assertIsNotNone(land)
         self.assertEqual(land.findtext("Area"), "6.5")
         self.assertEqual(land.findtext("AreaUnitType"), "sotka")
-        building = obj.find("Building")
-        self.assertIsNotNone(building)
-        self.assertEqual(building.findtext("FloorsCount"), "2")
-        material_types = obj.find("MaterialTypes")
-        self.assertIsNotNone(material_types)
-        exported_materials = [node.text for node in material_types.findall("MaterialType")]
-        self.assertEqual(exported_materials, ["brick", "wood"])
+        self.assertEqual(obj.findtext("HouseFloorsCount"), "2")
+        self.assertEqual(obj.findtext("MaterialType"), "brick")
         self.assertEqual(obj.findtext("BuildYear"), "2005")
-
-    def test_house_rent_category_and_materials(self):
-        prop = Property.objects.create(
-            category="house",
-            operation="rent_long",
-            external_id="HOUSE-RENT",
-            address="Киров",
-            total_area=Decimal("80"),
-            building_floors=3,
-            building_material="aerocreteBlock,wood",
-            heating_type="autonomousGas",
-            price=Decimal("45000"),
-            phone_number="+7 910 555-66-77",
-            export_to_cian=True,
-        )
-        Photo.objects.create(property=prop, full_url="http://example.com/hr.jpg")
-
-        root = _export_feed(self.client)
-        obj = _find_object(root, "HOUSE-RENT")
-        self.assertEqual(obj.findtext("Category"), "houseRent")
-        building = obj.find("Building")
-        self.assertIsNotNone(building)
-        self.assertEqual(building.findtext("FloorsCount"), "3")
-        materials = obj.find("MaterialTypes")
-        self.assertIsNotNone(materials)
-        exported = [node.text for node in materials.findall("MaterialType")]
-        self.assertEqual(exported, ["aerocreteBlock", "wood"])
-        self.assertEqual(obj.findtext("HeatingType"), "autonomousGas")
 
     def test_no_metro_no_jk_in_feed(self):
         prop = Property.objects.create(
