@@ -641,7 +641,7 @@ def _panel_form_context(form, prop, photos):
     cat_fields = fields_for_category(category_value, operation_value)
     cat_fields = [name for name in cat_fields if name in form.fields]
 
-    field_groups, category_misc = group_fields(cat_fields, category_value)
+    field_groups, category_misc = group_fields(cat_fields, category_value, operation_value)
 
     bound_groups = []
     for title, names in field_groups:
