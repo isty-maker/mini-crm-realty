@@ -207,18 +207,6 @@
     });
   }
 
-  function bustCache(url) {
-    try {
-      var obj = new URL(url, window.location.href);
-      obj.searchParams.set('v', Date.now().toString());
-      return obj.toString();
-    } catch (err) {
-      var base = url.split('#')[0];
-      var parts = base.split('?')[0];
-      return parts + '?v=' + Date.now();
-    }
-  }
-
   function setupPhotoActions() {
     var list = document.getElementById('photos');
     if (!list) {
@@ -235,11 +223,11 @@
     var reorderForm = document.getElementById('reorderForm');
 
     function cards() {
-      return Array.prototype.slice.call(list.querySelectorAll('.photo-card'));
+      return Array.prototype.slice.call(list.querySelectorAll('.photo-item'));
     }
 
     function toggleCardHighlight(checkbox, selected) {
-      var card = checkbox ? checkbox.closest('.photo-card') : null;
+      var card = checkbox ? checkbox.closest('.photo-item') : null;
       if (card) {
         if (selected) {
           card.classList.add('selected');
@@ -274,7 +262,7 @@
 
     function removeCardsByIds(ids) {
       ids.forEach(function (id) {
-        var card = list.querySelector('.photo-card[data-photo-id="' + id + '"]');
+        var card = list.querySelector('.photo-item[data-photo-id="' + id + '"]');
         if (card) {
           card.remove();
         }
@@ -369,126 +357,11 @@
         .then(enableButtons, enableButtons);
     }
 
-    function rotatePhoto(card, direction, sourceButton) {
-      var rotateButtons = card.querySelectorAll('button[data-action="rotate"]');
-      var actions = card.querySelector('.photo-actions');
-      var status = actions ? actions.querySelector('.photo-rotate-status') : null;
-      if (!status && actions) {
-        status = document.createElement('span');
-        status.className = 'photo-rotate-status';
-        actions.appendChild(status);
-      }
-
-      rotateButtons.forEach(function (btn) {
-        btn.disabled = true;
-        btn.setAttribute('aria-busy', 'true');
-      });
-      if (status) {
-        status.textContent = 'В процессе…';
-        status.hidden = false;
-      }
-
-      card.classList.add('is-rotating');
-
-      var baseUrl = card.dataset.rotateUrl || '';
-      var img = card.querySelector('img');
-      if (!baseUrl || !img) {
-        rotateButtons.forEach(function (btn) {
-          btn.disabled = false;
-          btn.removeAttribute('aria-busy');
-        });
-        card.classList.remove('is-rotating');
-        if (status) {
-          status.textContent = '';
-          status.hidden = true;
-        }
-        return;
-      }
-
-      var headers = { 'X-Requested-With': 'XMLHttpRequest' };
-      var token = getCsrfToken();
-      if (token) {
-        headers['X-CSRFToken'] = token;
-      }
-
-      var requestUrl;
-      try {
-        requestUrl = new URL(baseUrl, window.location.href);
-      } catch (err) {
-        requestUrl = null;
-      }
-
-      if (requestUrl) {
-        requestUrl.searchParams.set('dir', direction === 'left' ? 'left' : 'right');
-      } else {
-        var separator = baseUrl.indexOf('?') === -1 ? '?' : '&';
-        requestUrl = baseUrl + separator + 'dir=' + encodeURIComponent(direction === 'left' ? 'left' : 'right');
-      }
-
-      var fetchUrl = requestUrl.toString ? requestUrl.toString() : requestUrl;
-
-      fetch(fetchUrl, {
-        method: 'POST',
-        headers: headers,
-        credentials: 'same-origin'
-      })
-        .then(function (response) {
-          return response
-            .json()
-            .catch(function () {
-              return {};
-            })
-            .then(function (payload) {
-              if (!response.ok || !payload || payload.ok !== true) {
-                var error = payload && payload.error ? payload.error : 'rotate_failed';
-                throw new Error(error);
-              }
-              return payload;
-            });
-        })
-        .then(function () {
-          img.src = bustCache(img.src);
-        })
-        .catch(function (err) {
-          console.error('Rotate error:', err);
-          window.alert('Не удалось изменить ориентацию фото.');
-        })
-        .finally(function () {
-          rotateButtons.forEach(function (btn) {
-            btn.disabled = false;
-            btn.removeAttribute('aria-busy');
-          });
-          card.classList.remove('is-rotating');
-          if (status) {
-            status.textContent = '';
-            status.hidden = true;
-          }
-          if (sourceButton && sourceButton.focus) {
-            sourceButton.focus();
-          }
-        });
-    }
-
     list.addEventListener('change', function (event) {
       var target = event.target;
       if (target && target.classList && target.classList.contains('photo-select')) {
         toggleCardHighlight(target, target.checked);
         updateSelectionInfo();
-      }
-    });
-
-    list.addEventListener('click', function (event) {
-      var source = event.target;
-      if (!source || typeof source.closest !== 'function') {
-        return;
-      }
-      var rotateBtn = source.closest('button[data-action="rotate"]');
-      if (rotateBtn) {
-        event.preventDefault();
-        var card = rotateBtn.closest('.photo-card');
-        if (card) {
-          rotatePhoto(card, rotateBtn.dataset.dir === 'left' ? 'left' : 'right', rotateBtn);
-        }
       }
     });
 

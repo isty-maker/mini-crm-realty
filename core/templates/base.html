@@ -7,8 +7,20 @@
   <title>{% block title %}Мини-CRM{% endblock %}</title>
   <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2.0.6/css/pico.min.css">
   <style>
+    :root {
+      --app-header-height: 3.6rem;
+      --app-header-bg: #fff;
+      --app-header-border: #d7dbeb;
+      --app-primary: #2d6cdf;
+      --app-primary-hover: #2455a6;
+      --app-primary-active: #1d4a8f;
+      --app-primary-contrast: #fff;
+    }
+
     html { font-size: 14px; }
+    body { margin: 0; }
     main.container { max-width: 1100px; }
+    .page-content { padding: 1.5rem 0 3rem; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
     .muted { color: #667; font-size: .9rem; }
@@ -17,14 +29,121 @@
     h1 { font-size: 1.6rem; margin: .6rem 0; }
     h2 { font-size: 1.3rem; margin: .5rem 0; }
     h3 { font-size: 1.05rem; margin: .45rem 0; }
-    .btn { display: inline-flex; align-items: center; gap: .25rem; padding: .25rem .6rem; border: 1px solid #ccd; border-radius: .35rem; background: #f7f8fb; color: inherit; text-decoration: none; font-size: .95rem; line-height: 1.3; }
-    .btn:hover { background: #eef1f7; }
-    .btn.secondary { background: #e7ebf6; border-color: #c5cadb; }
-    .btn.secondary:hover { background: #dce2f2; }
-    .btn-sm { padding: .2rem .45rem; font-size: .85rem; }
-    .btn-danger { border-color: #df6c6c; background: #ffecec; color: #a21818; }
-    .btn-danger:hover { background: #ffdede; }
-    .tag { display: inline-flex; align-items: center; padding: .15rem .45rem; border-radius: .5rem; background: #eef2ff; color: #2f3a5d; font-size: .78rem; font-weight: 600; }
+
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--app-header-bg);
+      border-bottom: 1px solid var(--app-header-border);
+      box-shadow: 0 1px 3px rgba(25, 41, 71, 0.08);
+    }
+
+    .app-header .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.65rem 0;
+    }
+
+    .app-header .brand {
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: #1f2a44;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .app-header nav {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn,
+    button,
+    .button,
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"] {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .3rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: .4rem;
+      border: 1px solid var(--app-primary-active);
+      background: var(--app-primary);
+      color: var(--app-primary-contrast);
+      text-decoration: none;
+      font-size: .95rem;
+      line-height: 1.3;
+      cursor: pointer;
+      transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+    }
+
+    .btn-sm,
+    button.btn-sm {
+      padding: 0.25rem 0.55rem;
+      font-size: .85rem;
+    }
+
+    .btn:hover,
+    button:hover,
+    .button:hover,
+    input[type="button"]:hover,
+    input[type="submit"]:hover,
+    input[type="reset"]:hover {
+      background: var(--app-primary-hover);
+      border-color: var(--app-primary-hover);
+    }
+
+    .btn:focus,
+    button:focus,
+    .button:focus,
+    input[type="button"]:focus,
+    input[type="submit"]:focus,
+    input[type="reset"]:focus {
+      outline: 2px solid rgba(45, 108, 223, 0.35);
+      outline-offset: 2px;
+    }
+
+    .btn:active,
+    button:active,
+    .button:active,
+    input[type="button"]:active,
+    input[type="submit"]:active,
+    input[type="reset"]:active {
+      background: var(--app-primary-active);
+      border-color: var(--app-primary-active);
+    }
+
+    .btn[disabled],
+    button[disabled],
+    input[type="submit"][disabled],
+    input[type="button"][disabled],
+    input[type="reset"][disabled] {
+      cursor: not-allowed;
+      opacity: .65;
+    }
+
+    .btn-danger,
+    button.btn-danger {
+      border-color: #c63535;
+      background: #f56565;
+      color: #fff;
+    }
+
+    .btn-danger:hover,
+    button.btn-danger:hover {
+      background: #e55555;
+      border-color: #e13f3f;
+    }
+
+    .tag { display: inline-flex; align-items: center; padding: .15rem .45rem; border-radius: .5rem; background: #eef2ff; color:#2f3a5d; font-size: .78rem; font-weight: 600; }
     .tag + .tag { margin-left: .25rem; }
     .tag-archived-label { background: #f0f0f0; color: #444; }
     .tag-extid { display: inline-flex; align-items: center; margin-left: .4rem; padding: .05rem .35rem; border-radius: .35rem; border: 1px solid #d3d6e0; background: #f5f7ff; color: #2f3a5d; font-size: .75rem; line-height: 1; vertical-align: baseline; }
@@ -40,14 +159,6 @@
     .badge-cian { background:#dff4df; color:#1c6724; }
     .badge-domklik { background:#dce8ff; color:#1f4f93; }
     .badge-archived { background:#ececec; color:#555; }
-    button,
-    .button,
-    input[type="button"],
-    input[type="submit"],
-    input[type="reset"] {
-      padding: 0.3rem 0.55rem;
-      font-size: 0.92em;
-    }
     input,
     select,
     textarea {
@@ -70,11 +181,18 @@
     table.tbl td.addr { max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
     table.tbl tr.is-archived { opacity: .6; }
     @media (max-width: 720px) {
+      .app-header { --app-header-height: 4.3rem; }
+      .app-header .container { padding: 0.55rem 0; gap: 0.75rem; }
       table.tbl { font-size: .9rem; }
       table.tbl td, table.tbl th { padding: .4rem .45rem; }
       table.tbl td.addr { max-width: 240px; }
-      .btn { font-size: .9rem; }
-      .btn-sm { font-size: .8rem; }
+      .btn,
+      button,
+      input[type="button"],
+      input[type="submit"],
+      input[type="reset"] { font-size: .9rem; }
+      .btn-sm,
+      button.btn-sm { font-size: .8rem; }
     }
     .topbar { display:flex; align-items:center; gap:.5rem; margin:.2rem 0 .6rem; flex-wrap:wrap; }
     .topbar h1 { margin:0; font-size:1.2rem; }
@@ -105,14 +223,17 @@
   {% block extra_head %}{% endblock %}
 </head>
 <body>
-  <main class="container">
-    <nav>
-      <ul><li><strong>Мини-CRM</strong></li></ul>
-      <ul>
-        <li><a href="/panel/">Список</a></li>
-        <li><a href="/panel/new/">+ Создать объект</a></li>
-      </ul>
-    </nav>
+  <header class="app-header">
+    <div class="container">
+      <a href="{% url 'panel_list' %}" class="brand">Мини-CRM</a>
+      <nav>
+        <a href="{% url 'panel_new' %}" class="btn btn-sm">Создать</a>
+        <a href="{% url 'panel_list' %}" class="btn btn-sm">Список</a>
+        <a href="{% url 'panel_list' %}?show=archived" class="btn btn-sm">Архив</a>
+      </nav>
+    </div>
+  </header>
+  <main class="container page-content">
     {% if messages %}
       <div class="messages" style="margin: 1rem 0; display: grid; gap: .5rem;">
         {% for message in messages %}

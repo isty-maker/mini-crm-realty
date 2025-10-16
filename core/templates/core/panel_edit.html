@@ -6,11 +6,16 @@
   <link rel="stylesheet" href="{% static 'core/panel.css' %}">
 {% endblock %}
 {% block content %}
-  <a href="/panel/">&larr; к списку</a>
-  <h1>{{ prop|default:"Новый объект" }}</h1>
+  <a href="{% url 'panel_list' %}" class="back-link">&larr; к списку</a>
 
   <form id="prop-form" method="post" action="{% if prop %}{% url 'panel_edit' pk=prop.id %}{% else %}{% url 'panel_create' %}{% endif %}" data-preserve-scroll="true">
     {% csrf_token %}
+    <div class="form-toolbar">
+      <div class="form-toolbar-info">
+        <h1>{{ prop|default:"Новый объект" }}</h1>
+      </div>
+      <button type="submit" class="form-toolbar-save">Сохранить</button>
+    </div>
     {{ form.non_field_errors }}
     {% for hidden in form.hidden_fields %}
       {{ hidden }}
@@ -147,32 +152,28 @@
 
     <div id="photos" data-empty-text="Фото пока нет">
       {% for ph in photos %}
-        <div class="photo-card{% if not ph.image %} no-rotate{% endif %}"
-             data-photo-id="{{ ph.id }}"
-             {% if ph.image %}data-rotate-url="{% url 'panel_photo_rotate' ph.id %}"{% endif %}>
-          <label class="photo-thumb">
-            <input type="checkbox" class="photo-select" value="{{ ph.id }}">
-            <img src="{{ ph.src }}" alt="Фото {{ forloop.counter }}">
-          </label>
-
-          <div class="photo-actions">
-            {% if ph.image %}
-            <button type="button" data-action="rotate" data-dir="left" title="Повернуть влево">↺</button>
-            <button type="button" data-action="rotate" data-dir="right" title="Повернуть вправо">↻</button>
+        <div class="photo-item" data-photo-id="{{ ph.id }}">
+          <div class="photo-tile">
+            <label class="photo-thumb">
+              <input type="checkbox" class="photo-select" value="{{ ph.id }}">
+              <img src="{{ ph.src }}" alt="Фото {{ forloop.counter }}">
+            </label>
+            {% if ph.is_default or ph.human_size %}
+            <div class="photo-info">
+              {% if ph.is_default %}<span class="badge">Главное</span>{% endif %}
+              {% if ph.human_size %}<span class="size">{{ ph.human_size }}</span>{% endif %}
+            </div>
             {% endif %}
-
+          </div>
+          <div class="photo-controls">
             <form method="post" action="{% url 'panel_photo_set_default' ph.id %}">
               {% csrf_token %}
               <button type="submit" title="Сделать главным">{% if ph.is_default %}★{% else %}☆{% endif %}</button>
             </form>
-
             <form method="post" action="{% url 'panel_photo_delete' ph.id %}">
               {% csrf_token %}
               <button type="submit" title="Удалить">✖</button>
             </form>
-
-            <span class="size">{{ ph.human_size }}</span>
-            {% if ph.is_default %}<span class="badge">Главное</span>{% endif %}
           </div>
         </div>
       {% empty %}
@@ -204,6 +205,8 @@
     new Sortable(list, {
       animation: 150,
       fallbackTolerance: 5,
+      handle: '.photo-tile',
+      draggable: '.photo-item',
     });
 
     const reorderForm = document.getElementById('reorderForm');
@@ -212,7 +215,7 @@
     }
 
     reorderForm.addEventListener('submit', function () {
-      const ids = Array.from(document.querySelectorAll('#photos .photo-card')).map(
+      const ids = Array.from(document.querySelectorAll('#photos .photo-item')).map(
         (el) => el.dataset.photoId
       );
       const orderInput = reorderForm.querySelector('input[name="order"]');
