@@ -15,6 +15,16 @@ STATUS_FALLBACK_CHOICES = [
 ]
 
 
+PARKING_UI_CHOICES = [
+    ("", "— не выбрано —"),
+    ("подземная", "Подземная"),
+    ("наземная", "Наземная"),
+    ("многоуровневая", "Многоуровневая"),
+    ("открытая", "Открытая"),
+    ("крытая", "Крытая"),
+]
+
+
 def _choices_from_model(field_name: str):
     """Return choices for Property.<field_name> from the model field, or [] if missing."""
 
@@ -51,7 +61,11 @@ FORMS_EXCLUDE = {
 }
 
 # Поля, которые мы сознательно не показываем на UI (ЖК/метро/служебные)
-UI_EXCLUDE = set(FORMS_EXCLUDE)
+UI_EXCLUDE = set(FORMS_EXCLUDE) | {
+    "title",
+    "bargain_price",
+    "bargain_conditions",
+}
 
 # Условия сделки, которые релевантны только для аренды/продажи.
 # Используется для UI-фильтрации, чтобы в продаже не появлялись арендные поля
@@ -213,14 +227,15 @@ def fields_for_category(category: str, operation: str, *, _inherit_from_flat: bo
     return [name for name in sorted(fields) if name not in UI_EXCLUDE]
 
 
-def group_fields(field_names, category: str = ""):
+def group_fields(field_names, category: str = "", operation: str = ""):
     """Логически сгруппировать поля (разные наборы для flat/room/house)."""
 
     cat = (category or "").strip().lower()
+    op = (operation or "").strip().lower()
+    is_rent = op.startswith("rent")
 
     base_groups = [
         ("Основное", ["external_id", "description", "address", "is_rent_by_parts", "rent_by_parts_desc"]),
-        ("Гео", ["lat", "lng"]),
     ]
 
     flat_group = (
@@ -232,6 +247,7 @@ def group_fields(field_names, category: str = ""):
             "kitchen_area",
             "floor_number",
             "rooms",
+            "room_type",
             "flat_rooms_count",
             "room_type_ext",
             "beds_count",
@@ -244,6 +260,7 @@ def group_fields(field_names, category: str = ""):
             "ceiling_height",
             "is_apartments",
             "is_penthouse",
+            "repair_type",
         ],
     )
 
@@ -263,6 +280,7 @@ def group_fields(field_names, category: str = ""):
             "building_build_year",
             "building_material",
             "house_condition",
+            "repair_type",
             "land_area",
             "land_area_unit",
             "permitted_land_use",
@@ -328,7 +346,6 @@ def group_fields(field_names, category: str = ""):
             "has_shower",
             "has_bathtub",
             "has_phone",
-            "repair_type",
         ],
     )
 
@@ -355,22 +372,58 @@ def group_fields(field_names, category: str = ""):
         ],
     )
 
+    optional_group = ("Опционально", ["lat", "lng"])
+
     docs_media_contacts = [
         ("Документы", ["cadastral_number"]),
         ("Медиа", ["layout_photo_url"]),
         ("Контакты", ["phone_country", "phone_number", "phone_number2"]),
     ]
 
+    amenities_fields = list(amenities_group[1])
+    if cat in {"flat", "room", "house"}:
+        amenities_fields = [name for name in amenities_fields if name != "repair_type"]
+    amenities_group = (amenities_group[0], amenities_fields)
+
+    building_fields = list(building_group[1])
+    if cat == "flat":
+        building_fields = [name for name in building_fields if name != "building_series"]
+    building_group = (building_group[0], building_fields)
+
+    flat_fields = list(flat_group[1])
+    if cat != "flat":
+        flat_fields = [name for name in flat_fields if name != "room_type"]
+    flat_group = (flat_group[0], flat_fields)
+
+    flat_group_for_room = (
+        flat_group[0],
+        [name for name in flat_group[1] if name not in {"beds_count"}],
+    )
+
     if cat == "house":
-        groups_definition = base_groups + [house_area_group, engineering_group, amenities_group, bargain_group] + docs_media_contacts
-    elif cat == "room":
-        flat_group_for_room = (
-            flat_group[0],
-            [name for name in flat_group[1] if name not in {"beds_count"}],
+        groups_definition = (
+            base_groups
+            + [house_area_group, engineering_group]
+            + ([amenities_group] if is_rent else [])
+            + [bargain_group, optional_group]
+            + docs_media_contacts
         )
-        groups_definition = base_groups + [flat_group_for_room, room_group, building_group, amenities_group, bargain_group] + docs_media_contacts
+    elif cat == "room":
+        groups_definition = (
+            base_groups
+            + [flat_group_for_room, room_group, building_group]
+            + ([amenities_group] if is_rent else [])
+            + [bargain_group, optional_group]
+            + docs_media_contacts
+        )
     else:
-        groups_definition = base_groups + [flat_group, building_group, amenities_group, bargain_group] + docs_media_contacts
+        groups_definition = (
+            base_groups
+            + [flat_group, building_group]
+            + ([amenities_group] if is_rent else [])
+            + [bargain_group, optional_group]
+            + docs_media_contacts
+        )
 
     field_names_list = list(field_names)
     field_names_set = set(field_names_list)
@@ -461,6 +514,8 @@ class PropertyForm(forms.ModelForm):
         if not cat_from_data:
             cat_from_data = self.initial.get("category", "")
         cat_from_data = str(cat_from_data or "").strip()
+        if cat_from_data.lower() == "house" and "building_floors" in self.fields:
+            self.fields["building_floors"].label = "Этажность дома"
 
         subtype_choices = [
             ("", self.SUBTYPE_PLACEHOLDER)
@@ -564,6 +619,38 @@ class PropertyForm(forms.ModelForm):
             _choices_from_model("building_material"),
         )
         _rebuild_single_choice("house_condition", _choices_from_model("house_condition"))
+
+        parking_field = self.fields.get("building_parking")
+        if parking_field:
+            current_value = _current_value("building_parking")
+            normalized_choices = list(PARKING_UI_CHOICES)
+            existing_values = {
+                value
+                for value, _ in normalized_choices
+                if value not in (None, "")
+            }
+            if current_value not in (None, ""):
+                current_text = str(current_value)
+                if current_text not in existing_values:
+                    normalized_choices.append((current_text, current_text))
+            parking_label = getattr(parking_field, "label", None)
+            if not parking_label:
+                try:
+                    parking_label = (
+                        self._meta.model._meta.get_field("building_parking").verbose_name
+                    )
+                except FieldDoesNotExist:
+                    parking_label = "Парковка"
+            choice_field = forms.ChoiceField(
+                choices=normalized_choices,
+                required=False,
+                label=parking_label,
+                help_text=getattr(parking_field, "help_text", ""),
+            )
+            if getattr(parking_field.widget, "attrs", None):
+                choice_field.widget.attrs.update(parking_field.widget.attrs)
+            self.fields["building_parking"] = choice_field
+            self.base_fields["building_parking"] = choice_field
 
         def has_paren(choices):
             for choice in choices or []:

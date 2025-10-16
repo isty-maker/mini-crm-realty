@@ -15,9 +15,49 @@ except Exception:  # pragma: no cover - fallback parser is used
 from django.conf import settings
 from django.utils.encoding import smart_str
 
+from .models import Property
 from .subtypes import CATEGORY_TO_SUBTYPE_FIELD, PROPERTY_SUBTYPE_CHOICES
 
 log = logging.getLogger(__name__)
+
+
+def _build_choice_aliases(field_name: str) -> Dict[str, str]:
+    try:
+        field = Property._meta.get_field(field_name)
+    except Exception:
+        return {}
+
+    mapping: Dict[str, str] = {}
+    for value, _ in getattr(field, "choices", ()) or []:
+        if value in (None, ""):
+            continue
+        value_str = smart_str(value)
+        mapping[value_str] = value_str
+        mapping[value_str.lower()] = value_str
+    return mapping
+
+
+_PARKING_EXPORT_ALIASES = {
+    "подземная": "подземная",
+    "наземная": "наземная",
+    "многоуровневая": "многоуровневая",
+    "открытая": "открытая",
+    "крытая": "крытая",
+}
+# TODO: Уточнить полный перечень парковок в справочнике ЦИАН, если появятся новые варианты.
+_PARKING_EXPORT_ALIASES = {
+    **_PARKING_EXPORT_ALIASES,
+    **{key.lower(): value for key, value in _PARKING_EXPORT_ALIASES.items()},
+}
+
+
+_FIELD_VALUE_ALIASES: Dict[str, Dict[str, str]] = {
+    "heating_type": _build_choice_aliases("heating_type"),
+    "building_material": _build_choice_aliases("building_material"),
+    "house_condition": _build_choice_aliases("house_condition"),
+    "sale_type": _build_choice_aliases("sale_type"),
+    "building_parking": _PARKING_EXPORT_ALIASES,
+}
 
 
 def _strip_yaml_comments(line: str) -> str:
@@ -216,6 +256,20 @@ def map_value(field: str, raw) -> Optional[str]:
             if mapped is None:
                 return None
             return smart_str(mapped)
+
+    alias_map = _FIELD_VALUE_ALIASES.get(field)
+    if alias_map:
+        if raw is None:
+            raw_text = ""
+        else:
+            raw_text = smart_str(raw).strip()
+        if raw_text in alias_map:
+            return smart_str(alias_map[raw_text])
+        lowered = raw_text.lower()
+        if lowered in alias_map:
+            return smart_str(alias_map[lowered])
+        if field == "building_parking" and raw_text:
+            return raw_text
 
     if isinstance(raw, bool):
         return "true" if raw else "false"
