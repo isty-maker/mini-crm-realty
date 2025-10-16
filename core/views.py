@@ -15,6 +15,7 @@ from django.core.exceptions import FieldDoesNotExist
 from django.core.files.base import ContentFile
 from django.core.management import call_command
 from django.db import connection, transaction
+from django.db.utils import OperationalError, ProgrammingError
 from django.db.migrations.loader import MigrationLoader
 from django.db.models import Max, Q
 from django.http import (
@@ -72,6 +73,12 @@ def _ensure_migrated():
         except Exception:
             # Races are fine if multiple workers call this concurrently.
             pass
+
+
+def _render_db_error(request, exc):
+    if getattr(settings, "DEBUG", False):
+        return render(request, "panel/db_error.html", {"error": str(exc)}, status=503)
+    raise
 
 
 def _short_category(prop) -> str:
@@ -669,88 +676,91 @@ def _panel_form_context(form, prop, photos):
 
 
 def panel_list(request):
-    _ensure_migrated()
+    try:
+        _ensure_migrated()
 
-    q = request.GET.get("q", "").strip()
-    show = request.GET.get("show")
-    include_archived = request.GET.get("include_archived") == "1"
+        q = request.GET.get("q", "").strip()
+        show = request.GET.get("show")
+        include_archived = request.GET.get("include_archived") == "1"
 
-    props = Property.objects.all()
-    if show == "archived":
-        props = props.filter(is_archived=True)
-    elif show == "all" or include_archived:
-        pass
-    else:
-        props = props.filter(is_archived=False)
-
-    if q:
-        tokens = [t for t in re.split(r"\s+", q) if t]
-        for tok in tokens:
-            variants = {tok, tok.lower(), tok.upper(), tok.capitalize()}
-            token_q = Q()
-            for variant in variants:
-                token_q |= (
-                    Q(title__icontains=variant)
-                    | Q(address__icontains=variant)
-                    | Q(external_id__icontains=variant)
-                )
-            props = props.filter(token_q)
-
-    props = props.order_by("-updated_at", "-id")
-    props_list = list(props)
-
-    rows = []
-    for prop in props_list:
-        floor_number = getattr(prop, "floor_number", None)
-        building_floors = getattr(prop, "building_floors", None)
-        has_floor = floor_number not in (None, "")
-        has_building_floors = building_floors not in (None, "")
-        if has_floor and has_building_floors:
-            floors_display = f"{floor_number}/{building_floors}"
-        elif has_floor:
-            floors_display = str(floor_number)
-        elif has_building_floors:
-            floors_display = f"—/{building_floors}"
+        props = Property.objects.all()
+        if show == "archived":
+            props = props.filter(is_archived=True)
+        elif show == "all" or include_archived:
+            pass
         else:
-            floors_display = ""
+            props = props.filter(is_archived=False)
 
-        price_value = getattr(prop, "price", None)
-        raw_price = ""
-        if price_value not in (None, ""):
-            try:
-                raw_price = str(int(Decimal(price_value)))
-            except (InvalidOperation, TypeError, ValueError):
-                raw_price = ""
+        if q:
+            tokens = [t for t in re.split(r"\s+", q) if t]
+            for tok in tokens:
+                variants = {tok, tok.lower(), tok.upper(), tok.capitalize()}
+                token_q = Q()
+                for variant in variants:
+                    token_q |= (
+                        Q(title__icontains=variant)
+                        | Q(address__icontains=variant)
+                        | Q(external_id__icontains=variant)
+                    )
+                props = props.filter(token_q)
 
-        rows.append(
+        props = props.order_by("-updated_at", "-id")
+        props_list = list(props)
+
+        rows = []
+        for prop in props_list:
+            floor_number = getattr(prop, "floor_number", None)
+            building_floors = getattr(prop, "building_floors", None)
+            has_floor = floor_number not in (None, "")
+            has_building_floors = building_floors not in (None, "")
+            if has_floor and has_building_floors:
+                floors_display = f"{floor_number}/{building_floors}"
+            elif has_floor:
+                floors_display = str(floor_number)
+            elif has_building_floors:
+                floors_display = f"—/{building_floors}"
+            else:
+                floors_display = ""
+
+            price_value = getattr(prop, "price", None)
+            raw_price = ""
+            if price_value not in (None, ""):
+                try:
+                    raw_price = str(int(Decimal(price_value)))
+                except (InvalidOperation, TypeError, ValueError):
+                    raw_price = ""
+
+            rows.append(
+                {
+                    "id": prop.pk,
+                    "type": _short_category(prop),
+                    "address": _compact_address(prop) or (getattr(prop, "address", "") or ""),
+                    "full_address": getattr(prop, "address", "") or "",
+                    "external_id": getattr(prop, "external_id", "") or "",
+                    "floors": floors_display,
+                    "created": _format_date(getattr(prop, "created_at", None)),
+                    "updated": _format_date(getattr(prop, "updated_at", None)),
+                    "price_display": _format_price_compact(price_value),
+                    "price_raw": raw_price,
+                    "is_archived": bool(getattr(prop, "is_archived", False)),
+                    "export_to_cian": bool(getattr(prop, "export_to_cian", False)),
+                    "export_to_domklik": bool(getattr(prop, "export_to_domklik", False)),
+                }
+            )
+
+        show_archived_flag = include_archived or show == "all"
+        return render(
+            request,
+            "core/panel_list.html",
             {
-                "id": prop.pk,
-                "type": _short_category(prop),
-                "address": _compact_address(prop) or (getattr(prop, "address", "") or ""),
-                "full_address": getattr(prop, "address", "") or "",
-                "external_id": getattr(prop, "external_id", "") or "",
-                "floors": floors_display,
-                "created": _format_date(getattr(prop, "created_at", None)),
-                "updated": _format_date(getattr(prop, "updated_at", None)),
-                "price_display": _format_price_compact(price_value),
-                "price_raw": raw_price,
-                "is_archived": bool(getattr(prop, "is_archived", False)),
-                "export_to_cian": bool(getattr(prop, "export_to_cian", False)),
-                "export_to_domklik": bool(getattr(prop, "export_to_domklik", False)),
-            }
+                "rows": rows,
+                "q": q,
+                "show": show,
+                "include_archived": show_archived_flag,
+            },
         )
-
-    show_archived_flag = include_archived or show == "all"
-    return render(
-        request,
-        "core/panel_list.html",
-        {
-            "rows": rows,
-            "q": q,
-            "show": show,
-            "include_archived": show_archived_flag,
-        },
-    )
+    except (OperationalError, ProgrammingError) as exc:
+        return _render_db_error(request, exc)
 
 
 @require_POST
@@ -818,33 +828,38 @@ def panel_delete(request, pk):
 
 def panel_new(request):
     """Step 1: choose category/operation for a new object."""
-    _ensure_migrated()
-    if request.method != "GET":
-        return HttpResponseNotAllowed(["GET"])
+    try:
+        _ensure_migrated()
+        if request.method != "GET":
+            return HttpResponseNotAllowed(["GET"])
 
-    cat = (request.GET.get("category") or "").strip()
-    op = (request.GET.get("operation") or "").strip()
-    subtype = (request.GET.get("subtype") or "").strip()
-    if cat:
-        form = PropertyForm(
-            initial={"category": cat, "operation": op, "subtype": subtype}
+        cat = (request.GET.get("category") or "").strip()
+        op = (request.GET.get("operation") or "").strip()
+        subtype = (request.GET.get("subtype") or "").strip()
+        if cat:
+            form = PropertyForm(
+                initial={"category": cat, "operation": op, "subtype": subtype}
+            )
+            return render(
+                request, "core/panel_edit.html", _panel_form_context(form, None, [])
+            )
+
+        form = PropertyForm()
+        subtypes_map_json = json.dumps(
+            PropertyForm.SUBTYPE_CHOICES_MAP,
+            ensure_ascii=False,
         )
-        return render(request, "core/panel_edit.html", _panel_form_context(form, None, []))
-
-    form = PropertyForm()
-    subtypes_map_json = json.dumps(
-        PropertyForm.SUBTYPE_CHOICES_MAP,
-        ensure_ascii=False,
-    )
-    return render(
-        request,
-        "core/panel_new_step1.html",
-        {
-            "form": form,
-            "subtypes_map_json": subtypes_map_json,
-            "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
-        },
-    )
+        return render(
+            request,
+            "core/panel_new_step1.html",
+            {
+                "form": form,
+                "subtypes_map_json": subtypes_map_json,
+                "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
+            },
+        )
+    except (OperationalError, ProgrammingError) as exc:
+        return _render_db_error(request, exc)
 
 
 def panel_create(request):
@@ -874,13 +889,25 @@ def panel_create(request):
 
 
 def panel_edit(request, pk):
-    _ensure_migrated()
-    prop = get_object_or_404(Property, pk=pk)
-    if request.method == "POST":
-        form = PropertyForm(request.POST, request.FILES or None, instance=prop)
-        if form.is_valid():
-            form.save()
-            return redirect("panel_edit", pk=prop.pk)
+    try:
+        _ensure_migrated()
+        prop = get_object_or_404(Property, pk=pk)
+        if request.method == "POST":
+            form = PropertyForm(request.POST, request.FILES or None, instance=prop)
+            if form.is_valid():
+                form.save()
+                return redirect("panel_edit", pk=prop.pk)
+            return render(
+                request,
+                "core/panel_edit.html",
+                _panel_form_context(
+                    form,
+                    prop,
+                    list(prop.photos.order_by("-is_default", "sort", "id")),
+                ),
+                status=200,
+            )
+        form = PropertyForm(instance=prop)
         return render(
             request,
             "core/panel_edit.html",
@@ -889,18 +916,9 @@ def panel_edit(request, pk):
                 prop,
                 list(prop.photos.order_by("-is_default", "sort", "id")),
             ),
-            status=200,
         )
-    form = PropertyForm(instance=prop)
-    return render(
-        request,
-        "core/panel_edit.html",
-        _panel_form_context(
-            form,
-            prop,
-            list(prop.photos.order_by("-is_default", "sort", "id")),
-        ),
-    )
+    except (OperationalError, ProgrammingError) as exc:
+        return _render_db_error(request, exc)
 
 
 def panel_add_photo(request, pk):
