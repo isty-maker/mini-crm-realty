@@ -86,16 +86,6 @@
       {% endwith %}
     </section>
 
-    <section class="group">
-      <h3>Карточка</h3>
-      {% with field=form.title %}
-      <div class="form-row">
-        {{ field.label_tag }} {{ field }}
-        {% include "core/includes/field_errors.html" %}
-      </div>
-      {% endwith %}
-    </section>
-
     {% for group_title, fields in field_groups %}
       <section class="group">
         <h3>{{ group_title }}</h3>
