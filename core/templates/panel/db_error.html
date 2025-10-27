@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+  <article>
+    <h2>Нужны миграции</h2>
+    <p>Похоже, база не соответствует коду. Примените миграции (или перезапустите превью‑контейнер, если авто‑миграция включена).</p>
+    {% if error %}<details><summary>Технические детали</summary><pre>{{ error }}</pre></details>{% endif %}
+  </article>
+{% endblock %}
