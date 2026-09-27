@@ -10,17 +10,20 @@ except ImportError:
 
 
 def is_yandex_storage_configured() -> bool:
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+
     bucket = (
         os.getenv("YANDEX_STORAGE_BUCKET_NAME")
         or os.getenv("AWS_STORAGE_BUCKET_NAME")
         or getattr(settings, "YANDEX_STORAGE_BUCKET_NAME", "")
-    )
+    ) or ""
     key_id = (
         os.getenv("YANDEX_CLIENT_KEY_ID")
         or os.getenv("AWS_ACCESS_KEY_ID")
         or getattr(settings, "YANDEX_CLIENT_KEY_ID", "")
-    )
-    return bool(bucket and key_id)
+    ) or ""
+    return bool(bucket.strip() and key_id.strip())
 
 
 @deconstructible
