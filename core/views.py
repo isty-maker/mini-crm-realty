@@ -1115,60 +1115,52 @@ def panel_photos_bulk_delete(request):
 
 def export_cian(request):
     _ensure_migrated()
-    # В фид попадают только отмеченные для выгрузки
+    from core.management.commands.generate_cian_feed import generate_and_save_feed
+    from core.storage import is_yandex_storage_configured
+
+    feed_url = generate_and_save_feed("cian.xml", "export_to_cian")
+    if is_yandex_storage_configured() and feed_url.startswith("http"):
+        return redirect(feed_url)
+
+    feeds_dir = os.path.join(settings.MEDIA_ROOT, "feeds")
+    out_path = os.path.join(feeds_dir, "cian.xml")
+    if os.path.exists(out_path):
+        with open(out_path, "rb") as fh:
+            xml_bytes = fh.read()
+        return HttpResponse(xml_bytes, content_type="application/xml; charset=utf-8")
+
     qs = (
         Property.objects.filter(export_to_cian=True, is_archived=False)
         .order_by("id")
         .prefetch_related("photos")
     )
     feed_result = build_cian_feed(qs)
-    xml_bytes = feed_result.xml
-
-    strict_mode = (request.GET.get("strict") or "").strip() == "1"
-    if settings.DEBUG or strict_mode:
-        uncovered = [
-            (result.prop, sorted(result.uncovered_fields))
-            for result in feed_result.objects
-            if result.uncovered_fields
-        ]
-        if uncovered:
-            export_log = logging.getLogger("core.cian.export")
-            for prop_obj, fields in uncovered:
-                identifier = getattr(prop_obj, "external_id", None) or getattr(
-                    prop_obj, "pk", None
-                )
-                export_log.warning(
-                    "CIAN export uncovered fields for %s: %s",
-                    identifier,
-                    ", ".join(fields),
-                )
-
-    feeds_dir = os.path.join(settings.MEDIA_ROOT, "feeds")
-    os.makedirs(feeds_dir, exist_ok=True)
-    out_path = os.path.join(feeds_dir, "cian.xml")
-    with open(out_path, "wb") as fh:
-        fh.write(xml_bytes)
-
-    return HttpResponse(xml_bytes, content_type="application/xml; charset=utf-8")
+    return HttpResponse(feed_result.xml, content_type="application/xml; charset=utf-8")
 
 
 def export_domklik(request):
     _ensure_migrated()
+    from core.management.commands.generate_cian_feed import generate_and_save_feed
+    from core.storage import is_yandex_storage_configured
+
+    feed_url = generate_and_save_feed("domklik.xml", "export_to_domklik")
+    if is_yandex_storage_configured() and feed_url.startswith("http"):
+        return redirect(feed_url)
+
+    feeds_dir = os.path.join(settings.MEDIA_ROOT, "feeds")
+    out_path = os.path.join(feeds_dir, "domklik.xml")
+    if os.path.exists(out_path):
+        with open(out_path, "rb") as fh:
+            xml_bytes = fh.read()
+        return HttpResponse(xml_bytes, content_type="application/xml; charset=utf-8")
+
     qs = (
         Property.objects.filter(export_to_domklik=True, is_archived=False)
         .order_by("id")
         .prefetch_related("photos")
     )
     feed_result = build_cian_feed(qs)
-    xml_bytes = feed_result.xml
-
-    feeds_dir = os.path.join(settings.MEDIA_ROOT, "feeds")
-    os.makedirs(feeds_dir, exist_ok=True)
-    out_path = os.path.join(feeds_dir, "domklik.xml")
-    with open(out_path, "wb") as fh:
-        fh.write(xml_bytes)
-
-    return HttpResponse(xml_bytes, content_type="application/xml; charset=utf-8")
+    return HttpResponse(feed_result.xml, content_type="application/xml; charset=utf-8")
 
 
 def export_cian_check(request):

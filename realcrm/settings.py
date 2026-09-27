@@ -152,6 +152,17 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Общий секретный ключ доступа к панели (НЕ публиковать)
 SHARED_KEY = os.getenv("SHARED_KEY", "")
 
+# Yandex Object Storage configuration
+YANDEX_CLIENT_KEY_ID = os.getenv("YANDEX_CLIENT_KEY_ID", "")
+YANDEX_CLIENT_SECRET_KEY = os.getenv("YANDEX_CLIENT_SECRET_KEY", "")
+YANDEX_STORAGE_BUCKET_NAME = os.getenv("YANDEX_STORAGE_BUCKET_NAME", "")
+YANDEX_STORAGE_REGION = os.getenv("YANDEX_STORAGE_REGION", "ru-central1")
+YANDEX_S3_ENDPOINT_URL = os.getenv("YANDEX_S3_ENDPOINT_URL", "https://storage.yandexcloud.net")
+YANDEX_STORAGE_CUSTOM_DOMAIN = os.getenv("YANDEX_STORAGE_CUSTOM_DOMAIN", "")
+
+if YANDEX_STORAGE_BUCKET_NAME and YANDEX_CLIENT_KEY_ID:
+    DEFAULT_FILE_STORAGE = "core.storage.YandexMediaStorage"
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
