@@ -16,6 +16,12 @@ RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/mai
 [README.md]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/README.md
 
+[conftest.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/conftest.py
+
+[db.sqlite3]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/db.sqlite3
+
 [gist_uploader.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/gist_uploader.py
 
@@ -62,6 +68,12 @@ RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/mai
 [core/models.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/models.py
 
+[core/storage.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/storage.py
+
+[core/subtypes.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/subtypes.py
+
 [core/urls.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/urls.py
 
@@ -78,6 +90,9 @@ RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/mai
 [core/management/commands/__init__.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/management/commands/__init__.py
 
+[core/management/commands/cian_matrix.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/management/commands/cian_matrix.py
+
 [core/management/commands/export_yandex.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/management/commands/export_yandex.py
 
@@ -86,6 +101,12 @@ RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/mai
 
 [core/management/commands/generate_cian_feed.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/management/commands/generate_cian_feed.py
+
+[core/management/commands/migrate_photos_to_yandex.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/management/commands/migrate_photos_to_yandex.py
+
+[core/management/commands/purge_local_media_backup.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/management/commands/purge_local_media_backup.py
 
 [core/management/commands/recompress_photos.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/management/commands/recompress_photos.py
@@ -124,6 +145,18 @@ RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/mai
 [core/migrations/0007_property_sale_type_alter_property_room_type.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/migrations/0007_property_sale_type_alter_property_room_type.py
 
+[core/migrations/0008_property_agent_fee_property_bargain_allowed_and_more.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/migrations/0008_property_agent_fee_property_bargain_allowed_and_more.py
+
+[core/migrations/0009_property_has_drainage_property_has_gas_and_more.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/migrations/0009_property_has_drainage_property_has_gas_and_more.py
+
+[core/migrations/0010_property_room_area.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/migrations/0010_property_room_area.py
+
+[core/migrations/0011_alter_photo_image.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/migrations/0011_alter_photo_image.py
+
 [core/migrations/__init__.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/migrations/__init__.py
 
@@ -131,6 +164,9 @@ RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/mai
 
 [core/static/core/form.js]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/static/core/form.js
+
+[core/static/core/panel.css]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/static/core/panel.css
 
 ## core/templates
 
@@ -164,6 +200,9 @@ RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/mai
 [core/tests/__init__.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/tests/__init__.py
 
+[core/tests/test_cadastral_number.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/tests/test_cadastral_number.py
+
 [core/tests/test_cian_check.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/tests/test_cian_check.py
 
@@ -175,6 +214,9 @@ RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/mai
 
 [core/tests/test_cian_mapping.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/tests/test_cian_mapping.py
+
+[core/tests/test_cian_mapping_exact.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/tests/test_cian_mapping_exact.py
 
 [core/tests/test_create_page.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/tests/test_create_page.py
@@ -212,6 +254,9 @@ RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/mai
 [core/tests/test_smoke.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/tests/test_smoke.py
 
+[core/tests/test_ui_category_scoping.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/core/tests/test_ui_category_scoping.py
+
 ## core/utils
 
 [core/utils/image_pipeline.py]
@@ -248,6 +293,9 @@ RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/mai
 [docs/deploy_pythonanywhere.md]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/docs/deploy_pythonanywhere.md
 
+[docs/deploy_yandex_storage.md]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/docs/deploy_yandex_storage.md
+
 [docs/repo-hygiene.md]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/docs/repo-hygiene.md
 
@@ -255,6 +303,54 @@ RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/mai
 
 [docs/logs/latest-error.log]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/docs/logs/latest-error.log
+
+## media/feeds
+
+[media/feeds/cian.xml]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/media/feeds/cian.xml
+
+## media/logs
+
+[media/logs/upload_errors.log]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/media/logs/upload_errors.log
+
+## media/photos/2026/09/27
+
+[media/photos/2026/09/27/big.jpg]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/media/photos/2026/09/27/big.jpg
+
+[media/photos/2026/09/27/big_AVzHy0D.jpg]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/media/photos/2026/09/27/big_AVzHy0D.jpg
+
+[media/photos/2026/09/27/big_rCFP289.jpg]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/media/photos/2026/09/27/big_rCFP289.jpg
+
+[media/photos/2026/09/27/big_sKrhAXh.jpg]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/media/photos/2026/09/27/big_sKrhAXh.jpg
+
+[media/photos/2026/09/27/photo.jpg]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/media/photos/2026/09/27/photo.jpg
+
+[media/photos/2026/09/27/photo_LhPyIqs.jpg]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/media/photos/2026/09/27/photo_LhPyIqs.jpg
+
+[media/photos/2026/09/27/photo_nVldYgp.jpg]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/media/photos/2026/09/27/photo_nVldYgp.jpg
+
+[media/photos/2026/09/27/photo_onbASIm.jpg]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/media/photos/2026/09/27/photo_onbASIm.jpg
+
+[media/photos/2026/09/27/test.jpg]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/media/photos/2026/09/27/test.jpg
+
+[media/photos/2026/09/27/test_9lQeaMs.jpg]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/media/photos/2026/09/27/test_9lQeaMs.jpg
+
+[media/photos/2026/09/27/test_D3nbEpx.jpg]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/media/photos/2026/09/27/test_D3nbEpx.jpg
+
+[media/photos/2026/09/27/test_duVfeQB.jpg]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/media/photos/2026/09/27/test_duVfeQB.jpg
 
 ## realcrm
 
@@ -278,6 +374,12 @@ RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/mai
 [scripts/__init__.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/scripts/__init__.py
 
+[scripts/run_tests.sh]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/scripts/run_tests.sh
+
+[scripts/run_tests_locally.sh]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/scripts/run_tests_locally.sh
+
 [scripts/update_code_index.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/scripts/update_code_index.py
 
@@ -294,5 +396,44 @@ RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/mai
 [tests/test_cian_feed_v2.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/tests/test_cian_feed_v2.py
 
+[tests/test_cian_flat_fields.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/tests/test_cian_flat_fields.py
+
+[tests/test_cian_flat_rent_beds_and_terms.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/tests/test_cian_flat_rent_beds_and_terms.py
+
+[tests/test_cian_house_utilities_and_condition.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/tests/test_cian_house_utilities_and_condition.py
+
+[tests/test_cian_mapping_coverage.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/tests/test_cian_mapping_coverage.py
+
+[tests/test_cian_sections_full_alignment.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/tests/test_cian_sections_full_alignment.py
+
+[tests/test_cian_sections_smoke.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/tests/test_cian_sections_smoke.py
+
+[tests/test_env_smoke.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/tests/test_env_smoke.py
+
+[tests/test_forms_cover_all_tags.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/tests/test_forms_cover_all_tags.py
+
+[tests/test_mapping_coverage_all_fields.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/tests/test_mapping_coverage_all_fields.py
+
 [tests/test_photos.py]
 RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/tests/test_photos.py
+
+[tests/test_photos_delete_storage.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/tests/test_photos_delete_storage.py
+
+[tests/test_ui_category_scoping.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/tests/test_ui_category_scoping.py
+
+[tests/test_ui_category_sets.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/tests/test_ui_category_sets.py
+
+[tests/test_ui_fields_by_category.py]
+RAW: https://raw.githubusercontent.com/isty-maker/mini-crm-realty/refs/heads/main/tests/test_ui_fields_by_category.py
