@@ -1,11 +1,16 @@
 # core/models.py
 import builtins
+import os
 import random
 
+from django.conf import settings
+from django.core.files.storage import FileSystemStorage
 from django.db import models
 from django.db.models.signals import post_delete, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
+
+from .storage import YandexMediaStorage
 
 
 def gen_external_id():
@@ -352,7 +357,7 @@ class Photo(models.Model):
         "Property", related_name="photos", on_delete=models.CASCADE
     )
     image = models.ImageField(
-        upload_to="photos/%Y/%m/%d", null=True, blank=True
+        upload_to="photos/%Y/%m/%d", storage=YandexMediaStorage(), null=True, blank=True
     )
     full_url = models.URLField(null=True, blank=True)
     is_default = models.BooleanField(default=False)
@@ -421,10 +426,18 @@ def delete_photo_image_on_delete(sender, instance, **kwargs):
         return
     storage = getattr(image, "storage", None)
     name = getattr(image, "name", None)
-    if not storage or not name:
+    if not name:
         return
+    if storage:
+        try:
+            storage.delete(name)
+        except Exception:
+            pass
+    # Also attempt local file cleanup if a copy exists under MEDIA_ROOT
     try:
-        storage.delete(name)
+        local_path = os.path.join(settings.MEDIA_ROOT, name)
+        if os.path.exists(local_path):
+            os.remove(local_path)
     except Exception:
         pass
 
