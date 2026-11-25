@@ -260,6 +260,16 @@ class PropertySectionTests(TestCase):
         prop.refresh_from_db()
         self.assertEqual(prop.cadastral_number, "SYNTHETIC-CHANGED")
         self.assertTrue(prop.export_to_cian)
+        fresh = client.get(url)
+        unchecked = client.post(url, {"csrfmiddlewaretoken": csrf, "edit_version": fresh.context["edit_version"],
+                                      "export_to_cian": "false", "flat_number": ""}, follow=True)
+        self.assertRedirects(unchecked, url)
+        prop.refresh_from_db()
+        self.assertFalse(prop.export_to_cian)
+        self.assertFalse(prop.export_to_domklik)
+        self.assertFalse(prop.flat_number)
+        self.assertEqual(prop.description, "Синтетическое описание")
+        self.assertEqual(prop.cadastral_number, "SYNTHETIC-CHANGED")
 
     def test_full_editor_detects_card_update_and_preserves_draft(self):
         opened = self.client.get(self.edit).context["edit_version"]
