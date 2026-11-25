@@ -8,10 +8,17 @@ class APIMigrationTests(TransactionTestCase):
         executor = MigrationExecutor(connection)
         latest = executor.loader.graph.leaf_nodes()
         self.addCleanup(lambda: MigrationExecutor(connection).migrate(latest))
+        prior = ("crm_api", "0001_initial")
         executor.migrate([("crm_api", None)])
-        existing_state = executor.loader.project_state([node for node in latest if node[0] != "crm_api"]).apps
+        executor = MigrationExecutor(connection)
+        executor.migrate([prior])
+        existing_state = executor.loader.project_state([node for node in latest if node[0] != "crm_api"] + [prior]).apps
         existing = existing_state.get_model("core", "Property").objects.create(
             external_id="api-synthetic-migration", price=100, export_to_cian=True, export_to_domklik=False,
+        )
+        employee = existing_state.get_model("auth", "User").objects.create(username="migration-fixture", is_staff=True)
+        old_key = existing_state.get_model("crm_api", "AccessKey").objects.create(
+            user_id=employee.pk, digest="1" * 64, label="Old test key", can_write=True,
         )
         executor = MigrationExecutor(connection)
         executor.migrate(latest)
@@ -20,4 +27,6 @@ class APIMigrationTests(TransactionTestCase):
         self.assertEqual(record.price, 100)
         self.assertTrue(record.export_to_cian)
         self.assertFalse(record.export_to_domklik)
-        self.assertFalse(state.get_model("crm_api", "AccessKey").objects.exists())
+        key = state.get_model("crm_api", "AccessKey").objects.get(pk=old_key.pk)
+        self.assertFalse(key.can_identify)
+        self.assertEqual(key.issued_for, "")

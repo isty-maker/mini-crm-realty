@@ -234,13 +234,16 @@ class PassportAPITests(TestCase):
             outputs = [public.get(feed).content for feed in feeds]
             self.api.get(url, secure=True)
             self.assertEqual(outputs, [public.get(feed).content for feed in feeds])
-            saved = self.patch(url, {"listing": {"price": "130.75"},
+            saved = self.patch(url, {"listing": {"price": "130.75", "cadastral_number": "00:00:9999999:987",
+                                                       "flat_number": "API-UNIT-SYNTHETIC"},
                                     "workspace": {"legal": {"legal_comments": "NEVER-IN-FEED"}}}, snapshot["ETag"])
             self.assertEqual(saved.status_code, 200)
             for feed in feeds:
                 xml = public.get(feed).content
                 self.assertIn(b"<Price>130.75</Price>", xml)
                 self.assertNotIn(b"NEVER-IN-FEED", xml)
+                self.assertIn(b"<CadastralNumber>00:00:9999999:987</CadastralNumber>", xml)
+                self.assertIn(b"<Apartment>API-UNIT-SYNTHETIC</Apartment>", xml)
                 self.assertLess(xml.index(b"first.jpg"), xml.index(b"last.jpg"))
         prop.refresh_from_db()
         self.assertTrue(prop.export_to_cian and prop.export_to_domklik)

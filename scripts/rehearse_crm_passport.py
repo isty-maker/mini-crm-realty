@@ -5,9 +5,9 @@ import json
 import os
 import ssl
 from pathlib import Path
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, HTTPSHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, HTTPSHandler, ProxyHandler, Request, build_opener
 
 
 class NoRedirects(HTTPRedirectHandler):
@@ -18,7 +18,7 @@ class NoRedirects(HTTPRedirectHandler):
 class CRM:
     def __init__(self, origin, cafile, token):
         self.root = origin.rstrip("/") + "/api/v1/"
-        self.http = build_opener(NoRedirects(), HTTPSHandler(context=ssl.create_default_context(cafile=cafile)))
+        self.http = build_opener(NoRedirects(), ProxyHandler({}), HTTPSHandler(context=ssl.create_default_context(cafile=cafile)))
         self.token = token
 
     def request(self, path, method="GET", data=None, *, etag=None, request_key=None):
@@ -36,6 +36,8 @@ class CRM:
                 return json.load(response), response.headers.get("ETag")
         except HTTPError as error:
             raise SystemExit(f"{method} {path}: HTTP {error.code}. Re-read and review before retrying.") from None
+        except URLError:
+            raise SystemExit("Cannot reach localhost over verified HTTPS. Check the listener and CA file.") from None
 
 
 def patch_object(api, path, data, expected, apply):
