@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Фотографии — Мини-CRM{% endblock %}
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'core/property_detail.css' %}">
+{% endblock %}
+{% block content %}
+<div class="property-detail">
+  <nav class="property-navigation" aria-label="Навигация по объекту">
+    <a class="property-back" href="{% url 'panel_detail' prop.pk %}">← К объекту</a>
+  </nav>
+  <header class="property-heading">
+    <h1>Фотографии</h1>
+    {% if prop.address.strip %}<p>{{ prop.address.strip }}</p>{% endif %}
+  </header>
+  {% if photo_urls %}
+    <div class="property-gallery">
+      {% for url in photo_urls %}
+        <a href="{{ url }}" target="_blank" rel="noopener noreferrer"
+           aria-label="Открыть фото {{ forloop.counter }} в новой вкладке">
+          <img src="{{ url }}" alt="Фото объекта {{ forloop.counter }}" loading="lazy"
+               referrerpolicy="no-referrer" decoding="async">
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="property-empty">Фотографии не добавлены.</p>
+  {% endif %}
+</div>
+{% endblock %}

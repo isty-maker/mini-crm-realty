@@ -1,0 +1,19 @@
+<form method="post" action="{% url 'panel_detail_section' prop.pk panel.key %}">
+  {% csrf_token %}
+  <input type="hidden" name="version" value="{{ panel.version }}">
+  {{ panel.form.non_field_errors }}
+  <div class="property-form-grid">
+    {% for field in panel.form %}
+      <div class="property-field">
+        {{ field.label_tag }}
+        {{ field }}
+        {% if field.help_text %}<small id="{{ field.auto_id }}_helptext">{{ field.help_text }}</small>{% endif %}
+        {{ field.errors }}
+      </div>
+    {% endfor %}
+  </div>
+  <div class="property-actions">
+    <button class="btn btn-sm" type="submit">Сохранить</button>
+    <a class="property-text-action" href="{% url 'panel_detail' prop.pk %}#section-{{ panel.key }}">Отмена</a>
+  </div>
+</form>

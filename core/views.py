@@ -18,13 +18,17 @@ from django.db import connection, transaction
 from django.db.migrations.loader import MigrationLoader
 from django.db.models import Max, Q
 from django.http import (
+    Http404,
     HttpResponse,
+    HttpResponseBadRequest,
     HttpResponseNotAllowed,
     JsonResponse,
 )
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.crypto import constant_time_compare
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST, require_safe
 
@@ -52,7 +56,10 @@ from .cian import build_cian_feed, resolve_category
 from .forms import PropertyForm, fields_for_category, group_fields
 from .models import Photo, Property
 from .price_history import price_history_context, with_recent_prices
-from .property_detail import media_url, property_facts
+from .property_detail import (
+    PropertySectionForm, display_fields, editable_sections, media_url, save_section, section_version,
+)
+from .property_validation import validate_listing_value
 from .templatetags.price_display import price_display
 from .utils.image_pipeline import InvalidImage, compress_to_jpeg
 
@@ -760,6 +767,7 @@ def panel_update_price(request, pk):
     if raw:
         try:
             value = Property._meta.get_field("price").clean(Decimal(raw), prop)
+            validate_listing_value("price", value)
         except (InvalidOperation, ValidationError):
             return JsonResponse({"ok": False, "error": "invalid_price"}, status=400)
     else:
@@ -877,19 +885,70 @@ def panel_create(request):
     )
 
 
-@require_safe
-def panel_detail(request, pk):
-    prop = get_object_or_404(Property, pk=pk)
-    photo_urls = [url for photo in prop.photos.all() if (url := media_url(photo.src))]
+def _render_property_detail(request, prop, *, active="", form=None, conflict=False, status=200):
+    sections = editable_sections(prop)
+    section = sections.get(active)
+    if section and form is None and not conflict:
+        form = PropertySectionForm(prop, section)
+    panels = {
+        key: {"key": key, "title": item.title, "rows": display_fields(prop, item),
+              "form": form if key == active else None,
+              "version": section_version(prop, item) if key == active and form is not None else "",
+              "conflict": conflict and key == active}
+        for key, item in sections.items()
+    }
+    has_photos = prop.photos.exclude(
+        Q(image__isnull=True) | Q(image=""), Q(full_url__isnull=True) | Q(full_url="")
+    ).exists()
     return render(request, "core/panel_detail.html", {
         "prop": prop,
         "address": prop.address.strip(),
-        "facts": property_facts(prop),
-        "photo_urls": photo_urls,
+        "panels": panels,
+        "active": active,
+        "has_photos": has_photos,
         "layout_url": media_url(prop.layout_photo_url),
         "description": prop.description.strip(),
         **price_history_context(prop),
-    })
+    }, status=status)
+
+
+@require_safe
+def panel_detail(request, pk):
+    prop = get_object_or_404(Property, pk=pk)
+    return _render_property_detail(request, prop, active=request.GET.get("edit", ""))
+
+
+@require_POST
+def panel_detail_section(request, pk, section_key):
+    prop = get_object_or_404(Property, pk=pk)
+    section = editable_sections(prop).get(section_key)
+    if not section:
+        raise Http404
+    if len(request.POST.getlist("version")) != 1:
+        return HttpResponseBadRequest("Требуется версия раздела.")
+    version = request.POST["version"]
+    if not constant_time_compare(version, section_version(prop, section)):
+        return _render_property_detail(request, prop, active=section_key, conflict=True, status=409)
+    submitted = set(request.POST) - {"csrfmiddlewaretoken", "version"}
+    if submitted != set(section.fields) or any(len(request.POST.getlist(name)) != 1 for name in submitted):
+        return HttpResponseBadRequest("Неверный набор полей раздела.")
+    form = PropertySectionForm(prop, section, request.POST)
+    if not form.is_valid():
+        return _render_property_detail(request, prop, active=section_key, form=form, status=422)
+    changes = form.changed_values()
+    if not save_section(prop, section, version, changes):
+        prop = get_object_or_404(Property, pk=pk)
+        return _render_property_detail(request, prop, active=section_key, conflict=True, status=409)
+    if changes:
+        messages.success(request, "Изменения сохранены.")
+    return redirect(reverse("panel_detail", args=[pk]) + f"#section-{section_key}")
+
+
+@require_safe
+def panel_property_gallery(request, pk):
+    prop = get_object_or_404(Property, pk=pk)
+    photo_urls = [url for photo in prop.photos.all() if (url := media_url(photo.src))]
+    return render(request, "core/panel_property_gallery.html", {"prop": prop, "photo_urls": photo_urls})
 
 
 def panel_edit(request, pk):

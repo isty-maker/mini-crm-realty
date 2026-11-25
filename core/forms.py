@@ -5,6 +5,7 @@ from django import forms
 from django.core.exceptions import FieldDoesNotExist
 
 from .cian import load_registry
+from .property_validation import NONNEGATIVE_LISTING_FIELDS, required_listing_fields, validate_listing_value
 from .models import Property, Photo
 from .subtypes import CATEGORY_TO_SUBTYPE_FIELD, PROPERTY_SUBTYPE_CHOICES
 
@@ -766,19 +767,15 @@ class PropertyForm(forms.ModelForm):
                 "Уточните тип комнаты (если применимо).",
             )
 
-        if category in {"flat", "room", "house"} and not cleaned_data.get("total_area"):
-            self.add_error("total_area", "Укажите общую площадь (TotalArea).")
+        for name, error in required_listing_fields(category, operation).items():
+            if need(name) and not cleaned_data.get(name):
+                self.add_error(name, error)
 
-        if (
-            category == "room"
-            and operation == "sale"
-            and need("rooms_for_sale_count")
-            and not cleaned_data.get("rooms_for_sale_count")
-        ):
-            self.add_error(
-                "rooms_for_sale_count",
-                "Для продажи комнаты укажите «Комнат продаётся».",
-            )
+        for name in NONNEGATIVE_LISTING_FIELDS.intersection(cleaned_data, self.changed_data):
+            try:
+                validate_listing_value(name, cleaned_data[name])
+            except forms.ValidationError as error:
+                self.add_error(name, error)
 
         status_value = (cleaned_data.get("status") or "").strip()
         if not status_value:
