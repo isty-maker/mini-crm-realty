@@ -52,7 +52,7 @@
   padding-top: .4rem;
   margin-bottom: 0;
 }
-.price-history-details { margin-top: .45rem; }
+.price-history-details { margin-top: .45rem; max-width: 32rem; }
 .price-history-details summary { cursor: pointer; }
 .price-history-chart { margin: .5rem 0; max-width: 28rem; }
 .price-history-chart svg { display: block; width: 100%; color: #295ea1; }

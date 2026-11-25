@@ -52,6 +52,7 @@ from .cian import build_cian_feed, resolve_category
 from .forms import PropertyForm, fields_for_category, group_fields
 from .models import Photo, PriceHistory, Property
 from .price_history import chart_points, with_recent_prices
+from .templatetags.price_display import price_display
 from .utils.image_pipeline import InvalidImage, compress_to_jpeg
 
 
@@ -178,17 +179,6 @@ def _compact_address(prop) -> str:
         return ", ".join(components)
 
     return cleaned_base
-
-
-def _format_price_compact(value) -> str:
-    if value in (None, ""):
-        return "—"
-    try:
-        quantized = Decimal(value)
-    except (InvalidOperation, TypeError):
-        return "—"
-    amount = f"{quantized:,.2f}".removesuffix(".00")
-    return amount.replace(",", " ").replace(".", ",")
 
 
 def _format_phone_10(value: str) -> str:
@@ -742,7 +732,7 @@ def panel_list(request):
                 "floors": floors_display,
                 "created": _format_date(getattr(prop, "created_at", None)),
                 "updated": _format_date(getattr(prop, "updated_at", None)),
-                "price_display": _format_price_compact(price_value),
+                "price_display": price_display(price_value),
                 "price_raw": format(price_value, "f") if price_value is not None else "",
                 "price_changes": prop.recent_price_changes,
                 "price_origin": next(iter(prop.price_origins), None),
@@ -789,8 +779,8 @@ def panel_update_price(request, pk):
     return JsonResponse({
         "ok": True,
         "price": format(prop.price, "f") if prop.price is not None else "",
-        "price_display": _format_price_compact(prop.price),
-        "price_formatted": _format_price_compact(prop.price),
+        "price_display": price_display(prop.price),
+        "price_formatted": price_display(prop.price),
         "history_html": render_to_string("core/includes/price_history_popup.html", {
             "row": {
                 "id": prop.pk,

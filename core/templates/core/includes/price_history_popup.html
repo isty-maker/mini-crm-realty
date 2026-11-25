@@ -1,3 +1,4 @@
+{% load price_display %}
 <button type="button" class="price-history-trigger" popovertarget="price-history-{{ row.id }}"
         aria-label="История цены" title="История цены">↺</button>
 <div class="price-history-popup" id="price-history-{{ row.id }}" popover role="region" tabindex="0" aria-label="Последние изменения цены">
@@ -8,7 +9,7 @@
   {% if entry %}
     <small class="price-history-latest">
       {% if entry.delta != None %}
-        {% if entry.delta > 0 %}↑ +{% else %}↓ {% endif %}{{ entry.delta }}
+        {% if entry.delta > 0 %}↑ +{% else %}↓ {% endif %}{{ entry.delta|price_display }}
       {% elif entry.new_price != None %}
         ↑ Цена задана
       {% else %}

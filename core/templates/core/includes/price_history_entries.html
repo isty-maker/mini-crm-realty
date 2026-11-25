@@ -1,9 +1,10 @@
+{% load price_display %}
 {% if price_changes %}
 <ol class="price-history-entries">
   {% for entry in price_changes %}
     <li>
       <time datetime="{{ entry.recorded_at|date:'c' }}">{{ entry.recorded_at|date:"d.m.Y H:i:s" }}</time>
-      <span>{{ entry.previous_price|default_if_none:"—" }} → {{ entry.new_price|default_if_none:"—" }}{% if entry.delta != None %} ({% if entry.delta > 0 %}+{% endif %}{{ entry.delta }}){% endif %}</span>
+      <span>{{ entry.previous_price|price_display }} → {{ entry.new_price|price_display }}{% if entry.delta != None %} ({% if entry.delta > 0 %}+{% endif %}{{ entry.delta|price_display }}){% endif %}</span>
     </li>
   {% endfor %}
 </ol>
@@ -13,7 +14,7 @@
 {% if price_origin %}
 <p class="price-history-origin">
   Исходная цена ({{ price_origin.get_kind_display|lower }})<br>
-  {{ price_origin.new_price|default_if_none:"—" }} ·
+  {{ price_origin.new_price|price_display }} ·
   <time datetime="{{ price_origin.recorded_at|date:'c' }}">{{ price_origin.recorded_at|date:"d.m.Y H:i:s" }}</time>
 </p>
 {% endif %}
