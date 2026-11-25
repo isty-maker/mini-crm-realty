@@ -784,7 +784,7 @@ def panel_update_price(request, pk):
 
     fields = ("price", "currency")
     version = request.POST.get("version")
-    if version is not None and not version_matches(prop, "quick-price", fields, version):
+    if (version is not None or settings.CRM_REQUIRE_STAFF_LOGIN) and not version_matches(prop, "quick-price", fields, version or ""):
         return JsonResponse({"ok": False, "error": "conflict", "current": price_display(prop.price)}, status=409)
     changes = {"price": value} if prop.price != value else {}
     if not update_property(prop, fields, changes):
@@ -816,7 +816,7 @@ def panel_toggle_archive(request, pk):
     version = request.POST.get("version")
     archived = not prop.is_archived
     changes = {"is_archived": archived, "status": "archived" if archived else "active"}
-    if ((version is not None and not version_matches(prop, "archive", fields, version))
+    if (((version is not None or settings.CRM_REQUIRE_STAFF_LOGIN) and not version_matches(prop, "archive", fields, version or ""))
             or not update_property(prop, fields, changes)):
         prop.refresh_from_db(fields=["is_archived"])
         return JsonResponse({"ok": False, "error": "conflict", "is_archived": prop.is_archived}, status=409)
@@ -834,7 +834,7 @@ def _toggle_export(request, pk, field):
     fields = (field,)
     version = request.POST.get("version")
     current = getattr(prop, field)
-    if ((from_card or version is not None) and not version_matches(prop, field, fields, version or "")) or not (
+    if ((from_card or version is not None or settings.CRM_REQUIRE_STAFF_LOGIN) and not version_matches(prop, field, fields, version or "")) or not (
         update_property(prop, fields, {field: not current})
     ):
         if from_card:

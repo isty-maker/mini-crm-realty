@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -28,10 +29,27 @@ def _env_list(name: str):
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-61n*lr7yf!1b5_#!esu6a$@q#@9nknvj18hi+y4noq165ixn3o'
+CRM_REQUIRE_STAFF_LOGIN = os.getenv("CRM_REQUIRE_STAFF_LOGIN", "").lower() in {"1", "true"}
+staff_signing_key = os.getenv("DJANGO_SECRET_KEY", "")
+if CRM_REQUIRE_STAFF_LOGIN and (len(staff_signing_key) < 50 or staff_signing_key.startswith("django-insecure-")):
+    raise ImproperlyConfigured("Configure DJANGO_SECRET_KEY before enabling CRM staff login.")
+SECRET_KEY = staff_signing_key or "django-insecure-local-preview-only"
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+if CRM_REQUIRE_STAFF_LOGIN and DEBUG:
+    raise ImproperlyConfigured("Disable DEBUG before enabling CRM staff login.")
+SESSION_COOKIE_SECURE = CRM_REQUIRE_STAFF_LOGIN
+CSRF_COOKIE_SECURE = CRM_REQUIRE_STAFF_LOGIN
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+CRM_STAFF_SESSION_DAYS = int(os.getenv("CRM_STAFF_SESSION_DAYS", "90"))
+if not 1 <= CRM_STAFF_SESSION_DAYS <= 180:
+    raise ImproperlyConfigured("CRM_STAFF_SESSION_DAYS must be between 1 and 180.")
+if os.getenv("CRM_TRUST_PROXY_HTTPS") == "1":
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"] + _env_list("ALLOWED_HOSTS")
 
@@ -46,6 +64,7 @@ FEED_PUBLIC_BASE_URL = os.getenv("FEED_PUBLIC_BASE_URL", "").rstrip("/")
 # Application definition
 
 INSTALLED_APPS = [
+    "crm_access",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -69,6 +88,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.staff_access.StaffAccessMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]

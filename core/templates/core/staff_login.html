@@ -1,0 +1,31 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+  <title>Подтверждение входа — Мини-CRM</title>
+  <script defer src="{% static 'core/staff_invitation.js' %}"></script>
+  <style>
+    body { font: 16px system-ui,sans-serif; color: #182941; background: #f4f7fc; margin: 0; }
+    main { box-sizing: border-box; max-width: 32rem; margin: 12vh auto; padding: 1.5rem; }
+    h1 { font-size: 1.55rem; }
+    button { background: #2456a8; color: white; border: 0; border-radius: .4rem; padding: .8rem 1rem; font: inherit; }
+    button:disabled { opacity: .55; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Подтвердите вход сотрудника</h1>
+    <p>CRM запомнит вход в этом браузере. Используйте личное устройство.</p>
+    {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+    <p id="missing">Откройте ссылку из приглашения сотрудника.</p>
+    <form method="post" action="{% url 'crm_staff_login' %}">
+      {% csrf_token %}
+      <input id="invitation" type="hidden" name="invitation" value="">
+      <button id="confirm" type="submit" disabled>Подтвердить вход</button>
+    </form>
+  </main>
+</body>
+</html>

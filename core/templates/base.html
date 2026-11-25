@@ -227,6 +227,11 @@
     <div class="container">
       <a href="{% url 'panel_list' %}" class="brand">Мини-CRM</a>
       <nav>
+        {% if request.crm_staff_login_required and request.user.is_staff %}
+          <form method="post" action="{% url 'crm_staff_logout' %}" style="margin:0">
+            {% csrf_token %}<button class="btn btn-sm" type="submit">Выйти</button>
+          </form>
+        {% endif %}
         <a href="{% url 'panel_new' %}" class="btn btn-sm">Создать</a>
         <a href="{% url 'panel_list' %}" class="btn btn-sm">Список</a>
         <a href="{% url 'panel_list' %}?show=archived" class="btn btn-sm">Архив</a>
