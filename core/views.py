@@ -11,7 +11,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.contrib import messages
-from django.core.exceptions import FieldDoesNotExist
+from django.core.exceptions import FieldDoesNotExist, ValidationError
 from django.core.files.base import ContentFile
 from django.core.management import call_command
 from django.db import connection, transaction
@@ -23,7 +23,9 @@ from django.http import (
     JsonResponse,
 )
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.utils import timezone
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
 try:
@@ -48,7 +50,8 @@ except ImportError:  # pragma: no cover - support for trimmed Pillow stub
 
 from .cian import build_cian_feed, resolve_category
 from .forms import PropertyForm, fields_for_category, group_fields
-from .models import Photo, Property
+from .models import Photo, PriceHistory, Property
+from .price_history import chart_points, with_recent_prices
 from .utils.image_pipeline import InvalidImage, compress_to_jpeg
 
 
@@ -184,8 +187,8 @@ def _format_price_compact(value) -> str:
         quantized = Decimal(value)
     except (InvalidOperation, TypeError):
         return "—"
-    amount = int(quantized)
-    return f"{amount:,}".replace(",", " ")
+    amount = f"{quantized:,.2f}".removesuffix(".00")
+    return amount.replace(",", " ").replace(".", ",")
 
 
 def _format_phone_10(value: str) -> str:
@@ -662,6 +665,8 @@ def _panel_form_context(form, prop, photos):
     # Keep UI tight: no massive fallback list — only category_misc goes to «Прочее».
     # (extra_fallback intentionally disabled to prevent «all fields everywhere».)
     field_fallback = category_misc_bound
+    history = list(prop.price_history.all()) if prop else []
+    chart_path, chart_markers = chart_points(history)
     return {
         "form": form,
         "prop": prop,
@@ -670,9 +675,16 @@ def _panel_form_context(form, prop, photos):
         "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
         "field_groups": bound_groups,
         "field_fallback": field_fallback,
+        "price_changes": [entry for entry in history if entry.kind == PriceHistory.Kind.CHANGE],
+        "price_origin": next((entry for entry in history if entry.kind != PriceHistory.Kind.CHANGE), None),
+        "chart_path": chart_path,
+        "chart_markers": chart_markers,
+        "chart_start": history[-1].recorded_at if history else None,
+        "chart_end": history[0].recorded_at if len(history) > 1 else None,
     }
 
 
+@ensure_csrf_cookie
 def panel_list(request):
     _ensure_migrated()
 
@@ -702,7 +714,7 @@ def panel_list(request):
             props = props.filter(token_q)
 
     props = props.order_by("-updated_at", "-id")
-    props_list = list(props)
+    props_list = list(with_recent_prices(props))
 
     rows = []
     for prop in props_list:
@@ -720,13 +732,6 @@ def panel_list(request):
             floors_display = ""
 
         price_value = getattr(prop, "price", None)
-        raw_price = ""
-        if price_value not in (None, ""):
-            try:
-                raw_price = str(int(Decimal(price_value)))
-            except (InvalidOperation, TypeError, ValueError):
-                raw_price = ""
-
         rows.append(
             {
                 "id": prop.pk,
@@ -738,7 +743,9 @@ def panel_list(request):
                 "created": _format_date(getattr(prop, "created_at", None)),
                 "updated": _format_date(getattr(prop, "updated_at", None)),
                 "price_display": _format_price_compact(price_value),
-                "price_raw": raw_price,
+                "price_raw": format(price_value, "f") if price_value is not None else "",
+                "price_changes": prop.recent_price_changes,
+                "price_origin": next(iter(prop.price_origins), None),
                 "is_archived": bool(getattr(prop, "is_archived", False)),
                 "export_to_cian": bool(getattr(prop, "export_to_cian", False)),
                 "export_to_domklik": bool(getattr(prop, "export_to_domklik", False)),
@@ -763,27 +770,35 @@ def panel_update_price(request, pk):
     _ensure_migrated()
     prop = get_object_or_404(Property, pk=pk)
 
-    raw = (request.POST.get("price") or "").strip()
-    if not raw:
-        prop.price = None
+    raw = re.sub(r"\s+", "", request.POST.get("price") or "").replace(",", ".")
+    if raw and not re.fullmatch(r"[0-9]+(?:\.[0-9]{1,2})?", raw):
+        return JsonResponse({"ok": False, "error": "invalid_price"}, status=400)
+    if raw:
+        try:
+            value = Property._meta.get_field("price").clean(Decimal(raw), prop)
+        except (InvalidOperation, ValidationError):
+            return JsonResponse({"ok": False, "error": "invalid_price"}, status=400)
+    else:
+        value = None
+
+    with transaction.atomic():
+        prop.price = value
         prop.save(update_fields=["price", "updated_at"])
-        formatted = _format_price_compact(prop.price)
-        return JsonResponse({"ok": True, "price": "", "price_display": formatted, "price_formatted": formatted})
+        prop = with_recent_prices(Property.objects.all()).get(pk=pk)
 
-    digits = re.sub(r"\D", "", raw)
-    if not digits:
-        return JsonResponse({"ok": False, "error": "invalid_price"}, status=400)
-
-    try:
-        value = Decimal(digits)
-    except (InvalidOperation, ValueError):
-        return JsonResponse({"ok": False, "error": "invalid_price"}, status=400)
-
-    prop.price = value
-    prop.save(update_fields=["price", "updated_at"])
-
-    formatted = _format_price_compact(prop.price)
-    return JsonResponse({"ok": True, "price": str(prop.price), "price_display": formatted, "price_formatted": formatted})
+    return JsonResponse({
+        "ok": True,
+        "price": format(prop.price, "f") if prop.price is not None else "",
+        "price_display": _format_price_compact(prop.price),
+        "price_formatted": _format_price_compact(prop.price),
+        "history_html": render_to_string("core/includes/price_history_popup.html", {
+            "row": {
+                "id": prop.pk,
+                "price_changes": prop.recent_price_changes,
+                "price_origin": next(iter(prop.price_origins), None),
+            },
+        }),
+    })
 
 
 @require_POST

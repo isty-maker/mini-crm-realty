@@ -3,6 +3,7 @@
 {% block title %}{{ prop|default:"Новый объект" }} — Мини-CRM{% endblock %}
 {% block extra_head %}
   {{ block.super }}
+  <link rel="stylesheet" href="{% static 'core/price_history.css' %}">
   <link rel="stylesheet" href="{% static 'core/panel.css' %}">
 {% endblock %}
 {% block content %}
@@ -103,6 +104,7 @@
               {{ field.label_tag }} {{ field }}
             {% endif %}
             {% include "core/includes/field_errors.html" %}
+            {% if prop and field.name == "price" %}{% include "core/includes/price_history_details.html" %}{% endif %}
           </div>
           {% endif %}
         {% endfor %}
@@ -121,6 +123,7 @@
             {{ field.label_tag }} {{ field }}
           {% endif %}
           {% include "core/includes/field_errors.html" %}
+          {% if prop and field.name == "price" %}{% include "core/includes/price_history_details.html" %}{% endif %}
         </div>
         {% endif %}
       {% endfor %}

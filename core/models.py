@@ -352,6 +352,29 @@ class Property(models.Model):
                 raise ValueError("Не удалось сгенерировать уникальный external_id")
         super().save(*args, **kwargs)
 
+
+class PriceHistory(models.Model):
+    class Kind(models.TextChoices):
+        INITIAL = "initial", "При создании"
+        BASELINE = "baseline", "На момент начала учёта"
+        CHANGE = "change", "Изменение"
+
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="price_history")
+    recorded_at = models.DateTimeField()
+    previous_price = models.DecimalField(max_digits=12, decimal_places=2, null=True)
+    new_price = models.DecimalField(max_digits=12, decimal_places=2, null=True)
+    kind = models.CharField(max_length=8, choices=Kind.choices)
+
+    class Meta:
+        ordering = ["-recorded_at", "-id"]
+        indexes = [models.Index(fields=["property", "-recorded_at", "-id"], name="price_history_recent")]
+
+    def delta(self):
+        if self.previous_price is not None and self.new_price is not None:
+            return self.new_price - self.previous_price
+        return None
+
+
 class Photo(models.Model):
     property = models.ForeignKey(
         "Property", related_name="photos", on_delete=models.CASCADE
