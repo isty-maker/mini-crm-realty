@@ -7,6 +7,8 @@ class AccessKey(models.Model):
     label = models.CharField(max_length=100)
     digest = models.CharField(max_length=64, unique=True, editable=False)
     can_write = models.BooleanField(default=False)
+    can_identify = models.BooleanField(default=False)
+    issued_for = models.CharField(max_length=64, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     revoked_at = models.DateTimeField(null=True)
 

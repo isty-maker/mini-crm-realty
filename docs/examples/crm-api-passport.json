@@ -1,6 +1,8 @@
 {
   "create": {
     "address": "Синтетический адрес корпуса A",
+    "cadastral_number": "00:00:0000000:7",
+    "flat_number": "Тест-7",
     "category": "flat",
     "operation": "sale",
     "flat_type": "apartment",
@@ -27,6 +29,7 @@
       "legal": {"ownership": "shared", "owner_count": 2, "legal_comments": "SYNTHETIC-PRIVATE"}
     }
   },
+  "refresh_example": {"listing": {"flat_number": "Тест-7А", "kitchen_area": "11.25"}},
   "bases": [
     {"kind": "purchase", "document_date": "2020-05-12", "source": "Синтетический паспорт"},
     {"kind": "gift", "document_date": "2021-05-13", "source": "Синтетический паспорт"}

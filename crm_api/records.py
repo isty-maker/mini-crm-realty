@@ -1,5 +1,8 @@
 """The v1 allowlist, serialisation and validation of property changes."""
 
+import re
+
+from django.core.exceptions import ValidationError
 
 
 from core.forms import PropertyForm
@@ -24,8 +27,9 @@ LISTING_FIELDS = (
     "bedrooms_count", "house_condition", "heating_type", "wc_location", "sewerage_type", "water_supply_type",
     "gas_supply_type", "power", "parking_places", "jk_name", "permitted_land_use", "land_category",
 )
+IDENTIFIERS = ("cadastral_number", "flat_number")
 CREATE_ONLY = {"category", "operation", "flat_type", "room_type_ext", "house_type", "commercial_type", "land_type"}
-READ_FIELDS = (*LISTING_FIELDS, "status", "is_archived", "export_to_cian", "export_to_domklik", "updated_at")
+READ_FIELDS = (*LISTING_FIELDS, *IDENTIFIERS, "status", "is_archived", "export_to_cian", "export_to_domklik", "updated_at")
 
 
 def ensure_fields(model, names, data):
@@ -57,6 +61,8 @@ def ensure_fields(model, names, data):
 def serialize_record(prop, scope, row):
     data = {"id": row.pk, "version": record_version(prop, scope, row),
             **model_values(row, SCOPES[scope].fields)}
+    if scope in COLLECTIONS:
+        data["is_current"] = row.is_current
     if scope == "notes":
         data.update(author_id=row.author_id, created_at=row.created_at, updated_at=row.updated_at)
     if scope == "status":
@@ -64,7 +70,11 @@ def serialize_record(prop, scope, row):
     return data
 
 
-def aggregate(prop):
+def visible_listing_fields(key):
+    return READ_FIELDS if key.can_identify else tuple(name for name in READ_FIELDS if name not in IDENTIFIERS)
+
+
+def aggregate(prop, key):
     workspace = PropertyWorkspace.objects.filter(property=prop).first() or PropertyWorkspace(property=prop)
     work = {scope: serialize_record(prop, scope, workspace) for scope in WORKSPACE}
     collections = {
@@ -75,7 +85,7 @@ def aggregate(prop):
     versions = [entry["version"] for entry in work.values()]
     versions.extend(entry["version"] for entries in collections.values() for entry in entries)
     version = property_version(prop, "api:" + ":".join(versions), READ_FIELDS)
-    return {"id": prop.pk, "version": version, "listing": current_values(prop, READ_FIELDS),
+    return {"id": prop.pk, "version": version, "listing": current_values(prop, visible_listing_fields(key)),
             "workspace": work, "collections": collections}
 
 
@@ -89,12 +99,30 @@ def checked_record(prop, scope, row, data, expected):
     if not form.is_valid():
         raise APIError(422, "validation", "Record is invalid.", fields=form.errors.get_json_data(),
                        version=version, old=before, proposed=data)
+    if scope in COLLECTIONS and row.pk and not row.is_current:
+        raise APIError(409, "inactive_record", "This record is no longer current.", version=version)
+    try:
+        # ModelForm omits server-managed fields; validate the same constraints as the write service.
+        form.instance.full_clean(exclude=("workspace", "author") if not row.pk else ())
+    except ValidationError as error:
+        raise APIError(422, "validation", "Invalid linked record.", fields=error.messages, version=version) from None
     return version, changes, {name: {"old": before[name], "new": value} for name, value in changes.items()}
 
 
-def checked_listing(prop, data, version):
-    names = set(LISTING_FIELDS) - CREATE_ONLY
-    ensure_fields(Property, names, data)
+def listing_input(data, names, key):
+    if isinstance(data, dict) and not key.can_identify and data.keys() & set(IDENTIFIERS):
+        raise APIError(403, "identifier_scope", "This key does not permit access to listing identifiers.")
+    data = ensure_fields(Property, (*names, *IDENTIFIERS), data)
+    if "cadastral_number" in data:
+        raw = data["cadastral_number"].strip()
+        if raw and not re.fullmatch(r"[0-9]+(?::[0-9]+){3}", raw):
+            raise APIError(422, "validation", "Invalid cadastral number.", fields={"cadastral_number": "Expected four numeric groups separated by colons."})
+        data = {**data, "cadastral_number": raw}
+    return data
+
+
+def checked_listing(prop, data, version, key):
+    data = listing_input(data, set(LISTING_FIELDS) - CREATE_ONLY, key)
     if not data:
         return {}
     form = PropertySectionForm(prop, Section("api", "Listing", tuple(sorted(data))), data)
@@ -104,8 +132,8 @@ def checked_listing(prop, data, version):
     return form.changed_values()
 
 
-def create_listing(data):
-    ensure_fields(Property, LISTING_FIELDS, data)
+def create_listing(data, key):
+    data = listing_input(data, LISTING_FIELDS, key)
     form = PropertyForm({**data, "status": "draft", "export_to_cian": False,
                          "export_to_domklik": False, "is_archived": False})
     if not form.is_valid():

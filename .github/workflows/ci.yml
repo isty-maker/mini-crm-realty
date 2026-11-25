@@ -60,4 +60,7 @@ jobs:
       - name: Alternate SQLite migration chain
         env:
           USE_SQUASHED_MIGRATIONS: 'true'
-        run: python manage.py test core.tests.test_private_workspace.PrivateWorkspaceMigrationTests crm_api.tests.test_migrations -q
+        run: python manage.py test core.tests.test_staff_access core.tests.test_private_workspace.PrivateWorkspaceMigrationTests crm_api.tests -q
+
+      - name: Synthetic passport rehearsal CLI
+        run: python scripts/rehearse_crm_passport.py --help

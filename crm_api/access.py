@@ -6,6 +6,7 @@ from functools import wraps
 from django.conf import settings
 from django.http import JsonResponse
 from django.utils.cache import add_never_cache_headers
+from django.utils.crypto import constant_time_compare
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import AccessKey
@@ -15,9 +16,10 @@ def digest(value):
     return hashlib.sha256(value.encode("ascii")).hexdigest()
 
 
-def issue_key(user, label, can_write=False):
+def issue_key(user, label, can_write=False, can_identify=False):
     secret = secrets.token_urlsafe(32)
-    key = AccessKey.objects.create(user=user, label=label, digest=digest(secret), can_write=can_write)
+    key = AccessKey.objects.create(user=user, label=label, digest=digest(secret), can_write=can_write,
+                                   can_identify=can_identify, issued_for=user.get_session_auth_hash())
     return key, secret
 
 
@@ -41,7 +43,7 @@ def api_view(methods):
                     key = AccessKey.objects.select_related("user").filter(
                         digest=digest(match[1]), revoked_at__isnull=True, user__is_active=True, user__is_staff=True,
                     ).first()
-                if key is None:
+                if key is None or not constant_time_compare(key.issued_for, key.user.get_session_auth_hash()):
                     raise APIError(401, "invalid_key", "A valid Bearer key is required.")
                 if request.method not in methods:
                     raise APIError(405, "method_not_allowed", "Method not allowed.")
