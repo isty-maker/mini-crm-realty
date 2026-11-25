@@ -22,9 +22,9 @@ def staff_invitation(request):
                 login(request, user, backend="django.contrib.auth.backends.ModelBackend")
                 request.session.set_expiry(settings.CRM_STAFF_SESSION_DAYS * 86400)
                 response = redirect("panel_list")
-                response["Referrer-Policy"] = "no-referrer"
+                response["Referrer-Policy"] = "same-origin"
                 return response
             error = "Вход не подтверждён. Запросите новое приглашение или повторите позже."
     response = render(request, "core/staff_login.html", {"error": error}, status=status)
-    response["Referrer-Policy"] = "no-referrer"
+    response["Referrer-Policy"] = "same-origin"
     return response
