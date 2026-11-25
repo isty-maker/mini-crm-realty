@@ -110,6 +110,10 @@ if [[ -s $scratch/plan ]]; then
         fail "Pending migrations require SHA-specific operator approval and paused writes."
 fi
 
+cd "$root"
+status=$(git status --porcelain=v1 --untracked-files=all)
+[[ $(git symbolic-ref -q HEAD) == refs/heads/production && $(git rev-parse HEAD) == "$head" && -z $status ]] ||
+    fail "Checkout changed during preflight."
 remote_tip=$(timeout 60 git ls-remote --exit-code origin refs/heads/main)
 [[ $remote_tip == "$sha"$'\t'refs/heads/main ]] || fail "Main advanced during preflight."
 printf '%s %s applying\n' "$run" "$sha" > "$state/pending.next"
@@ -117,7 +121,6 @@ mv -T "$state/pending.next" "$pending"
 # Keep the original backup even if checkout, migrate or collectstatic fail.
 mv -T "$scratch/backup.sqlite3" "$state/$run.sqlite3"
 echo "Backup retained at $state/$run.sqlite3"
-cd "$root"
 git -c core.hooksPath=/dev/null merge --ff-only --no-edit --no-overwrite-ignore "$sha"
 status=$(git status --porcelain=v1 --untracked-files=all)
 [[ $(git rev-parse HEAD) == "$sha" && -z $status ]] ||
