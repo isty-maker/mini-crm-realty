@@ -64,6 +64,7 @@ FEED_PUBLIC_BASE_URL = os.getenv("FEED_PUBLIC_BASE_URL", "").rstrip("/")
 # Application definition
 
 INSTALLED_APPS = [
+    "crm_api",
     "crm_access",
     "django.contrib.admin",
     "django.contrib.auth",
