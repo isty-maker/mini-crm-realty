@@ -114,10 +114,18 @@ def prepare_record(prop, key, record, data):
     return form, version, changes
 
 
-def record_audit(prop, actor, source, key, record_id, fields):
+AUDITED_CHOICES = {
+    "status": {"work_status"},
+    "legal": {"ownership", "encumbrances", "minor_owners", "registered_minors", "alterations"},
+    "terms": {"occupancy", "keys_available", "furnishing"},
+    "documents": {"applicability", "availability", "verification"},
+}
+
+
+def record_audit(prop, actor, source, key, record_id, fields, *, diff=None):
     if fields:
         PropertyChange.objects.create(property=prop, actor=actor, source=source, scope=key,
-                                      record_id=record_id, fields=sorted(fields))
+                                      record_id=record_id, fields=sorted(fields), diff=diff or {})
 
 
 @transaction.atomic
@@ -142,6 +150,10 @@ def save_record(prop, key, pk, version, changes, *, actor, source):
         current.workspace, _ = PropertyWorkspace.objects.get_or_create(property=prop)
         if isinstance(current, PropertyNote):
             current.author = actor
+    difference = {
+        name: {"old": getattr(current, name) if current.pk else None, "new": changes[name]}
+        for name in changes.keys() & AUDITED_CHOICES.get(key, set())
+    }
     save_fields = []
     for name, value in changes.items():
         setattr(current, current._meta.get_field(name).attname, value)
@@ -155,7 +167,7 @@ def save_record(prop, key, pk, version, changes, *, actor, source):
         if isinstance(current, PropertyWorkspace) and "work_status" in changes:
             save_fields += ["status_changed_at", "status_changed_by"]
         current.save(update_fields=save_fields)
-    record_audit(prop, actor, source, key, current.pk, changes)
+    record_audit(prop, actor, source, key, current.pk, changes, diff=difference)
     return current
 
 
@@ -177,7 +189,7 @@ def retire_record(prop, key, pk, version, *, actor, source):
     current.is_current = False
     fields = ["is_current", "updated_at"] if isinstance(current, PropertyNote) else ["is_current"]
     current.save(update_fields=fields)
-    record_audit(prop, actor, source, key, pk, fields[:1])
+    record_audit(prop, actor, source, key, pk, ["is_current"], diff={"is_current": {"old": True, "new": False}})
     return current
 
 

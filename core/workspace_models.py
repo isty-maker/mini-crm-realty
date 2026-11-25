@@ -271,4 +271,5 @@ class PropertyChange(models.Model):
     scope = models.CharField(max_length=32)
     record_id = models.PositiveBigIntegerField(null=True)
     fields = models.JSONField()
+    diff = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
