@@ -56,3 +56,8 @@ jobs:
 
       - name: Tests
         run: python manage.py test -q
+
+      - name: Alternate SQLite migration chain
+        env:
+          USE_SQUASHED_MIGRATIONS: 'true'
+        run: python manage.py test core.tests.test_private_workspace.PrivateWorkspaceMigrationTests -q

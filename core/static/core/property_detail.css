@@ -179,3 +179,6 @@
 .property-platforms span.chip { cursor: default; }
 .property-bottom { margin-top: .65rem; }
 .property-field input[type="checkbox"] { width: 1.2rem; min-height: initial; height: 1.2rem; }
+
+#private-editor { margin-bottom: .7rem; }
+[id^="private-"] { scroll-margin-top: calc(var(--app-header-height) + .55rem); }

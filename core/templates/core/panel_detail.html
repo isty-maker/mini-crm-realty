@@ -27,9 +27,13 @@
           <a class="property-text-action" href="?edit=deal#section-deal">Изменить цену</a>
         {% endif %}
       </div>
+      {% if staff %}
+        <span class="property-badge">{% if workspace %}{{ workspace.get_work_status_display }}{% else %}Рабочий статус не определён{% endif %}</span>
+        <a class="property-text-action" href="{% url 'panel_private_record' prop.pk 'status' %}#private-editor">Изменить рабочий статус</a>
+      {% endif %}
       {% if prop.is_archived %}
         <span class="property-badge">В архиве</span>
-      {% elif prop.status %}
+      {% elif prop.status and not staff %}
         <span class="property-badge">{% if prop.status == "draft" %}Черновик{% else %}{{ prop.get_status_display }}{% endif %}</span>
       {% endif %}
     </div>
@@ -58,13 +62,42 @@
   {% if active == "deal" %}{% include "core/includes/property_section.html" with panel=panels.deal %}{% endif %}
   {% if active == "address" %}{% include "core/includes/property_section.html" with panel=panels.address %}{% endif %}
 
+  {% if publication_warning %}<p role="status">Рабочий статус изменён. Проверьте, нужны ли включённые выгрузки.</p>{% endif %}
+  {% if private_editor %}
+    <section class="property-card" id="private-editor">
+      <h2>{{ private_editor.title }}</h2>
+      {% if private_editor.conflict %}<p role="alert">Запись изменилась. Введённые значения сохранены ниже. Актуальные сведения показаны в карточке.</p>{% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="version" value="{{ private_editor.version }}">
+        {{ private_editor.form.non_field_errors }}
+        <div class="property-form-grid">
+          {% for field in private_editor.form %}<div class="property-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+        </div>
+        <div class="property-actions">
+          <button type="submit"{% if private_editor.conflict %} disabled{% endif %}>Сохранить</button>
+          {% if private_editor.conflict %}<a href="{{ request.path }}#private-editor">Открыть актуальную форму</a>{% endif %}
+          <a href="{% url 'panel_detail' prop.pk %}#private-{{ private_editor.key }}">Отмена</a>
+        </div>
+      </form>
+    </section>
+  {% endif %}
   <div class="property-columns">
     <div class="property-column">
       {% if panels.metrics %}{% include "core/includes/property_section.html" with panel=panels.metrics %}{% endif %}
       {% if panels.land %}{% include "core/includes/property_section.html" with panel=panels.land %}{% endif %}
       {% include "core/includes/property_section.html" with panel=panels.terms %}
+      {% if staff %}{% include "core/includes/private_property_block.html" with block=private_blocks.terms %}{% endif %}
     </div>
     <div class="property-column">
+      {% if staff %}
+        {% include "core/includes/private_property_block.html" with block=private_blocks.legal %}
+        {% include "core/includes/private_property_block.html" with block=private_blocks.bases %}
+        {% include "core/includes/private_property_block.html" with block=private_blocks.owners %}
+        {% include "core/includes/private_property_block.html" with block=private_blocks.documents %}
+        {% include "core/includes/private_property_block.html" with block=private_blocks.files %}
+        {% include "core/includes/private_property_block.html" with block=private_blocks.notes %}
+      {% endif %}
       {% if staff and prop.cadastral_number or staff and prop.flat_number %}
         <section class="property-card">
           <h2>Сведения об объекте</h2>

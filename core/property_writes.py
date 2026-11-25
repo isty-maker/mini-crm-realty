@@ -25,16 +25,21 @@ def version_matches(prop, scope, fields, version):
     return constant_time_compare(version, property_version(prop, scope, fields))
 
 
-def update_property(prop, fields, changes):
+def update_property(prop, fields, changes, *, actor=None, source=None):
     """Update against the read snapshot. A stale SQLite writer cannot overwrite newer values."""
     if not changes:
         return True
     if set(changes) - set(fields):
         raise ValueError("Fields outside the write scope")
     with transaction.atomic():
-        return Property.objects.filter(pk=prop.pk, **current_values(prop, fields)).update(
+        changed = Property.objects.filter(pk=prop.pk, **current_values(prop, fields)).update(
             **changes, updated_at=timezone.now(),
         ) == 1
+        if changed and source:
+            from .private_records import record_audit
+
+            record_audit(prop, actor if actor and actor.is_authenticated else None, source, "listing", prop.pk, changes)
+        return changed
 
 
 def same_form_text(original, submitted):

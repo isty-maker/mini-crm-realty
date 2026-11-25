@@ -228,6 +228,9 @@
       <a href="{% url 'panel_list' %}" class="brand">Мини-CRM</a>
       <nav>
         {% if request.crm_staff_login_required and request.user.is_staff %}
+          {% if perms.core.view_propertyworkspace or perms.core.change_propertyworkspace %}
+            <a href="{% url 'crm_workspace_admin:index' %}" class="btn btn-sm">Паспорта</a>
+          {% endif %}
           <form method="post" action="{% url 'crm_staff_logout' %}" style="margin:0">
             {% csrf_token %}<button class="btn btn-sm" type="submit">Выйти</button>
           </form>

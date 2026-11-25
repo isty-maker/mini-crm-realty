@@ -62,6 +62,10 @@ from .price_history import price_history_context, with_recent_prices
 from .property_detail import (
     PropertySectionForm, display_fields, editable_sections, media_url, property_subtitle, save_section, section_version,
 )
+from .private_records import (
+    RecordConflict, SCOPES, get_record, prepare_record, private_context, record_form, record_version, save_record,
+)
+from .workspace_models import PropertyWorkspace
 from .property_writes import PROPERTY_FIELDS, can_use_staff_card, property_version, same_form_text, update_property, version_matches
 from .subtypes import CATEGORY_TO_SUBTYPE_FIELD
 from .property_validation import validate_listing_value
@@ -680,6 +684,7 @@ def _panel_form_context(form, prop, photos):
     }
 
 
+@never_cache
 @ensure_csrf_cookie
 def panel_list(request):
     _ensure_migrated()
@@ -689,6 +694,16 @@ def panel_list(request):
     include_archived = request.GET.get("include_archived") == "1"
 
     props = Property.objects.all()
+    staff = can_use_staff_card(request.user)
+    work_filter = request.GET.get("work_status", "")
+    work_choices = dict(PropertyWorkspace.WorkStatus.choices)
+    if staff:
+        props = props.select_related("staff_workspace")
+        if work_filter == PropertyWorkspace.WorkStatus.UNKNOWN:
+            props = props.filter(Q(staff_workspace__isnull=True) | Q(staff_workspace__work_status=work_filter))
+        elif work_filter in work_choices:
+            props = props.filter(staff_workspace__work_status=work_filter)
+
     if show == "archived":
         props = props.filter(is_archived=True)
     elif show == "all" or include_archived:
@@ -743,6 +758,9 @@ def panel_list(request):
                 "price_changes": prop.recent_price_changes,
                 "price_origin": next(iter(prop.price_origins), None),
                 "is_archived": bool(getattr(prop, "is_archived", False)),
+                "work_status": work_choices.get(
+                    getattr(getattr(prop, "staff_workspace", None), "work_status", "unknown"), ""
+                ) if staff else "",
                 "price_version": property_version(prop, "quick-price", ("price", "currency")),
                 "archive_version": property_version(prop, "archive", ("is_archived", "status")),
                 "cian_version": property_version(prop, "export_to_cian", ("export_to_cian",)),
@@ -760,6 +778,8 @@ def panel_list(request):
             "rows": rows,
             "q": q,
             "show": show,
+            "work_choices": PropertyWorkspace.WorkStatus.choices if staff else (),
+            "work_filter": work_filter if staff else "",
             "include_archived": show_archived_flag,
         },
     )
@@ -787,7 +807,7 @@ def panel_update_price(request, pk):
     if (version is not None or settings.CRM_REQUIRE_STAFF_LOGIN) and not version_matches(prop, "quick-price", fields, version or ""):
         return JsonResponse({"ok": False, "error": "conflict", "current": price_display(prop.price)}, status=409)
     changes = {"price": value} if prop.price != value else {}
-    if not update_property(prop, fields, changes):
+    if not update_property(prop, fields, changes, actor=request.user, source="panel"):
         prop.refresh_from_db(fields=["price"])
         return JsonResponse({"ok": False, "error": "conflict", "current": price_display(prop.price)}, status=409)
     prop = with_recent_prices(Property.objects.all()).get(pk=pk)
@@ -817,7 +837,7 @@ def panel_toggle_archive(request, pk):
     archived = not prop.is_archived
     changes = {"is_archived": archived, "status": "archived" if archived else "active"}
     if (((version is not None or settings.CRM_REQUIRE_STAFF_LOGIN) and not version_matches(prop, "archive", fields, version or ""))
-            or not update_property(prop, fields, changes)):
+            or not update_property(prop, fields, changes, actor=request.user, source="panel")):
         prop.refresh_from_db(fields=["is_archived"])
         return JsonResponse({"ok": False, "error": "conflict", "is_archived": prop.is_archived}, status=409)
     prop.is_archived, prop.status = archived, changes["status"]
@@ -835,7 +855,7 @@ def _toggle_export(request, pk, field):
     version = request.POST.get("version")
     current = getattr(prop, field)
     if ((from_card or version is not None or settings.CRM_REQUIRE_STAFF_LOGIN) and not version_matches(prop, field, fields, version or "")) or not (
-        update_property(prop, fields, {field: not current})
+        update_property(prop, fields, {field: not current}, actor=request.user, source="panel")
     ):
         if from_card:
             prop.refresh_from_db()
@@ -923,7 +943,8 @@ def panel_create(request):
 
 
 @never_cache
-def _render_property_detail(request, prop, *, active="", form=None, conflict=False, export_conflict=False, status=200):
+def _render_property_detail(request, prop, *, active="", form=None, conflict=False, export_conflict=False,
+                            status=200, private_editor=None):
     staff = can_use_staff_card(request.user)
     if not staff:
         active = ""
@@ -954,6 +975,8 @@ def _render_property_detail(request, prop, *, active="", form=None, conflict=Fal
         "dom_version": property_version(prop, "export_to_domklik", ("export_to_domklik",)) if staff else "",
         "layout_url": media_url(prop.layout_photo_url),
         "description": prop.description.strip(),
+        **(private_context(prop) if staff else {}),
+        "private_editor": private_editor if staff else None,
         **price_history_context(prop),
     }, status=status)
 
@@ -987,12 +1010,53 @@ def panel_detail_section(request, pk, section_key):
     if not form.is_valid():
         return _render_property_detail(request, prop, active=section_key, form=form, status=422)
     changes = form.changed_values()
-    if not save_section(prop, section, version, changes):
+    if not save_section(prop, section, version, changes, actor=request.user, source="card"):
         prop = get_object_or_404(Property, pk=pk)
         return _render_property_detail(request, prop, active=section_key, form=form, conflict=True, status=409)
     if changes:
         messages.success(request, "Изменения сохранены.")
     return redirect(reverse("panel_detail", args=[pk]) + f"#section-{section_key}")
+
+
+@never_cache
+def panel_private_record(request, pk, key, record_id=None):
+    if not can_use_staff_card(request.user):
+        return HttpResponseForbidden("Требуется вход сотрудника.")
+    if request.method not in {"GET", "HEAD", "POST"}:
+        return HttpResponseNotAllowed(["GET", "HEAD", "POST"])
+    scope = SCOPES.get(key)
+    if scope is None or (record_id is not None and scope.model is PropertyWorkspace):
+        raise Http404
+    prop = get_object_or_404(Property, pk=pk)
+    record = get_record(prop, key, record_id)
+    if record is None:
+        raise Http404
+    status = 200
+    editor = {"key": key, "title": scope.title, "id": record_id}
+    if request.method == "POST":
+        data = {name: request.POST[name] for name in request.POST if name not in {"csrfmiddlewaretoken", "version"}}
+        if any(len(request.POST.getlist(name)) != 1 for name in data) or set(data) - set(scope.fields):
+            return HttpResponseBadRequest("Неверные поля раздела.")
+        form, version, changes = prepare_record(prop, key, record, data)
+        if request.POST.get("version") != version:
+            status = 409
+        elif not form.is_valid():
+            status = 422
+        else:
+            try:
+                save_record(prop, key, record_id, version, changes, actor=request.user, source="card")
+            except RecordConflict:
+                status = 409
+            except ValidationError as error:
+                form.add_error(None, ValidationError(error.messages))
+                status = 422
+            else:
+                return redirect(reverse("panel_detail", args=[pk]) + f"#private-{key}")
+    else:
+        version = record_version(prop, key, record)
+        form = record_form(prop, key, record)
+    editor.update({"form": form, "version": version, "conflict": status == 409})
+    return _render_property_detail(request, prop, status=status, private_editor=editor)
 
 
 @require_safe
@@ -1041,7 +1105,7 @@ def panel_edit(request, pk):
             status = 409
         elif form.is_valid():
             changes = _full_editor_changes(request, prop, form)
-            if update_property(prop, PROPERTY_FIELDS, changes):
+            if update_property(prop, PROPERTY_FIELDS, changes, actor=request.user, source="editor"):
                 return redirect("panel_edit", pk=prop.pk)
             prop.refresh_from_db()
             status = 409
