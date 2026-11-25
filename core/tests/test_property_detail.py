@@ -269,6 +269,19 @@ class PropertySectionTests(TestCase):
         self.assertFalse(self.prop.export_to_cian)
         self.assertTrue(self.prop.export_to_domklik)
 
+    def test_two_full_editors_and_stale_archive_cannot_overwrite(self):
+        opened = self.client.get(self.edit).context["edit_version"]
+        row = self.client.get(reverse("panel_list")).context["rows"][0]
+        self.assertEqual(self.client.post(self.edit, {"edit_version": opened, "is_archived": "on",
+                                                     "status": "archived"}).status_code, 302)
+        stale = self.client.post(self.edit, {"edit_version": opened, "price": 140})
+        self.assertEqual(stale.status_code, 409)
+        archive = reverse("panel_toggle_archive", args=[self.prop.pk])
+        self.assertEqual(self.client.post(archive, {"version": row["archive_version"]}).status_code, 409)
+        self.prop.refresh_from_db()
+        self.assertTrue(self.prop.is_archived)
+        self.assertEqual(self.prop.price, 100)
+
     def test_quick_price_and_export_changes_invalidate_full_editor(self):
         edit = self.client.get(self.edit)
         row = self.client.get(reverse("panel_list")).context["rows"][0]

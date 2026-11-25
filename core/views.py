@@ -744,6 +744,7 @@ def panel_list(request):
                 "price_origin": next(iter(prop.price_origins), None),
                 "is_archived": bool(getattr(prop, "is_archived", False)),
                 "price_version": property_version(prop, "quick-price", ("price", "currency")),
+                "archive_version": property_version(prop, "archive", ("is_archived", "status")),
                 "cian_version": property_version(prop, "export_to_cian", ("export_to_cian",)),
                 "dom_version": property_version(prop, "export_to_domklik", ("export_to_domklik",)),
                 "export_to_cian": bool(getattr(prop, "export_to_cian", False)),
@@ -811,10 +812,17 @@ def panel_update_price(request, pk):
 def panel_toggle_archive(request, pk):
     _ensure_migrated()
     prop = get_object_or_404(Property, pk=pk)
-    prop.is_archived = not prop.is_archived
-    prop.status = "archived" if prop.is_archived else "active"
-    prop.save(update_fields=["is_archived", "status", "updated_at"])
-    return JsonResponse({"ok": True, "is_archived": prop.is_archived})
+    fields = ("is_archived", "status")
+    version = request.POST.get("version")
+    archived = not prop.is_archived
+    changes = {"is_archived": archived, "status": "archived" if archived else "active"}
+    if ((version is not None and not version_matches(prop, "archive", fields, version))
+            or not update_property(prop, fields, changes)):
+        prop.refresh_from_db(fields=["is_archived"])
+        return JsonResponse({"ok": False, "error": "conflict", "is_archived": prop.is_archived}, status=409)
+    prop.is_archived, prop.status = archived, changes["status"]
+    return JsonResponse({"ok": True, "is_archived": archived, "version": property_version(prop, "archive", fields)})
+
 
 
 def _toggle_export(request, pk, field):

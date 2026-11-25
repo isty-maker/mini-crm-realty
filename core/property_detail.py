@@ -77,7 +77,7 @@ def editable_sections(prop):
             metrics += ("building_ceiling_height", "jk_name", "repair_type")
         if category in {"house", "commercial"}:
             metrics += ("ceiling_height", "repair_type")
-    sale = ("sale_type",) if category == "flat" and prop.operation == "sale" else ()
+    sale = ("sale_type",) if prop.operation == "sale" else ()
     terms = ("bargain_allowed", "bargain_conditions", "furnishing_details")
     terms += ("mortgage_allowed",) if prop.operation == "sale" else ()
     sections = {

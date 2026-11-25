@@ -70,6 +70,7 @@
         data-id="{{ row.id }}"
         data-price-version="{{ row.price_version }}"
         data-price-url="{% url 'panel_update_price' row.id %}"
+        data-archive-version="{{ row.archive_version }}"
         data-archive-url="{% url 'panel_toggle_archive' row.id %}"
         data-delete-url="{% url 'panel_delete' row.id %}"
         data-toggle-cian-url="{% url 'panel_toggle_export_cian' row.id %}"
@@ -298,16 +299,23 @@
           if (!url) {
             return;
           }
-          post(url)
+          post(url, { version: row.dataset.archiveVersion })
             .then((data) => {
               if (!data || !data.ok) {
                 throw new Error('Invalid response');
               }
+              row.dataset.archiveVersion = data.version;
               const archived = !!data.is_archived;
               row.classList.toggle('is-archived', archived);
               updateArchiveButton(archiveBtn, archived);
             })
-            .catch(() => alert('Не удалось изменить статус объекта'));
+            .catch(error => {
+              if (error.conflict) {
+                alert('Архивный статус изменился. Сейчас объект ' + (error.conflict.is_archived ? 'в архиве' : 'в списке') + '. Обновите список.');
+                return;
+              }
+              alert('Не удалось изменить статус объекта');
+            });
           return;
         }
 
