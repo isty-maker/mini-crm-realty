@@ -56,7 +56,7 @@ class PropertyDetailTests(TestCase):
             "Тестовая улица, 12", "Продажа", "45,50 м²", "<dt>Этаж</dt><dd>0/9</dd>",
             "105,75 <small>EUR</small>", "100,50 → 105,75", "Ступенчатый график",
             "Новокузнецк", "Планировка", "Описание<br>Вторая строка",
-            "ЦИАН", "Домклик", "Включена", "Выключена", "&lt;script&gt;Не выполнять&lt;/script&gt;",
+            "ЦИАН · вкл.", "Домклик · выкл.", "Публикация площадкой не подтверждена", "&lt;script&gt;Не выполнять&lt;/script&gt;",
         ):
             self.assertContains(page, value)
         for value in ("PRIVATEPHONE", "PRIVATEFLAT", "javascript:alert(1)", "<script>Не выполнять</script>"):
@@ -67,7 +67,7 @@ class PropertyDetailTests(TestCase):
         url = reverse("panel_detail", args=[prop.pk])
         page = self.client.get(url)
         for value in ("Адрес не указан", "Цена не указана", "Характеристики не заполнены", "Изменений цены пока нет",
-                      "Приостановлена · архив"):
+                      "Выгрузка приостановлена для архивного объекта"):
             self.assertContains(page, value)
         self.assertContains(page, "Планировка · Не указана")
         self.assertContains(page, "Описание не заполнено")

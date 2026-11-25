@@ -78,7 +78,6 @@
         data-price-url="{% url 'panel_update_price' row.id %}"
         data-archive-version="{{ row.archive_version }}"
         data-archive-url="{% url 'panel_toggle_archive' row.id %}"
-        data-delete-url="{% url 'panel_delete' row.id %}"
         data-toggle-cian-url="{% url 'panel_toggle_export_cian' row.id %}"
         data-toggle-dom-url="{% url 'panel_toggle_export_dom' row.id %}"
         class="{% if row.is_archived %}is-archived{% endif %}"
@@ -106,7 +105,6 @@
           {% else %}
             <button type="button" class="btn btn-sm act-archive">АРХ</button>
           {% endif %}
-          <button type="button" class="btn btn-sm btn-danger act-delete" title="Удалить">✖</button>
         </td>
         <td class="dates">
           <div>изм {{ row.updated|default:"—" }}</div>
@@ -323,30 +321,6 @@
               }
               alert('Не удалось изменить статус объекта');
             });
-          return;
-        }
-
-        const deleteBtn = event.target.closest('.act-delete');
-        if (deleteBtn) {
-          const row = deleteBtn.closest('tr');
-          if (!row) {
-            return;
-          }
-          if (!confirm('Удалить объект безвозвратно?')) {
-            return;
-          }
-          const url = row.dataset.deleteUrl;
-          if (!url) {
-            return;
-          }
-          post(url)
-            .then((data) => {
-              if (!data || !data.ok && !data.deleted) {
-                throw new Error('Invalid response');
-              }
-              row.remove();
-            })
-            .catch(() => alert('Не удалось удалить объект'));
           return;
         }
 

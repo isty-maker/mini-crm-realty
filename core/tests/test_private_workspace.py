@@ -11,7 +11,7 @@ from django.urls import reverse
 
 from core.cian import build_cian_feed
 from core.models import Property
-from core.workspace_models import DriveFile, PropertyDocument, PropertyDocumentType, PropertyNote, PropertyWorkspace
+from core.workspace_models import DriveFile, PropertyDocument, PropertyDocumentType, PropertyNote, PropertyOwner, PropertyWorkspace
 
 
 class PrivateWorkspaceTests(TestCase):
@@ -97,12 +97,73 @@ class PrivateWorkspaceTests(TestCase):
         self.assertEqual((change.actor, change.source, change.fields),
                          (self.staff, "card", ["legal_comments"]))
 
+    def test_staff_summary_shows_unknown_documents_and_neutral_owner_warnings(self):
+        self.client.force_login(self.staff)
+        url = reverse("panel_detail", args=[self.property.pk])
+        PropertyWorkspace.objects.filter(pk=self.workspace.pk).update(owner_count=2)
+        PropertyOwner.objects.create(workspace=self.workspace, name="SYNTHETIC OWNER", share_numerator=1,
+                                     share_denominator=2)
+        page = self.client.get(url)
+        for text in ("Выписка ЕГРН", "Согласие супруга", "Разрешение органов опеки", "Не выяснено · Не внесено",
+                     "Список собственников: 1 из 2", "сумма отличается от целого"):
+            self.assertContains(page, text)
+        self.assertNotContains(page, '<details class="property-card" id="private-owners" open>')
+        self.assertNotContains(page, "Выгрузка объявлений")
+        self.assertIn("no-store", page["Cache-Control"])
+        self.client.logout()
+        self.assertNotContains(self.client.get(url), "SYNTHETIC OWNER")
+
+    def test_retirement_requires_confirmation_scope_and_version_and_preserves_history(self):
+        note = PropertyNote.objects.create(workspace=self.workspace, author=self.staff, text="Старая заметка")
+        self.client.force_login(self.staff)
+        url = reverse("panel_private_record", args=[self.property.pk, "notes", note.pk])
+        old = self.client.get(url).context["private_editor"]["version"]
+        self.assertEqual(self.client.post(url, {"version": old, "text": "Уточнение"}).status_code, 302)
+        action = {"action": "retire", "version": old, "confirm": "on"}
+        self.assertEqual(self.client.post(url, action).status_code, 409)
+        fresh = self.client.get(url).context["private_editor"]["version"]
+        self.assertEqual(self.client.post(url, {**action, "version": fresh, "confirm": ""}).status_code, 400)
+        other = Property.objects.create()
+        foreign = reverse("panel_private_record", args=[other.pk, "notes", note.pk])
+        self.assertEqual(self.client.post(foreign, {**action, "version": fresh}).status_code, 404)
+        self.assertEqual(self.client.post(url, {**action, "version": fresh}).status_code, 302)
+        note.refresh_from_db()
+        self.assertFalse(note.is_current)
+        self.assertEqual(note.text, "Уточнение")
+        self.assertNotContains(self.client.get(reverse("panel_detail", args=[self.property.pk])), "Уточнение")
+        self.assertEqual(self.property.staff_changes.latest("pk").fields, ["is_current"])
+        deleted = self.client.post(reverse("panel_delete", args=[self.property.pk]))
+        self.assertEqual(deleted.status_code, 409)
+        self.assertTrue(PropertyNote.objects.filter(pk=note.pk).exists())
+
+    def test_document_state_and_file_retirement_are_validated(self):
+        self.client.force_login(self.staff)
+        file = DriveFile.objects.create(workspace=self.workspace, file_id="fixture-link", name="Тестовый файл")
+        doc_type = PropertyDocumentType.objects.get(slug="egrn")
+        created = reverse("panel_private_record", args=[self.property.pk, "documents"])
+        page = self.client.get(created, {"type": "egrn"})
+        self.assertEqual(page.context["private_editor"]["form"].initial["document_type"], doc_type.pk)
+        invalid = self.client.post(created, {"version": page.context["private_editor"]["version"],
+                                           "document_type": doc_type.pk, "availability": "missing",
+                                           "verification": "checked", "checked_on": "2026-01-02"})
+        self.assertContains(invalid, "Отсутствующий документ нельзя отметить проверенным", status_code=422)
+        self.assertFalse(PropertyDocument.objects.exists())
+        PropertyDocument.objects.create(workspace=self.workspace, document_type=doc_type, original=file)
+        url = reverse("panel_private_record", args=[self.property.pk, "files", file.pk])
+        version = self.client.get(url).context["private_editor"]["version"]
+        blocked = self.client.post(url, {"version": version, "action": "retire", "confirm": "on"})
+        self.assertContains(blocked, "Сначала измените ссылку", status_code=422)
+        file.refresh_from_db()
+        self.assertTrue(file.is_current)
+
+
 
 class PrivateWorkspaceMigrationTests(TransactionTestCase):
     def test_both_supported_graphs_preserve_existing_data_and_price_history(self):
         alternate = getattr(settings, "MIGRATION_MODULES", {}).get("core") == "core.mig_current"
         before = ("core", "0002_price_history" if alternate else "0014_price_history")
-        after = ("core", "0003_private_workspace" if alternate else "0015_private_workspace")
+        workspace_release = ("core", "0004_workspace_audit" if alternate else "0016_workspace_audit")
+        after = ("core", "0005_workspace_record_currency" if alternate else "0017_workspace_record_currency")
         executor = MigrationExecutor(connection)
         self.addCleanup(lambda: MigrationExecutor(connection).migrate(executor.loader.graph.leaf_nodes()))
         executor.migrate([before])
@@ -116,15 +177,21 @@ class PrivateWorkspaceMigrationTests(TransactionTestCase):
         first = old_photo.objects.create(**{relation: prop.pk, url_field: "https://example.invalid/one.jpg"})
         second = old_photo.objects.create(is_default=True, **{relation: prop.pk, url_field: "https://example.invalid/two.jpg"})
         executor = MigrationExecutor(connection)
+        executor.migrate([workspace_release])
+        state = executor.loader.project_state([workspace_release]).apps
+        workspace = state.get_model("core", "PropertyWorkspace").objects.create(property_id=prop.pk)
+        note = state.get_model("core", "PropertyNote").objects.create(workspace_id=workspace.pk, text="История")
+        executor = MigrationExecutor(connection)
         executor.migrate([after])
         state = executor.loader.project_state([after]).apps
+        self.assertTrue(state.get_model("core", "PropertyNote").objects.get(pk=note.pk).is_current)
         current = state.get_model("core", "Property")
         migrated = current.objects.get(pk=prop.pk)
         self.assertEqual((migrated.price, migrated.is_archived, migrated.export_to_cian, migrated.export_to_domklik),
                          (100, True, True, False))
         self.assertEqual(list(state.get_model("core", "Photo").objects.filter(**{relation: prop.pk})
                               .values_list("pk", flat=True)), [second.pk, first.pk])
-        self.assertFalse(state.get_model("core", "PropertyWorkspace").objects.exists())
+        self.assertEqual(state.get_model("core", "PropertyWorkspace").objects.get(property_id=prop.pk).work_status, "unknown")
         self.assertTrue(state.get_model("core", "PropertyDocumentType").objects.filter(slug="egrn").exists())
         current.objects.filter(pk=prop.pk).update(price=125)
         history = state.get_model("core", "PriceHistory")

@@ -1,6 +1,7 @@
 """Explicit private write scopes used by HTML and API."""
 
 from dataclasses import dataclass
+from fractions import Fraction
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -13,7 +14,7 @@ from .models import Property
 from .property_writes import property_version, version_matches
 from .workspace_models import (
     DriveFile, OwnershipBasis, PropertyChange, PropertyDocument, PropertyNote,
-    PropertyOwner, PropertyWorkspace,
+    PropertyDocumentType, PropertyOwner, PropertyWorkspace, WorkspaceRecord,
 )
 
 
@@ -69,6 +70,8 @@ def model_values(record, fields):
 def record_version(prop, key, record):
     identifier = f"{prop.pk}:{key}:{record.pk or 'new'}"
     fields = tuple(record._meta.get_field(name).attname for name in SCOPES[key].fields)
+    if isinstance(record, WorkspaceRecord):
+        fields += ("is_current",)
     return property_version(record, identifier, fields)
 
 
@@ -84,8 +87,15 @@ def record_form(prop, key, record, data=None):
         elif field.get_internal_type() == "TextField":
             widgets[name] = forms.Textarea(attrs={"rows": 2})
     form = modelform_factory(scope.model, fields=scope.fields, widgets=widgets)(data, instance=record)
+    labels = {
+        "kind": "Основание права", "document_type": "Тип документа", "applicability": "Применимость",
+        "availability": "Наличие", "verification": "Проверка", "original": "Оригинал в Google Drive",
+        "assignee": "Ответственный сотрудник",
+    }
+    for name in form.fields.keys() & labels.keys():
+        form.fields[name].label = labels[name]
     if key == "documents":
-        form.fields["original"].queryset = DriveFile.objects.filter(workspace__property=prop)
+        form.fields["original"].queryset = DriveFile.objects.filter(workspace__property=prop, is_current=True)
     return form
 
 
@@ -120,6 +130,8 @@ def save_record(prop, key, pk, version, changes, *, actor, source):
     current = get_record(prop, key, pk)
     if current is None or version != record_version(prop, key, current):
         raise RecordConflict
+    if isinstance(current, WorkspaceRecord) and not current.is_current:
+        raise RecordConflict
     if not changes:
         return current
     if isinstance(current, PropertyWorkspace):
@@ -147,6 +159,28 @@ def save_record(prop, key, pk, version, changes, *, actor, source):
     return current
 
 
+def check_retirement(record):
+    if record is None or not isinstance(record, WorkspaceRecord) or not record.is_current:
+        raise RecordConflict
+    if isinstance(record, DriveFile) and record.documents.filter(is_current=True).exists():
+        raise ValidationError("Сначала измените ссылку в актуальном документе или отметьте документ неактуальным.")
+
+
+@transaction.atomic
+def retire_record(prop, key, pk, version, *, actor, source):
+    if Property.objects.filter(pk=prop.pk).update(id=F("id")) != 1:
+        raise RecordConflict
+    current = get_record(prop, key, pk)
+    if current is None or version != record_version(prop, key, current):
+        raise RecordConflict
+    check_retirement(current)
+    current.is_current = False
+    fields = ["is_current", "updated_at"] if isinstance(current, PropertyNote) else ["is_current"]
+    current.save(update_fields=fields)
+    record_audit(prop, actor, source, key, pk, fields[:1])
+    return current
+
+
 def display_record(record, scope):
     result = []
     for name in scope.fields:
@@ -164,9 +198,40 @@ def display_record(record, scope):
     return result
 
 
+STANDARD_DOCUMENT_TYPES = ("egrn", "title", "bti", "spouse", "guardianship", "power-of-attorney")
+
+
+def document_summary(documents):
+    grouped = {}
+    for document in documents:
+        grouped.setdefault(document.document_type_id, []).append(document)
+    types = {item.slug: item for item in PropertyDocumentType.objects.all()}
+    ordered = [types[slug] for slug in STANDARD_DOCUMENT_TYPES if slug in types]
+    ordered += sorted((item for item in types.values() if item.pk in grouped and item.slug not in STANDARD_DOCUMENT_TYPES),
+                      key=lambda item: item.title)
+    return [{"type": item, "documents": grouped.get(item.pk, [])} for item in ordered]
+
+
+def owner_warnings(workspace, owners):
+    if not workspace:
+        return []
+    warnings = []
+    if workspace.owner_count is not None and workspace.owner_count != len(owners):
+        warnings.append(f"Список собственников: {len(owners)} из {workspace.owner_count} по паспорту. Проверьте расхождение.")
+    elif owners and workspace.owner_count is None:
+        warnings.append("Количество собственников по паспорту не указано. Полнота списка неизвестна.")
+    shares = [Fraction(owner.share_numerator, owner.share_denominator) for owner in owners
+              if owner.share_numerator and owner.share_denominator]
+    if shares and (len(shares) != len(owners) or sum(shares) != 1):
+        warnings.append("Доли указаны не для всех записей или их сумма отличается от целого. Сверьте с источником.")
+    return warnings
+
+
 def private_context(prop):
     workspace = PropertyWorkspace.objects.filter(property=prop).first()
     blocks = {}
+    documents = []
+    owners = []
     for key, scope in SCOPES.items():
         if scope.model is PropertyWorkspace:
             rows = [workspace] if workspace else []
@@ -176,11 +241,16 @@ def private_context(prop):
                 query = query.select_related("document_type", "original")
             if key == "notes":
                 query = query.select_related("author")
-            rows = query if workspace else []
+            rows = list(query.filter(is_current=True)) if workspace else []
+            if key == "documents":
+                documents = rows
+            if key == "owners":
+                owners = rows
         blocks[key] = {"key": key, "title": scope.title, "collection": scope.model is not PropertyWorkspace,
                        "items": [{"id": row.pk, "rows": display_record(row, scope)} for row in rows]}
     warning = workspace and workspace.work_status in {
         workspace.WorkStatus.SOLD, workspace.WorkStatus.LET, workspace.WorkStatus.PAUSED,
         workspace.WorkStatus.EXPIRED, workspace.WorkStatus.TERMINATED,
     } and (prop.export_to_cian or prop.export_to_domklik)
-    return {"workspace": workspace, "private_blocks": blocks, "publication_warning": warning}
+    return {"workspace": workspace, "private_blocks": blocks, "publication_warning": warning,
+            "document_summary": document_summary(documents), "owner_warnings": owner_warnings(workspace, owners)}

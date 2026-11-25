@@ -182,3 +182,15 @@
 
 #private-editor { margin-bottom: .7rem; }
 [id^="private-"] { scroll-margin-top: calc(var(--app-header-height) + .55rem); }
+
+.property-terms { display: grid; gap: 0; }
+.property-terms > :first-child { border-radius: .75rem .75rem 0 0; }
+.property-terms > :nth-child(2) { border-radius: 0 0 .75rem .75rem; border-top: 0; }
+.property-document-list { display: grid; gap: .25rem; margin-bottom: .65rem; }
+.property-document-row { padding: .3rem 0; border-bottom: 1px solid var(--border, #dce3eb); }
+.property-document-row strong { font-size: .9rem; }
+.property-document-row summary, .property-document-empty { font-size: .85rem; }
+.property-document-empty { display: flex; flex-wrap: wrap; gap: 0 .6rem; justify-content: space-between; }
+.property-record + .property-record { margin-top: .65rem; }
+.property-retire { margin-top: .75rem; }
+.property-retire form { display: flex; flex-wrap: wrap; gap: .5rem; }

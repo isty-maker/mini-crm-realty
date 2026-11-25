@@ -63,9 +63,9 @@ from .property_detail import (
     PropertySectionForm, display_fields, editable_sections, media_url, property_subtitle, save_section, section_version,
 )
 from .private_records import (
-    RecordConflict, SCOPES, get_record, prepare_record, private_context, record_form, record_version, save_record,
+    RecordConflict, SCOPES, get_record, prepare_record, private_context, record_form, record_version, retire_record, save_record,
 )
-from .workspace_models import PropertyWorkspace
+from .workspace_models import PropertyDocumentType, PropertyWorkspace, WorkspaceRecord
 from .property_writes import PROPERTY_FIELDS, can_use_staff_card, property_version, same_form_text, update_property, version_matches
 from .subtypes import CATEGORY_TO_SUBTYPE_FIELD
 from .property_validation import validate_listing_value
@@ -881,9 +881,9 @@ def panel_toggle_export_dom(request, pk: int):
 @require_POST
 def panel_delete(request, pk):
     _ensure_migrated()
-    prop = get_object_or_404(Property, pk=pk)
-    prop.delete()
-    return JsonResponse({"ok": True, "deleted": True})
+    get_object_or_404(Property, pk=pk)
+    return JsonResponse({"ok": False, "error": "Используйте архивирование, чтобы сохранить историю объекта."},
+                        status=409)
 
 def panel_new(request):
     """Step 1: choose category/operation for a new object."""
@@ -1032,8 +1032,23 @@ def panel_private_record(request, pk, key, record_id=None):
     if record is None:
         raise Http404
     status = 200
-    editor = {"key": key, "title": scope.title, "id": record_id}
-    if request.method == "POST":
+    editor = {"key": key, "title": scope.title, "id": record_id,
+              "can_retire": isinstance(record, WorkspaceRecord) and record.is_current and record_id is not None}
+    if request.method == "POST" and request.POST.get("action") == "retire":
+        if not record_id or request.POST.get("confirm") != "on":
+            return HttpResponseBadRequest("Подтвердите пометку записи.")
+        version = record_version(prop, key, record)
+        form = record_form(prop, key, record)
+        try:
+            retire_record(prop, key, record_id, request.POST.get("version"), actor=request.user, source="card")
+        except RecordConflict:
+            status = 409
+        except ValidationError as error:
+            editor["retire_error"] = error.messages[0]
+            status = 422
+        else:
+            return redirect(reverse("panel_detail", args=[pk]) + f"#private-{key}")
+    elif request.method == "POST":
         data = {name: request.POST[name] for name in request.POST if name not in {"csrfmiddlewaretoken", "version"}}
         if any(len(request.POST.getlist(name)) != 1 for name in data) or set(data) - set(scope.fields):
             return HttpResponseBadRequest("Неверные поля раздела.")
@@ -1055,6 +1070,12 @@ def panel_private_record(request, pk, key, record_id=None):
     else:
         version = record_version(prop, key, record)
         form = record_form(prop, key, record)
+        if key == "documents" and record_id is None:
+            requested_type = PropertyDocumentType.objects.filter(slug=request.GET.get("type", "")).first()
+            if requested_type:
+                form.initial["document_type"] = requested_type.pk
+    if isinstance(record, WorkspaceRecord) and not record.is_current:
+        status = 409
     editor.update({"form": form, "version": version, "conflict": status == 409})
     return _render_property_detail(request, prop, status=status, private_editor=editor)
 

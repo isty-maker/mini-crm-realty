@@ -125,7 +125,14 @@ class PropertyWorkspace(models.Model):
             raise ValidationError(errors)
 
 
-class OwnershipBasis(models.Model):
+class WorkspaceRecord(models.Model):
+    is_current = models.BooleanField("Актуальна", default=True, editable=False)
+
+    class Meta:
+        abstract = True
+
+
+class OwnershipBasis(WorkspaceRecord):
     class Kind(models.TextChoices):
         UNKNOWN = "unknown", "Неизвестно"
         PURCHASE = "purchase", "Купля-продажа"
@@ -141,7 +148,7 @@ class OwnershipBasis(models.Model):
     source = models.CharField("Источник", max_length=255, blank=True)
 
 
-class PropertyOwner(models.Model):
+class PropertyOwner(WorkspaceRecord):
     workspace = models.ForeignKey(PropertyWorkspace, on_delete=models.CASCADE, related_name="owners")
     name = models.CharField("Имя собственника", max_length=255)
     share_numerator = models.PositiveIntegerField("Числитель доли", null=True, blank=True)
@@ -155,7 +162,7 @@ class PropertyOwner(models.Model):
             raise ValidationError("Укажите оба числа доли. Числитель и знаменатель должны быть положительными.")
 
 
-class DriveFile(models.Model):
+class DriveFile(WorkspaceRecord):
     workspace = models.ForeignKey(PropertyWorkspace, on_delete=models.CASCADE, related_name="drive_files")
     file_id = models.CharField("ID файла", max_length=255, unique=True)
     name = models.CharField("Название файла", max_length=255)
@@ -179,7 +186,7 @@ class PropertyDocumentType(models.Model):
         return self.title
 
 
-class PropertyDocument(models.Model):
+class PropertyDocument(WorkspaceRecord):
     class Applicability(models.TextChoices):
         UNKNOWN = "unknown", "Не выяснено"
         NOT_NEEDED = "not_needed", "Не требуется"
@@ -210,13 +217,19 @@ class PropertyDocument(models.Model):
         errors = {}
         if self.original_id and self.original.workspace_id != self.workspace_id:
             errors["original"] = "Выберите файл этого объекта."
+        if self.availability == self.Availability.MISSING and self.verification == self.Review.CHECKED:
+            errors["verification"] = "Отсутствующий документ нельзя отметить проверенным. Для замечания укажите результат поиска."
+        if self.availability == self.Availability.MISSING and self.original_id:
+            errors["original"] = "У отсутствующего документа не может быть привязан оригинал."
+        if self.original_id and not self.original.is_current and self.is_current:
+            errors["original"] = "Выберите актуальный файл этого объекта."
         if self.verification != self.Review.UNKNOWN and self.checked_on is None:
             errors["checked_on"] = "Укажите дату проверки."
         if errors:
             raise ValidationError(errors)
 
 
-class PropertyNote(models.Model):
+class PropertyNote(WorkspaceRecord):
     workspace = models.ForeignKey(PropertyWorkspace, on_delete=models.CASCADE, related_name="notes")
     text = models.TextField("Оперативная заметка")
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, editable=False)

@@ -1,7 +1,8 @@
-<details class="property-card" id="private-{{ block.key }}"{% if block.items %} open{% endif %}>
-  <summary>{{ block.title }}</summary>
+{% for warning in warnings %}<p role="status">{{ warning }}</p>{% endfor %}
+<details class="property-card" id="private-{{ block.key }}">
+  <summary>{{ block.title }}{% if block.collection %} · {{ block.items|length }}{% endif %}</summary>
   {% for item in block.items %}
-    <div>
+    <div class="property-record">
       <dl class="property-facts">
         {% for label, value in item.rows %}
           <div><dt>{{ label }}</dt><dd>{% if label == 'Оригинал Drive' and value|slice:":8" == 'https://' %}<a href="{{ value }}" target="_blank" rel="noopener noreferrer">Открыть в Drive</a>{% else %}{{ value }}{% endif %}</dd></div>

@@ -44,7 +44,7 @@
       {% include "core/includes/property_platform_chip.html" with action=dom_action enabled=prop.export_to_domklik version=dom_version label="Домклик" color="dom" staff=staff csrf_token=csrf_token only %}
       <span class="chip off">Авито · Не подключено</span>
     </div>
-    <small>Чипы показывают настройки выгрузки. Публикация площадкой не подтверждена.</small>
+    <small>Чипы показывают настройки выгрузки. Публикация площадкой не подтверждена.{% if prop.is_archived %} Выгрузка приостановлена для архивного объекта.{% endif %}</small>
     {% if export_conflict %}<p role="alert">Настройка уже изменилась. Показано текущее состояние.</p>{% endif %}
     <div class="property-actions">
       {% if photo_count %}
@@ -80,21 +80,35 @@
           <a href="{% url 'panel_detail' prop.pk %}#private-{{ private_editor.key }}">Отмена</a>
         </div>
       </form>
+      {% if private_editor.retire_error %}<p role="alert">{{ private_editor.retire_error }}</p>{% endif %}
+      {% if private_editor.can_retire and not private_editor.conflict %}
+        <details class="property-retire"><summary>Пометить неактуальной</summary>
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="version" value="{{ private_editor.version }}">
+            <input type="hidden" name="action" value="retire">
+            <label><input type="checkbox" name="confirm" required> Подтверждаю. Запись и её история сохранятся.</label>
+            <button type="submit">Подтвердить</button>
+          </form>
+        </details>
+      {% endif %}
     </section>
   {% endif %}
   <div class="property-columns">
     <div class="property-column">
       {% if panels.metrics %}{% include "core/includes/property_section.html" with panel=panels.metrics %}{% endif %}
       {% if panels.land %}{% include "core/includes/property_section.html" with panel=panels.land %}{% endif %}
-      {% include "core/includes/property_section.html" with panel=panels.terms %}
-      {% if staff %}{% include "core/includes/private_property_block.html" with block=private_blocks.terms %}{% endif %}
+      <div class="property-terms">
+        {% include "core/includes/property_section.html" with panel=panels.terms %}
+        {% if staff %}{% include "core/includes/private_property_block.html" with block=private_blocks.terms %}{% endif %}
+      </div>
     </div>
     <div class="property-column">
       {% if staff %}
         {% include "core/includes/private_property_block.html" with block=private_blocks.legal %}
         {% include "core/includes/private_property_block.html" with block=private_blocks.bases %}
-        {% include "core/includes/private_property_block.html" with block=private_blocks.owners %}
-        {% include "core/includes/private_property_block.html" with block=private_blocks.documents %}
+        {% include "core/includes/private_property_block.html" with block=private_blocks.owners warnings=owner_warnings %}
+        {% include "core/includes/property_document_summary.html" %}
         {% include "core/includes/private_property_block.html" with block=private_blocks.files %}
         {% include "core/includes/private_property_block.html" with block=private_blocks.notes %}
       {% endif %}
@@ -107,13 +121,6 @@
           </dl>
         </section>
       {% endif %}
-      <details class="property-card">
-        <summary>Выгрузка объявлений</summary>
-        <dl class="property-feeds">
-          <div><dt>ЦИАН</dt><dd>{% include "core/includes/property_feed_status.html" with enabled=prop.export_to_cian archived=prop.is_archived only %}</dd></div>
-          <div><dt>Домклик</dt><dd>{% include "core/includes/property_feed_status.html" with enabled=prop.export_to_domklik archived=prop.is_archived only %}</dd></div>
-        </dl>
-      </details>
     </div>
   </div>
 
