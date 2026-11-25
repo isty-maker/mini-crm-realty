@@ -42,3 +42,16 @@ def chart_points(history):
         points.append((x, y))
         previous = entry
     return " ".join(path), points
+
+
+def price_history_context(prop):
+    history = list(prop.price_history.all()) if prop else []
+    chart_path, chart_markers = chart_points(history)
+    return {
+        "price_changes": [entry for entry in history if entry.kind == PriceHistory.Kind.CHANGE],
+        "price_origin": next((entry for entry in history if entry.kind != PriceHistory.Kind.CHANGE), None),
+        "chart_path": chart_path,
+        "chart_markers": chart_markers,
+        "chart_start": history[-1].recorded_at if history else None,
+        "chart_end": history[0].recorded_at if len(history) > 1 else None,
+    }

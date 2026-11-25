@@ -26,7 +26,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_safe
 
 try:
     from PIL import Image, ImageFile, ImageOps, UnidentifiedImageError
@@ -50,8 +50,9 @@ except ImportError:  # pragma: no cover - support for trimmed Pillow stub
 
 from .cian import build_cian_feed, resolve_category
 from .forms import PropertyForm, fields_for_category, group_fields
-from .models import Photo, PriceHistory, Property
-from .price_history import chart_points, with_recent_prices
+from .models import Photo, Property
+from .price_history import price_history_context, with_recent_prices
+from .property_detail import media_url, property_facts
 from .templatetags.price_display import price_display
 from .utils.image_pipeline import InvalidImage, compress_to_jpeg
 
@@ -655,8 +656,6 @@ def _panel_form_context(form, prop, photos):
     # Keep UI tight: no massive fallback list — only category_misc goes to «Прочее».
     # (extra_fallback intentionally disabled to prevent «all fields everywhere».)
     field_fallback = category_misc_bound
-    history = list(prop.price_history.all()) if prop else []
-    chart_path, chart_markers = chart_points(history)
     return {
         "form": form,
         "prop": prop,
@@ -665,12 +664,7 @@ def _panel_form_context(form, prop, photos):
         "subtypes_placeholder": PropertyForm.SUBTYPE_PLACEHOLDER,
         "field_groups": bound_groups,
         "field_fallback": field_fallback,
-        "price_changes": [entry for entry in history if entry.kind == PriceHistory.Kind.CHANGE],
-        "price_origin": next((entry for entry in history if entry.kind != PriceHistory.Kind.CHANGE), None),
-        "chart_path": chart_path,
-        "chart_markers": chart_markers,
-        "chart_start": history[-1].recorded_at if history else None,
-        "chart_end": history[0].recorded_at if len(history) > 1 else None,
+        **price_history_context(prop),
     }
 
 
@@ -881,6 +875,21 @@ def panel_create(request):
         _panel_form_context(form, None, []),
         status=200,
     )
+
+
+@require_safe
+def panel_detail(request, pk):
+    prop = get_object_or_404(Property, pk=pk)
+    photo_urls = [url for photo in prop.photos.all() if (url := media_url(photo.src))]
+    return render(request, "core/panel_detail.html", {
+        "prop": prop,
+        "address": prop.address.strip(),
+        "facts": property_facts(prop),
+        "photo_urls": photo_urls,
+        "layout_url": media_url(prop.layout_photo_url),
+        "description": prop.description.strip(),
+        **price_history_context(prop),
+    })
 
 
 def panel_edit(request, pk):
