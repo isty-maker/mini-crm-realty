@@ -4,9 +4,11 @@ from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
 from core import views as core_views
+from core.admin import workspace_admin
 from crm_access.views import staff_invitation
 
 urlpatterns = [
+    path("crm/workspace-admin/", workspace_admin.urls),
     path("crm/login/", staff_invitation, name="crm_staff_login"),
     path("crm/logout/", LogoutView.as_view(next_page=reverse_lazy("crm_staff_login")), name="crm_staff_logout"),
     path("healthz/", core_views.healthz, name="healthz"),
@@ -19,6 +21,8 @@ urlpatterns = [
     path("panel/objects/<int:pk>/", core_views.panel_detail, name="panel_detail"),
     path("panel/objects/<int:pk>/photos/", core_views.panel_property_gallery, name="panel_property_gallery"),
     path("panel/objects/<int:pk>/sections/<slug:section_key>/", core_views.panel_detail_section, name="panel_detail_section"),
+    path("panel/objects/<int:pk>/private/<slug:key>/", core_views.panel_private_record, name="panel_private_record"),
+    path("panel/objects/<int:pk>/private/<slug:key>/<int:record_id>/", core_views.panel_private_record, name="panel_private_record"),
     path("panel/edit/<int:pk>/", core_views.panel_edit, name="panel_edit"),
     path("panel/edit/<int:pk>/add-photo/", core_views.panel_add_photo, name="panel_add_photo"),
     path("panel/photo/<int:pk>/delete/", core_views.panel_photo_delete, name="panel_photo_delete"),

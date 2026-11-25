@@ -199,10 +199,10 @@ class PropertySectionForm(forms.Form):
         }
 
 
-def save_section(prop, section, version, changes):
+def save_section(prop, section, version, changes, **audit):
     """Compare-and-swap the section, preserving fields owned by other editors."""
     if not version_matches(prop, section.key, section_scope(section), version):
         return False
     if changes.keys() - set(section.fields):
         raise ValueError("Fields outside the property section")
-    return update_property(prop, section_scope(section), changes)
+    return update_property(prop, section_scope(section), changes, **audit)

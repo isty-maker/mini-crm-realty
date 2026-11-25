@@ -1,0 +1,19 @@
+{% for warning in warnings %}<p role="status">{{ warning }}</p>{% endfor %}
+<details class="property-card" id="private-{{ block.key }}">
+  <summary>{{ block.title }}{% if block.collection %} · {{ block.items|length }}{% endif %}</summary>
+  {% for item in block.items %}
+    <div class="property-record">
+      <dl class="property-facts">
+        {% for label, value in item.rows %}
+          <div><dt>{{ label }}</dt><dd>{% if label == 'Оригинал Drive' and value|slice:":8" == 'https://' %}<a href="{{ value }}" target="_blank" rel="noopener noreferrer">Открыть в Drive</a>{% else %}{{ value }}{% endif %}</dd></div>
+        {% endfor %}
+      </dl>
+      {% if block.collection %}
+        <a class="property-text-action" href="{% url 'panel_private_record' prop.pk block.key item.id %}#private-editor">Изменить запись</a>
+      {% endif %}
+    </div>
+  {% empty %}
+    <p>Сведения не внесены.</p>
+  {% endfor %}
+  <a class="property-text-action" href="{% url 'panel_private_record' prop.pk block.key %}#private-editor">{% if block.collection %}Добавить запись{% else %}Изменить{% endif %}</a>
+</details>

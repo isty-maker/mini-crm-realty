@@ -1,0 +1,32 @@
+<section class="property-card" id="private-documents" aria-labelledby="document-summary">
+  <h2 id="document-summary">Готовность документов</h2>
+  <div class="property-document-list">
+    {% for item in document_summary %}
+      <div class="property-document-row">
+        <strong>{{ item.type.title }}</strong>
+        {% for doc in item.documents %}
+          <details>
+            <summary>{{ doc.get_applicability_display }} · {{ doc.get_availability_display }} · {{ doc.get_verification_display }}</summary>
+            <dl class="property-facts">
+              {% if doc.document_date %}<div><dt>Дата документа</dt><dd>{{ doc.document_date }}</dd></div>{% endif %}
+              {% if doc.checked_on %}<div><dt>Дата проверки</dt><dd>{{ doc.checked_on }}</dd></div>{% endif %}
+              {% if doc.source %}<div><dt>Источник</dt><dd>{{ doc.source }}</dd></div>{% endif %}
+              {% if doc.comment %}<div><dt>Комментарий</dt><dd>{{ doc.comment }}</dd></div>{% endif %}
+              {% if doc.original.url|slice:":8" == 'https://' %}
+                <div><dt>Оригинал</dt><dd><a href="{{ doc.original.url }}" target="_blank" rel="noopener noreferrer">Открыть в Drive</a></dd></div>
+              {% endif %}
+            </dl>
+            <a class="property-text-action" href="{% url 'panel_private_record' prop.pk 'documents' doc.pk %}#private-editor">Изменить документ</a>
+          </details>
+        {% empty %}
+          <div class="property-document-empty">
+            <span>Не выяснено · Не внесено</span>
+            <a href="{% url 'panel_private_record' prop.pk 'documents' %}?type={{ item.type.slug }}#private-editor"
+               aria-label="Добавить: {{ item.type.title }}">Добавить</a>
+          </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+  <a class="property-text-action" href="{% url 'panel_private_record' prop.pk 'documents' %}#private-editor">Добавить документ другого типа</a>
+</section>

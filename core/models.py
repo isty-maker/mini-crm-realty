@@ -488,3 +488,10 @@ def delete_old_photo_image_on_change(sender, instance, **kwargs):
         storage.delete(name)
     except Exception:
         pass
+
+
+# Django loads each private model through the core app registry.
+from .workspace_models import (  # noqa: E402,F401
+    DriveFile, MarketplaceListing, OwnershipBasis, PropertyDocument, PropertyDocumentType,
+    PropertyNote, PropertyOwner, PropertyWorkspace, PropertyChange,
+)

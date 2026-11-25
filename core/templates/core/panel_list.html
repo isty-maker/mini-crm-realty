@@ -45,6 +45,12 @@
       <input type="checkbox" name="include_archived" value="1" {% if include_archived %}checked{% endif %}>
       <span>Арх.</span>
     </label>
+    {% if work_choices %}
+      <select name="work_status" aria-label="Рабочий статус">
+        <option value="">Все рабочие статусы</option>
+        {% for code, label in work_choices %}<option value="{{ code }}"{% if code == work_filter %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    {% endif %}
     {% if show %}<input type="hidden" name="show" value="{{ show }}">{% endif %}
   </form>
   <a href="{% url 'export_cian_check' %}" class="btn btn-sm">Проверить перед экспортом</a>
@@ -72,7 +78,6 @@
         data-price-url="{% url 'panel_update_price' row.id %}"
         data-archive-version="{{ row.archive_version }}"
         data-archive-url="{% url 'panel_toggle_archive' row.id %}"
-        data-delete-url="{% url 'panel_delete' row.id %}"
         data-toggle-cian-url="{% url 'panel_toggle_export_cian' row.id %}"
         data-toggle-dom-url="{% url 'panel_toggle_export_dom' row.id %}"
         class="{% if row.is_archived %}is-archived{% endif %}"
@@ -82,6 +87,7 @@
         </td>
         <td class="addr" title="{{ row.full_address|default:row.address }}">
           <a class="addr-link" href="{% url 'panel_detail' row.id %}">{{ row.address|default:"—" }}</a>
+          {% if row.work_status %}<small>{{ row.work_status }}</small>{% endif %}
           <div class="addr-sub">
             <span class="chip {{ row.export_to_cian|yesno:'on cian,off' }}" data-action="toggle-cian" data-version="{{ row.cian_version }}">CIAN</span>
             <span class="chip {{ row.export_to_domklik|yesno:'on dom,off' }}" data-action="toggle-dom" data-version="{{ row.dom_version }}">Dom</span>
@@ -99,7 +105,6 @@
           {% else %}
             <button type="button" class="btn btn-sm act-archive">АРХ</button>
           {% endif %}
-          <button type="button" class="btn btn-sm btn-danger act-delete" title="Удалить">✖</button>
         </td>
         <td class="dates">
           <div>изм {{ row.updated|default:"—" }}</div>
@@ -316,30 +321,6 @@
               }
               alert('Не удалось изменить статус объекта');
             });
-          return;
-        }
-
-        const deleteBtn = event.target.closest('.act-delete');
-        if (deleteBtn) {
-          const row = deleteBtn.closest('tr');
-          if (!row) {
-            return;
-          }
-          if (!confirm('Удалить объект безвозвратно?')) {
-            return;
-          }
-          const url = row.dataset.deleteUrl;
-          if (!url) {
-            return;
-          }
-          post(url)
-            .then((data) => {
-              if (!data || !data.ok && !data.deleted) {
-                throw new Error('Invalid response');
-              }
-              row.remove();
-            })
-            .catch(() => alert('Не удалось удалить объект'));
           return;
         }
 
