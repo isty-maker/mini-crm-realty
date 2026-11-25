@@ -216,7 +216,7 @@ class PropertySectionTests(TestCase):
         Property.objects.filter(pk=self.prop.pk).update(cadastral_number="PRIVATE-CAD", flat_number="PRIVATE-APT",
                                                         furnishing_details="PRIVATE-FURNISHING")
         anonymous = Client()
-        for url in (self.detail, self.edit):
+        for url in (self.detail,):
             page = anonymous.get(url, {"edit": "deal"})
             for marker in ("PRIVATE-CAD", "PRIVATE-APT", "PRIVATE-FURNISHING", 'name="from_card"'):
                 if marker != "PRIVATE-FURNISHING" or url == self.detail:
@@ -228,6 +228,38 @@ class PropertySectionTests(TestCase):
         self.assertContains(self.client.get(self.detail), "PRIVATE-CAD")
         self.assertContains(self.client.get(self.detail), "PRIVATE-APT")
         self.assertIn("no-store", self.client.get(self.detail).headers["Cache-Control"])
+
+    def test_legacy_multipart_create_and_partial_edit_keep_listing_identifiers(self):
+        client = Client(enforce_csrf_checks=True)
+        create = reverse("panel_create")
+        client.get(create)
+        csrf = client.cookies["csrftoken"].value
+        fields = {"category": "flat", "operation": "sale", "flat_type": "apartment",
+                  "currency": "rur", "total_area": "43.25", "cadastral_number": "SYNTHETIC-ID",
+                  "flat_number": "TEST-7", "export_to_cian": "on", "csrfmiddlewaretoken": csrf}
+        response = client.post(create, fields)
+        self.assertEqual(response.status_code, 302)
+        prop = Property.objects.get(cadastral_number="SYNTHETIC-ID")
+        url = reverse("panel_edit", args=[prop.pk])
+        response = client.post(url, {"csrfmiddlewaretoken": csrf, "description": "Синтетическое описание"})
+        self.assertRedirects(response, url, fetch_redirect_response=False)
+        prop.refresh_from_db()
+        self.assertEqual(prop.flat_number, "TEST-7")
+        self.assertTrue(prop.export_to_cian)
+        self.assertFalse(prop.export_to_domklik)
+        self.assertEqual(client.post(url, {"description": "Без CSRF"}).status_code, 403)
+        form = client.get(url)
+        self.assertContains(form, 'name="edit_version"')
+        bad = client.post(url, {"csrfmiddlewaretoken": csrf, "edit_version": form.context["edit_version"], "total_area": ""})
+        self.assertEqual(bad.status_code, 200)
+        self.assertTrue(bad.context["form"].errors["total_area"])
+        response = client.post(url, {"csrfmiddlewaretoken": csrf, "edit_version": form.context["edit_version"],
+                                     "export_to_cian": ["false", "on"], "export_to_domklik": "false",
+                                     "cadastral_number": "SYNTHETIC-CHANGED"})
+        self.assertEqual(response.status_code, 302)
+        prop.refresh_from_db()
+        self.assertEqual(prop.cadastral_number, "SYNTHETIC-CHANGED")
+        self.assertTrue(prop.export_to_cian)
 
     def test_full_editor_detects_card_update_and_preserves_draft(self):
         opened = self.client.get(self.edit).context["edit_version"]

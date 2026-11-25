@@ -1003,11 +1003,7 @@ def panel_property_gallery(request, pk):
 
 
 def _listing_form(request, prop=None, *, data=None, initial=None):
-    form = PropertyForm(data, request.FILES or None, instance=copy(prop) if prop else None, initial=initial)
-    if not can_use_staff_card(request.user):
-        for name in ("cadastral_number", "flat_number"):
-            form.fields.pop(name, None)
-    return form
+    return PropertyForm(data, request.FILES or None, instance=copy(prop) if prop else None, initial=initial)
 
 
 def _full_editor_changes(request, prop, form):
@@ -1038,7 +1034,10 @@ def panel_edit(request, pk):
                 value = field.prepare_value(form.initial.get(name))
                 data[name] = "" if value is None else value
         form = _listing_form(request, prop, data=data)
-        if not version_matches(prop, "full-editor", PROPERTY_FIELDS, request.POST.get("edit_version", "")):
+        version = request.POST.get("edit_version")
+        if (version is not None or getattr(settings, "CRM_REQUIRE_STAFF_LOGIN", False)) and not version_matches(
+            prop, "full-editor", PROPERTY_FIELDS, version or "",
+        ):
             status = 409
         elif form.is_valid():
             changes = _full_editor_changes(request, prop, form)
