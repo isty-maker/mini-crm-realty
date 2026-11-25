@@ -184,7 +184,7 @@
 [id^="private-"] { scroll-margin-top: calc(var(--app-header-height) + .55rem); }
 
 .property-terms { display: grid; gap: 0; }
-.property-terms > :first-child { border-radius: .75rem .75rem 0 0; }
+.property-terms > :first-child:not(:only-child) { border-radius: .75rem .75rem 0 0; }
 .property-terms > :nth-child(2) { border-radius: 0 0 .75rem .75rem; border-top: 0; }
 .property-document-list { display: grid; gap: .25rem; margin-bottom: .65rem; }
 .property-document-row { padding: .3rem 0; border-bottom: 1px solid var(--border, #dce3eb); }

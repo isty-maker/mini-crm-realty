@@ -163,7 +163,7 @@ class PrivateWorkspaceMigrationTests(TransactionTestCase):
         alternate = getattr(settings, "MIGRATION_MODULES", {}).get("core") == "core.mig_current"
         before = ("core", "0002_price_history" if alternate else "0014_price_history")
         workspace_release = ("core", "0004_workspace_audit" if alternate else "0016_workspace_audit")
-        after = ("core", "0005_workspace_record_currency" if alternate else "0017_workspace_record_currency")
+        after = ("core", "0008_align_listing_schema" if alternate else "0018_safe_workspace_audit_diff")
         executor = MigrationExecutor(connection)
         self.addCleanup(lambda: MigrationExecutor(connection).migrate(executor.loader.graph.leaf_nodes()))
         executor.migrate([before])
@@ -189,10 +189,23 @@ class PrivateWorkspaceMigrationTests(TransactionTestCase):
         migrated = current.objects.get(pk=prop.pk)
         self.assertEqual((migrated.price, migrated.is_archived, migrated.export_to_cian, migrated.export_to_domklik),
                          (100, True, True, False))
-        self.assertEqual(list(state.get_model("core", "Photo").objects.filter(**{relation: prop.pk})
-                              .values_list("pk", flat=True)), [second.pk, first.pk])
+        photos = state.get_model("core", "Photo").objects.filter(property_id=prop.pk)
+        self.assertEqual(list(photos.values_list("pk", "full_url")), [
+            (second.pk, "https://example.invalid/two.jpg"), (first.pk, "https://example.invalid/one.jpg"),
+        ])
+        self.assertEqual(Property.objects.get(pk=prop.pk).building_series, "")
         self.assertEqual(state.get_model("core", "PropertyWorkspace").objects.get(property_id=prop.pk).work_status, "unknown")
         self.assertTrue(state.get_model("core", "PropertyDocumentType").objects.filter(slug="egrn").exists())
         current.objects.filter(pk=prop.pk).update(price=125)
         history = state.get_model("core", "PriceHistory")
         self.assertEqual(history.objects.get(property_id=prop.pk, kind="change").previous_price, 100)
+        if alternate:
+            self.assertEqual(history.objects.filter(property_id=prop.pk).count(), 2)
+            executor = MigrationExecutor(connection)
+            executor.migrate([workspace_release])
+            reverted = executor.loader.project_state([workspace_release]).apps
+            reverted.get_model("core", "Property").objects.filter(pk=prop.pk).update(price=130)
+            executor = MigrationExecutor(connection)
+            executor.migrate([after])
+            self.assertEqual(history.objects.filter(property_id=prop.pk, kind="change").count(), 2)
+            self.assertEqual(Property.objects.get(pk=prop.pk).price, 130)
