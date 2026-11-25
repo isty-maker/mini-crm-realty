@@ -11,11 +11,22 @@
 
   <form id="prop-form" method="post" action="{% if prop %}{% url 'panel_edit' pk=prop.id %}{% else %}{% url 'panel_create' %}{% endif %}" data-preserve-scroll="true">
     {% csrf_token %}
+    {% if prop %}<input type="hidden" name="edit_version" value="{{ edit_version }}">{% endif %}
+    {% if edit_conflict %}
+      <div class="alert alert-danger" role="alert">
+        Объект уже изменился. Введённые значения остались в форме.
+        {% if current_differences %}
+          <p>Текущие значения:</p>
+          <dl>{% for label, value in current_differences %}<dt>{{ label }}</dt><dd>{{ value|default_if_none:"—" }}</dd>{% endfor %}</dl>
+        {% endif %}
+        <a href="{% url 'panel_edit' prop.pk %}">Открыть актуальную форму</a>
+      </div>
+    {% endif %}
     <div class="form-toolbar">
       <div class="form-toolbar-info">
         <h1>{{ prop|default:"Новый объект" }}</h1>
       </div>
-      <button type="submit" class="form-toolbar-save">Сохранить</button>
+      <button type="submit" class="form-toolbar-save"{% if edit_conflict %} disabled{% endif %}>Сохранить</button>
     </div>
     {{ form.non_field_errors }}
     {% for hidden in form.hidden_fields %}
@@ -74,18 +85,21 @@
       {% endwith %}
       {% with field=form.export_to_cian %}
       <div class="form-row">
+        {% if prop %}<input type="hidden" name="{{ field.name }}" value="false">{% endif %}
         <label>{{ field }} {{ field.label }}</label>
         {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.export_to_domklik %}
       <div class="form-row">
+        {% if prop %}<input type="hidden" name="{{ field.name }}" value="false">{% endif %}
         <label>{{ field }} {{ field.label }}</label>
         {% include "core/includes/field_errors.html" %}
       </div>
       {% endwith %}
       {% with field=form.is_archived %}
       <div class="form-row">
+        {% if prop %}<input type="hidden" name="{{ field.name }}" value="false">{% endif %}
         <label>{{ field }} {{ field.label }}</label>
         {% include "core/includes/field_errors.html" %}
       </div>
@@ -99,7 +113,8 @@
           {% if not field.is_hidden %}
           <div class="form-row">
             {% if field.field.widget.input_type == "checkbox" %}
-              <label>{{ field }} {{ field.label }}</label>
+              {% if prop %}<input type="hidden" name="{{ field.name }}" value="false">{% endif %}
+        <label>{{ field }} {{ field.label }}</label>
             {% else %}
               {{ field.label_tag }} {{ field }}
             {% endif %}
@@ -118,7 +133,8 @@
         {% if not field.is_hidden %}
         <div class="form-row">
           {% if field.field.widget.input_type == "checkbox" %}
-            <label>{{ field }} {{ field.label }}</label>
+            {% if prop %}<input type="hidden" name="{{ field.name }}" value="false">{% endif %}
+        <label>{{ field }} {{ field.label }}</label>
           {% else %}
             {{ field.label_tag }} {{ field }}
           {% endif %}
@@ -129,7 +145,7 @@
       {% endfor %}
     </section>
     {% endif %}
-    <button type="submit">Сохранить</button>
+    <button type="submit"{% if edit_conflict %} disabled{% endif %}>Сохранить</button>
   </form>
 
   {% if prop %}

@@ -1,0 +1,12 @@
+{% if staff %}
+<form class="property-platform-form" method="post" action="{{ action }}">
+  {% csrf_token %}
+  <input type="hidden" name="from_card" value="1">
+  <input type="hidden" name="version" value="{{ version }}">
+  <button type="submit" class="chip {% if enabled %}on {{ color }}{% else %}off{% endif %}"
+          aria-label="{{ label }}: выгрузка {% if enabled %}включена{% else %}выключена{% endif %}"
+          aria-pressed="{{ enabled|yesno:'true,false' }}">{{ label }}</button>
+</form>
+{% else %}
+<span class="chip {% if enabled %}on {{ color }}{% else %}off{% endif %}">{{ label }} · {% if enabled %}вкл.{% else %}выкл.{% endif %}</span>
+{% endif %}

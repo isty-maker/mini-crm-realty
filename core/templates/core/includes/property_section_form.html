@@ -13,7 +13,8 @@
     {% endfor %}
   </div>
   <div class="property-actions">
-    <button class="btn btn-sm" type="submit">Сохранить</button>
+    {% if panel.conflict %}<a class="property-text-action" href="?edit={{ panel.key }}#section-{{ panel.key }}">Открыть актуальную форму</a>{% endif %}
+    <button class="btn btn-sm" type="submit"{% if panel.conflict %} disabled{% endif %}>Сохранить</button>
     <a class="property-text-action" href="{% url 'panel_detail' prop.pk %}#section-{{ panel.key }}">Отмена</a>
   </div>
 </form>

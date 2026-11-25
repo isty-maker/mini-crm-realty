@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Целевой макет карточки CRM</title>
+<style>
+:root{font:16px/1.45 system-ui,sans-serif;color:#172942;background:#f4f7fb}
+*{box-sizing:border-box}
+body{max-width:1100px;margin:auto;padding:16px;overflow-wrap:anywhere}
+main>header{padding:12px 0 16px;border-bottom:1px solid #ced9e7;margin-bottom:14px}
+h1,h2,p,dl{margin:0} h1{font-size:1.65rem} h2{font-size:1.08rem;margin-bottom:.55rem}
+.banner{display:inline-block;margin-bottom:.6rem;padding:.35rem .6rem;border-radius:6px;background:#ffedbc;color:#493d1e;font-weight:650}
+.meta{color:#53627a;margin:.2rem 0}
+.price{font-weight:750;font-size:1.35rem}
+.chip{display:inline-block;padding:.16rem .55rem;margin:.25rem .2rem 0 0;border-radius:5px;border:1px solid #a9bad1;font-size:.84rem}
+.on{background:#3aa3ff;color:#11223c;border-color:#3aa3ff}
+.columns,.stack{display:grid;gap:.65rem;min-width:0}
+.card{background:#fff;border:1px solid #d5dfec;border-radius:10px;padding:.75rem;min-width:0}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.42rem .7rem}
+dt{color:#52627b;font-size:.84rem}dd{margin:0;font-weight:610}
+.rows>div{padding:.35rem 0;border-bottom:1px solid #e4ebf3}
+.rows>div:last-child{border:0}
+details[open]>summary{margin-bottom:.6rem}summary{cursor:pointer;font-weight:700}
+.document{padding:.5rem 0;border-bottom:1px solid #dbe5ef}.document:last-child{border:0}
+.document h3{font-size:.97rem;margin:0 0 .35rem}
+.bottom{margin-top:.65rem}
+@media(min-width:720px){.columns{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+<main>
+<header>
+  <span class="banner">Целевой макет · синтетические данные</span>
+  <h1>Объект «Демонстрация А»</h1>
+  <p class="meta">3-комнатная квартира · Продажа</p>
+  <p><span class="price">6 350 000 ₽</span> <span class="chip">В работе</span></p>
+  <p><span class="chip on">ЦИАН · выгрузка вкл.</span><span class="chip">Домклик · выгрузка выкл.</span><span class="chip">Авито · Не подключено</span></p>
+  <p class="meta">Фактическая публикация не проверена · Фото и планировка открываются отдельно в рабочей карточке</p>
+</header>
+<div class="columns">
+ <div class="stack">
+ <section class="card">
+  <h2>Характеристики</h2>
+  <dl class="grid">
+    <div><dt>Рекламная площадь</dt><dd>68,40 м²</dd></div><div><dt>Площадь по паспорту</dt><dd>67,90 м²</dd></div>
+    <div><dt>Жилая площадь</dt><dd>41 м²</dd></div><div><dt>Кухня</dt><dd>11 м²</dd></div>
+    <div><dt>Этаж</dt><dd>5/9</dd></div><div><dt>Потолки</dt><dd>2,65 м</dd></div>
+    <div><dt>Материал</dt><dd>Кирпич</dd></div><div><dt>Постройка</dt><dd>2012</dd></div>
+    <div><dt>Комнаты</dt><dd>Изолированные</dd></div><div><dt>Санузел</dt><dd>1 раздельный</dd></div>
+    <div><dt>Лоджии</dt><dd>1</dd></div><div><dt>Ремонт</dt><dd>Косметический</dd></div>
+  </dl>
+ </section>
+ <section class="card">
+  <h2>Условия сделки</h2>
+  <dl class="grid rows">
+  <div><dt>Продажа</dt><dd>Альтернативная</dd></div><div><dt>Проживание</dt><dd>Собственники</dd></div>
+  <div><dt>Регистрация</dt><dd>Условия уточняются</dd></div><div><dt>Освобождение</dt><dd>После регистрации сделки</dd></div>
+  <div><dt>Ключи</dt><dd>У агента</dd></div><div><dt>Мебель и техника</dt><dd>Остаётся часть. Состав уточняется</dd></div>
+  <div><dt>Торг</dt><dd>После показа</dd></div><div><dt>Расчёт</dt><dd>Ипотека возможна. Безналичный расчёт</dd></div>
+  <div><dt>Ответственный</dt><dd>Учебный сотрудник</dd></div><div><dt>Актуальность</dt><dd>14.11.2026</dd></div>
+  </dl>
+ </section>
+ <section class="card">
+  <h2>Заметки</h2>
+  <p>На показе уточнить условия освобождения.</p>
+  <p class="meta">Учебный сотрудник · Создано 14.11.2026 10:15 · Изменено 14.11.2026 10:20</p>
+ </section>
+ </div>
+ <div class="stack">
+ <section class="card">
+   <h2>Юридическое состояние</h2>
+   <dl class="grid rows">
+   <div><dt>Основания</dt><dd>Купля-продажа, дарение</dd></div><div><dt>Дата и источник</dt><dd>12.05.2020 · Учебный паспорт</dd></div>
+   <div><dt>Собственность</dt><dd>Долевая</dd></div><div><dt>Собственники и доли</dt><dd>2 · ½ и ½</dd></div>
+   <div><dt>Обременения</dt><dd>Не проверены</dd></div><div><dt>Несовершеннолетние собственники</dt><dd>Неизвестно</dd></div>
+   <div><dt>Зарегистрированные несовершеннолетние</dt><dd>Неизвестно</dd></div><div><dt>Перепланировка</dt><dd>Согласование не подтверждено</dd></div>
+   <div><dt>Нюансы сделки</dt><dd>Уточнить перечень документов до аванса</dd></div>
+   </dl>
+ </section>
+ <section class="card">
+  <h2>Готовность документов</h2>
+  <article class="document">
+    <h3>Выписка ЕГРН</h3>
+    <dl class="grid">
+    <div><dt>Применимость</dt><dd>Требуется</dd></div><div><dt>Наличие</dt><dd>Имеется</dd></div>
+    <div><dt>Проверка</dt><dd>Не проверено</dd></div><div><dt>Дата документа</dt><dd>12.11.2026</dd></div>
+    <div><dt>Дата проверки</dt><dd>—</dd></div><div><dt>Источник</dt><dd>Учебный паспорт</dd></div>
+    <div><dt>Комментарий</dt><dd>Назначить проверку</dd></div><div><dt>Оригинал</dt><dd>Доступен через защищённый Drive в целевой системе</dd></div>
+    </dl>
+  </article>
+  <article class="document"><h3>Правоустанавливающие документы</h3><p>Требуются · имеются · не проверены</p></article>
+  <article class="document"><h3>Технический паспорт и план БТИ</h3><p>Не выяснено · наличие неизвестно · не проверено</p></article>
+  <article class="document"><h3>Согласие супруга, разрешение опеки, доверенность и дополнительные документы</h3><p>Применимость не выяснена</p></article>
+  <details class="document"><summary>Список файлов Google Drive</summary><p>Синтетический список. Файлы, идентификаторы и ссылки не подключены.</p></details>
+ </section>
+ </div>
+</div>
+<div class="stack bottom">
+ <details class="card"><summary>Описание объявления</summary><p>Демонстрационное описание для проверки раскладки.</p></details>
+ <details class="card"><summary>История изменения цены</summary><p>14.11.2026 · 6 400 000 → 6 350 000 ₽</p></details>
+ <p class="meta">Полный редактор доступен в рабочей карточке. Этот файл не сохраняет данные.</p>
+</div>
+</main>
+</html>

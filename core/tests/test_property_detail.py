@@ -2,6 +2,7 @@ from decimal import Decimal
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
 
@@ -52,7 +53,7 @@ class PropertyDetailTests(TestCase):
         self.assertEqual(gallery.context["photo_urls"], ["https://example.invalid/cover.jpg", "/media/photo.jpg"])
         self.assertNotContains(gallery, "javascript:alert(1)")
         for value in (
-            "Тестовая улица, 12", "Продажа", "45,50 м²", "<dt>Этаж</dt><dd>0</dd>",
+            "Тестовая улица, 12", "Продажа", "45,50 м²", "<dt>Этаж</dt><dd>0/9</dd>",
             "105,75 <small>EUR</small>", "100,50 → 105,75", "Ступенчатый график",
             "Новокузнецк", "Планировка", "Описание<br>Вторая строка",
             "ЦИАН", "Домклик", "Включена", "Выключена", "&lt;script&gt;Не выполнять&lt;/script&gt;",
@@ -68,9 +69,9 @@ class PropertyDetailTests(TestCase):
         for value in ("Адрес не указан", "Цена не указана", "Характеристики не заполнены", "Изменений цены пока нет",
                       "Приостановлена · архив"):
             self.assertContains(page, value)
-        self.assertNotContains(page, "Планировка")
+        self.assertContains(page, "Планировка · Не указана")
         self.assertContains(page, "Описание не заполнено")
-        self.assertNotContains(page, "Открыть галерею")
+        self.assertNotContains(page, "Фото (")
         Property.objects.filter(pk=prop.pk).update(price=0)
         self.assertContains(self.client.get(url), "0 <small>RUB</small>")
 
@@ -96,6 +97,8 @@ class PropertySectionTests(TestCase):
             flat_type="apartment", price=100, currency="rur", description="До изменения",
             total_area=45, living_area=30, phone_number="9001112233", export_to_domklik=True,
         )
+        self.employee = get_user_model().objects.create_user(username="test-employee", is_staff=True)
+        self.client.force_login(self.employee)
         self.detail = reverse("panel_detail", args=[self.prop.pk])
         self.edit = reverse("panel_edit", args=[self.prop.pk])
 
@@ -179,6 +182,7 @@ class PropertySectionTests(TestCase):
 
     def test_csrf_is_required_and_valid_token_allows_editing(self):
         client = Client(enforce_csrf_checks=True)
+        client.force_login(self.employee)
         panel = self.open_editor("address", client)
         self.assertEqual(self.submit("address", panel, client, address="Другой адрес").status_code, 403)
         response = self.submit("address", panel, client, address="Другой адрес",
@@ -206,3 +210,121 @@ class PropertySectionTests(TestCase):
         self.prop.refresh_from_db()
         self.assertEqual(self.prop.price, 150)
         self.assertEqual(self.prop.price_history.count(), 2)
+
+
+    def test_new_writes_and_private_fields_require_staff(self):
+        Property.objects.filter(pk=self.prop.pk).update(cadastral_number="PRIVATE-CAD", flat_number="PRIVATE-APT",
+                                                        furnishing_details="PRIVATE-FURNISHING")
+        anonymous = Client()
+        for url in (self.detail, self.edit):
+            page = anonymous.get(url, {"edit": "deal"})
+            for marker in ("PRIVATE-CAD", "PRIVATE-APT", "PRIVATE-FURNISHING", 'name="from_card"'):
+                if marker != "PRIVATE-FURNISHING" or url == self.detail:
+                    self.assertNotContains(page, marker)
+        panel = self.open_editor("deal")
+        self.assertEqual(self.submit("deal", panel, anonymous, price="900").status_code, 403)
+        toggle = reverse("panel_toggle_export_cian", args=[self.prop.pk])
+        self.assertEqual(anonymous.post(toggle, {"from_card": "1", "version": "x"}).status_code, 403)
+        self.assertContains(self.client.get(self.detail), "PRIVATE-CAD")
+        self.assertContains(self.client.get(self.detail), "PRIVATE-APT")
+        self.assertIn("no-store", self.client.get(self.detail).headers["Cache-Control"])
+
+    def test_full_editor_detects_card_update_and_preserves_draft(self):
+        opened = self.client.get(self.edit).context["edit_version"]
+        self.assertEqual(self.submit("deal", self.open_editor("deal"), price="130").status_code, 302)
+        stale = self.client.post(self.edit, {"edit_version": opened, "price": "100", "description": "Ввод из старой вкладки"})
+        self.assertEqual(stale.status_code, 409)
+        self.assertContains(stale, "Ввод из старой вкладки", status_code=409)
+        self.assertContains(stale, "130", status_code=409)
+        self.prop.refresh_from_db()
+        self.assertEqual(self.prop.price, 130)
+        self.assertEqual(self.prop.description, "До изменения")
+
+    def test_full_editor_changes_only_submitted_fields_and_no_op_has_no_history(self):
+        opened = self.client.get(self.edit).context["edit_version"]
+        response = self.client.post(self.edit, {"edit_version": opened, "description": "Новый текст", "price": "100"})
+        self.assertEqual(response.status_code, 302, response.context["form"].errors if response.context else "")
+        self.prop.refresh_from_db()
+        self.assertEqual(self.prop.description, "Новый текст")
+        self.assertEqual(self.prop.living_area, 30)
+        self.assertTrue(self.prop.export_to_cian)
+        self.assertTrue(self.prop.export_to_domklik)
+        self.assertEqual(self.prop.price_history.count(), 1)
+
+    def test_full_editor_change_invalidates_card_and_quick_versions(self):
+        listing = self.client.get(reverse("panel_list")).context["rows"][0]
+        opened = self.client.get(self.edit).context["edit_version"]
+        deal = self.open_editor("deal")
+        self.assertEqual(self.client.post(self.edit, {"edit_version": opened, "price": 150,
+                                                     "export_to_cian": "false"}).status_code, 302)
+        self.assertEqual(self.submit("deal", deal, price=160).status_code, 409)
+        price_url = reverse("panel_update_price", args=[self.prop.pk])
+        result = self.client.post(price_url, {"price": 165, "version": listing["price_version"]})
+        self.assertEqual(result.status_code, 409)
+        self.assertEqual(result.json()["current"], "150")
+        toggle = reverse("panel_toggle_export_cian", args=[self.prop.pk])
+        self.assertEqual(self.client.post(toggle, {"version": listing["cian_version"]}).status_code, 409)
+        self.prop.refresh_from_db()
+        self.assertEqual(self.prop.price, 150)
+        self.assertFalse(self.prop.export_to_cian)
+        self.assertTrue(self.prop.export_to_domklik)
+
+    def test_quick_price_and_export_changes_invalidate_full_editor(self):
+        edit = self.client.get(self.edit)
+        row = self.client.get(reverse("panel_list")).context["rows"][0]
+        self.assertEqual(self.client.post(reverse("panel_update_price", args=[self.prop.pk]),
+                         {"price": 160, "version": row["price_version"]}).status_code, 200)
+        stale = self.client.post(self.edit, {"edit_version": edit.context["edit_version"], "price": 100})
+        self.assertEqual(stale.status_code, 409)
+        edit = self.client.get(self.edit)
+        card = self.client.get(self.detail)
+        self.assertEqual(self.client.post(reverse("panel_toggle_export_dom", args=[self.prop.pk]), {
+            "from_card": "1", "version": card.context["dom_version"],
+        }).status_code, 302)
+        stale = self.client.post(self.edit, {"edit_version": edit.context["edit_version"], "export_to_domklik": "on"})
+        self.assertEqual(stale.status_code, 409)
+        self.prop.refresh_from_db()
+        self.assertEqual(self.prop.price, 160)
+        self.assertFalse(self.prop.export_to_domklik)
+        self.assertTrue(self.prop.export_to_cian)
+
+    def test_card_export_chip_renders_a_csrf_token_and_requires_it(self):
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(self.employee)
+        page = client.get(self.detail)
+        self.assertContains(page, 'name="csrfmiddlewaretoken"', count=2)
+        url = reverse("panel_toggle_export_cian", args=[self.prop.pk])
+        data = {"from_card": "1", "version": page.context["cian_version"]}
+        self.assertEqual(client.post(url, data).status_code, 403)
+        data["csrfmiddlewaretoken"] = client.cookies["csrftoken"].value
+        self.assertEqual(client.post(url, data).status_code, 302)
+
+    def test_rooms_mapping_stays_distinct_in_both_feeds(self):
+        Property.objects.filter(pk=self.prop.pk).update(rooms=2, flat_rooms_count=3)
+        self.assertContains(self.client.get(self.detail), "3-комнатная квартира · Продажа")
+        with TemporaryDirectory() as media, self.settings(MEDIA_ROOT=media), patch(
+            "core.management.commands.generate_cian_feed.is_yandex_storage_configured", return_value=False
+        ), patch("core.storage.is_yandex_storage_configured", return_value=False):
+            for endpoint in ("export_cian", "export_domklik"):
+                xml = self.client.get(reverse(endpoint)).content
+                self.assertIn(b"<FlatRoomsCount>3</FlatRoomsCount>", xml)
+                self.assertIn(b"<RoomsCount>2</RoomsCount>", xml)
+        metrics = self.open_editor("metrics")
+        self.assertEqual(self.submit("metrics", metrics, flat_rooms_count=4).status_code, 302)
+        self.prop.refresh_from_db()
+        self.assertEqual(self.prop.rooms, 2)
+
+    def test_applicable_fields_change_with_category(self):
+        cases = {
+            "flat": ("flat_rooms_count", "room_area"),
+            "room": ("room_area", "land_area"),
+            "house": ("bedrooms_count", "floor_number"),
+            "land": ("land_area", "total_area"),
+            "commercial": ("power", "flat_rooms_count"),
+        }
+        for category, (present, absent) in cases.items():
+            with self.subTest(category=category):
+                self.prop.category = category
+                fields = {name for section in editable_sections(self.prop).values() for name in section.fields}
+                self.assertIn(present, fields)
+                self.assertNotIn(absent, fields)

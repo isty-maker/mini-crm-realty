@@ -25,7 +25,7 @@ class PriceHistoryTests(TestCase):
         self.assertEqual(origin.new_price, Decimal("100.25"))
 
         edit = reverse("panel_edit", args=[prop.pk])
-        self.assertEqual(self.client.post(edit, {**data, "price": "125.50"}).status_code, 302)
+        self.assertEqual(self.client.post(edit, {**data, "price": "125.50", "edit_version": self.client.get(edit).context["edit_version"]}).status_code, 302)
         inline = reverse("panel_update_price", args=[prop.pk])
         response = self.client.post(inline, {"price": "115,75"})
         self.assertEqual(response.json()["price"], "115.75")
@@ -35,7 +35,7 @@ class PriceHistoryTests(TestCase):
         self.assertEqual(changes, [(Decimal("125.50"), Decimal("115.75")),
                                    (Decimal("100.25"), Decimal("125.50")),
                                    (None, Decimal("100.25"))])
-        self.assertEqual(self.client.post(edit, {**data, "price": "115.75"}).status_code, 302)
+        self.assertEqual(self.client.post(edit, {**data, "price": "115.75", "edit_version": self.client.get(edit).context["edit_version"]}).status_code, 302)
         self.client.post(inline, {"price": "115.75"})
         self.assertEqual(prop.price_history.count(), 3)
         page = self.client.get(edit)

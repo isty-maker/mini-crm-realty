@@ -171,3 +171,11 @@
   .property-card { padding: .65rem .9rem; }
   .property-gallery { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+
+.property-subtitle { margin: .25rem 0; color: var(--detail-muted); }
+.property-platforms { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-block: .35rem; }
+.property-platforms .property-platform-form { margin: 0; }
+.property-platforms .chip { margin: 0; width: auto; min-height: 2.35rem; }
+.property-platforms span.chip { cursor: default; }
+.property-bottom { margin-top: .65rem; }
+.property-field input[type="checkbox"] { width: 1.2rem; min-height: initial; height: 1.2rem; }

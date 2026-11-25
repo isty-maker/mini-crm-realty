@@ -1,16 +1,14 @@
 from dataclasses import dataclass
 from decimal import Decimal
-import json
 from urllib.parse import urlsplit
 
 from django import forms
 from django.forms.models import fields_for_model
-from django.utils import timezone
-from django.utils.crypto import constant_time_compare, salted_hmac
 
 from .models import Property
 from .property_validation import NONNEGATIVE_LISTING_FIELDS, required_listing_fields, validate_listing_value
 
+from .property_writes import current_values, property_version, update_property, version_matches
 from .templatetags.price_display import price_display
 
 
@@ -64,54 +62,57 @@ FIELD_UNITS = {
 def editable_sections(prop):
     category = prop.category
     metrics = () if category == "land" else ("total_area",)
+    residential = ("living_area", "kitchen_area", "floor_number", "room_type",
+                   "separate_wcs_count", "combined_wcs_count", "balconies_count", "loggias_count")
     metrics += {
-        "flat": ("living_area", "kitchen_area", "flat_rooms_count", "floor_number"),
-        "room": ("room_area", "living_area", "kitchen_area", "rooms_for_sale_count", "floor_number"),
-        "house": ("bedrooms_count",),
+        "flat": (*residential, "flat_rooms_count"),
+        "room": (*residential, "room_area", "rooms_for_sale_count"),
+        "house": ("bedrooms_count", "house_condition", "heating_type", "wc_location",
+                  "sewerage_type", "water_supply_type", "gas_supply_type"),
         "commercial": ("floor_number", "power", "parking_places"),
     }.get(category, ())
+    if category and category != "land":
+        metrics += ("building_floors", "building_material", "building_build_year")
+        if category in {"flat", "room"}:
+            metrics += ("building_ceiling_height", "jk_name", "repair_type")
+        if category in {"house", "commercial"}:
+            metrics += ("ceiling_height", "repair_type")
+    sale = ("sale_type",) if category == "flat" and prop.operation == "sale" else ()
+    terms = ("bargain_allowed", "bargain_conditions", "furnishing_details")
+    terms += ("mortgage_allowed",) if prop.operation == "sale" else ()
     sections = {
         "deal": Section("deal", "Цена и валюта", ("price", "currency")),
-        "address": Section("address", "Объект", ("address",)),
+        "address": Section("address", "Адрес", ("address",)),
         "metrics": Section("metrics", "Характеристики", metrics),
+        "terms": Section("terms", "Условия сделки", (*sale, *terms)),
         "description": Section("description", "Описание объявления", ("description",)),
     }
     if category in {"land", "house"}:
-        sections["land"] = Section("land", "Участок", ("land_area", "land_area_unit"))
-    if category and category != "land":
-        building = ("building_floors", "building_build_year", "building_material")
-        if category in {"flat", "room"}:
-            building += ("building_ceiling_height", "jk_name")
-        if category in {"house", "commercial"}:
-            building += ("ceiling_height",)
-        sections["building"] = Section("building", "Здание", building)
+        sections["land"] = Section("land", "Участок", ("land_area", "land_area_unit", "permitted_land_use", "land_category"))
     return {key: section for key, section in sections.items() if section.fields}
 
 
-def display_fields(prop, section):
+def property_subtitle(prop):
+    category = prop.get_category_display()
+    rooms = prop.flat_rooms_count if prop.flat_rooms_count is not None else prop.rooms
+    if prop.category == "flat" and rooms is not None and rooms > 0:
+        category = f"{rooms}-комнатная квартира"
+    return " · ".join(value for value in (category, prop.get_operation_display()) if value)
+
+
+def display_fields(prop, section, *, staff=False):
     rows = []
-    if section.key == "address":
-        rows.extend((label, value) for label, value in (
-            ("Тип объекта", prop.get_category_display()),
-            ("Сделка", prop.get_operation_display()),
-        ) if value)
-        subtype_fields = {
-            "flat": "flat_type", "room": "room_type_ext", "house": "house_type",
-            "land": "land_type", "commercial": "commercial_type",
-        }
-        subtype = subtype_fields.get(prop.category)
-        if subtype:
-            value = getattr(prop, f"get_{subtype}_display")()
-            if value and value != prop.get_category_display():
-                rows.append(("Подтип", value))
-        return rows
     for name in section.fields:
-        if name == "land_area_unit":
+        if name == "furnishing_details" and not staff:
+            continue
+        if name == "land_area_unit" or (name == "building_floors" and prop.floor_number is not None and "floor_number" in section.fields):
             continue
         field = Property._meta.get_field(name)
         value = getattr(prop, name)
         if name == "flat_rooms_count" and value is None:
             value = prop.rooms
+        if name == "floor_number" and value is not None and prop.building_floors is not None:
+            value = f"{value}/{prop.building_floors}"
         if value is None or (isinstance(value, str) and not value.strip()):
             continue
         unit = FIELD_UNITS.get(name, "")
@@ -119,6 +120,8 @@ def display_fields(prop, section):
             unit = prop.get_land_area_unit_display() or ""
         if field.choices:
             value = getattr(prop, f"get_{name}_display")()
+        elif isinstance(value, bool):
+            value = "Да" if value else "Нет"
         elif isinstance(value, Decimal):
             value = price_display(value)
         rows.append((FIELD_LABELS.get(name, str(field.verbose_name)), f"{value} {unit}".rstrip()))
@@ -127,12 +130,15 @@ def display_fields(prop, section):
 
 def section_values(prop, section):
     # Category and operation decide which fields and validation rules apply.
-    return {name: getattr(prop, name) for name in (*section.fields, "category", "operation")}
+    return current_values(prop, section_scope(section))
+
+
+def section_scope(section):
+    return (*section.fields, "category", "operation")
 
 
 def section_version(prop, section):
-    version = json.dumps([prop.pk, section.key, section_values(prop, section)], default=str, sort_keys=True)
-    return salted_hmac("core.property-section.v1", version, algorithm="sha256").hexdigest()
+    return property_version(prop, section.key, section_scope(section))
 
 
 class PropertySectionForm(forms.Form):
@@ -197,12 +203,8 @@ class PropertySectionForm(forms.Form):
 
 def save_section(prop, section, version, changes):
     """Compare-and-swap the section, preserving fields owned by other editors."""
-    if not constant_time_compare(version, section_version(prop, section)):
+    if not version_matches(prop, section.key, section_scope(section), version):
         return False
     if changes.keys() - set(section.fields):
         raise ValueError("Fields outside the property section")
-    if not changes:
-        return True
-    return Property.objects.filter(pk=prop.pk, **section_values(prop, section)).update(
-        **changes, updated_at=timezone.now(),
-    ) == 1
+    return update_property(prop, section_scope(section), changes)

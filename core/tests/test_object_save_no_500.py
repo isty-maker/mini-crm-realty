@@ -13,5 +13,6 @@ class No500OnSaveTest(TestCase):
     def test_edit_object_no_500(self):
         prop = Property.objects.create(title="Тест", address="СПб")
         url = reverse("panel_edit", kwargs={"pk": prop.id})
-        response = self.client.post(url, {"title": "Тест-2", "address": "СПб, Невский"})
+        response = self.client.post(url, {"title": "Тест-2", "address": "СПб, Невский",
+                                          "edit_version": self.client.get(url).context["edit_version"]})
         self.assertIn(response.status_code, (200, 302, 303))
