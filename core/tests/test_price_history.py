@@ -1,3 +1,4 @@
+from datetime import datetime, timezone as utc_timezone
 from decimal import Decimal
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -7,6 +8,7 @@ from django.db import connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 from django.test import Client, TestCase, TransactionTestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from core.models import PriceHistory, Property
 
@@ -39,6 +41,38 @@ class PriceHistoryTests(TestCase):
         page = self.client.get(edit)
         self.assertContains(page, "Ступенчатый график")
         self.assertContains(page, "Исходная цена")
+
+    def test_panel_history_uses_novokuznetsk_across_utc_midnight(self):
+        prop = Property.objects.create(category="flat", operation="sale", price=100)
+        Property.objects.filter(pk=prop.pk).update(price=200)
+        prop.price_history.filter(kind=PriceHistory.Kind.INITIAL).update(
+            recorded_at=datetime(2026, 11, 25, 16, 0, tzinfo=utc_timezone.utc)
+        )
+        prop.price_history.filter(kind=PriceHistory.Kind.CHANGE).update(
+            recorded_at=datetime(2026, 11, 25, 21, 5, 6, tzinfo=utc_timezone.utc)
+        )
+        with timezone.override("UTC"):
+            panel = self.client.get(reverse("panel_list"))
+            edit = self.client.get(reverse("panel_edit", args=[prop.pk]))
+            inline = self.client.post(reverse("panel_update_price", args=[prop.pk]), {"price": "200"})
+        expected = "2026-11-26T04:05:06+07:00"
+        for response in (panel, edit):
+            self.assertContains(response, f'datetime="{expected}"')
+            self.assertContains(response, "26.11.2026 04:05:06")
+        self.assertContains(panel, f'datetime="{expected}">26.11.26</time>')
+        self.assertContains(edit, "<figcaption>25.11.2026 23:00:00 — 26.11.2026 04:05:06</figcaption>")
+        self.assertIn(f'datetime="{expected}"', inline.json()["history_html"])
+
+    def test_latest_migrated_schema_records_inserts_and_price_updates(self):
+        # A future SQLite table rebuild can silently drop either trigger.
+        prop = Property.objects.create(price=100)
+        Property.objects.filter(pk=prop.pk).update(price=125)
+        self.assertEqual(
+            list(prop.price_history.values_list("kind", "previous_price", "new_price")),
+            [(PriceHistory.Kind.CHANGE, Decimal(100), Decimal(125)),
+             (PriceHistory.Kind.INITIAL, None, Decimal(100))],
+            "Preserve both SQLite price-history triggers when rebuilding core_property.",
+        )
 
     def test_inline_can_save_from_fresh_panel_with_csrf_enabled(self):
         prop = Property.objects.create(price=100)
@@ -114,8 +148,9 @@ class PriceHistoryMigrationTests(TransactionTestCase):
         before = ("core", "0001_initial" if alternate else "0013_merge_20260927_1839")
         after = ("core", "0002_price_history" if alternate else "0014_price_history")
         executor = MigrationExecutor(connection)
+        latest = executor.loader.graph.leaf_nodes()
+        self.addCleanup(lambda: MigrationExecutor(connection).migrate(latest))
         executor.migrate([before])
-        self.addCleanup(lambda: MigrationExecutor(connection).migrate([after]))
         old = executor.loader.project_state([before]).apps.get_model("core", "Property")
         existing = [old.objects.create(external_id=f"synthetic-{i}", price=price)
                     for i, price in enumerate((Decimal("14.25"), None, Decimal(0)))]

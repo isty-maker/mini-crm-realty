@@ -1,5 +1,6 @@
+{% load tz %}
 <details class="price-history-details">
-  <summary>История цены</summary>
+  <summary>История цены <small>(Новокузнецк)</small></summary>
   {% if chart_markers %}
     <figure class="price-history-chart">
       <svg viewBox="0 0 400 100" role="img" aria-label="Ступенчатый график цены по времени. Точные значения приведены ниже.">
@@ -8,7 +9,7 @@
         <circle cx="{{ x|stringformat:'s' }}" cy="{{ y|stringformat:'s' }}" r="2.5" fill="currentColor" />
         {% endfor %}
       </svg>
-      <figcaption>{{ chart_start|date:"d.m.Y H:i:s" }}{% if chart_end %} — {{ chart_end|date:"d.m.Y H:i:s" }}{% endif %}</figcaption>
+      <figcaption>{{ chart_start|timezone:"Asia/Novokuznetsk"|date:"d.m.Y H:i:s" }}{% if chart_end %} — {{ chart_end|timezone:"Asia/Novokuznetsk"|date:"d.m.Y H:i:s" }}{% endif %}</figcaption>
     </figure>
   {% else %}
     <p>Нет значений для графика.</p>

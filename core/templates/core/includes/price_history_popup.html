@@ -1,8 +1,9 @@
-{% load price_display %}
+{% load price_display tz %}
 <button type="button" class="price-history-trigger" popovertarget="price-history-{{ row.id }}"
         aria-label="История цены" title="История цены">↺</button>
 <div class="price-history-popup" id="price-history-{{ row.id }}" popover role="region" tabindex="0" aria-label="Последние изменения цены">
   <strong>Последние изменения цены</strong>
+  <small>(Новокузнецк)</small>
   {% include "core/includes/price_history_entries.html" with price_changes=row.price_changes price_origin=row.price_origin only %}
 </div>
 {% with entry=row.price_changes.0 %}
@@ -15,7 +16,7 @@
       {% else %}
         ↓ Цена снята
       {% endif %}
-      · <time datetime="{{ entry.recorded_at|date:'c' }}">{{ entry.recorded_at|date:"d.m.y" }}</time>
+      · <time datetime="{{ entry.recorded_at|timezone:"Asia/Novokuznetsk"|date:'c' }}">{{ entry.recorded_at|timezone:"Asia/Novokuznetsk"|date:"d.m.y" }}</time>
     </small>
   {% endif %}
 {% endwith %}
