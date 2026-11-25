@@ -1,0 +1,132 @@
+#!/bin/bash
+# Install a reviewed copy outside the checkout. See pythonanywhere-automation.md.
+set -Eeuo pipefail
+umask 077
+export PATH=/usr/bin:/bin
+export GIT_TERMINAL_PROMPT=0 PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1
+unset API_TOKEN BASH_ENV ENV CDPATH PYTHONPATH PYTHONHOME DJANGO_SETTINGS_MODULE
+ulimit -c 0
+
+mode=${1:-}
+sha=${2:-}
+run=${3:-}
+[[ $# == 3 && $mode =~ ^(dry-run|apply|ack)$ && $sha =~ ^[0-9a-f]{40}$ && $run =~ ^[0-9a-f]{32}$ ]] || exit 64
+
+finish() {
+    local code=$?
+    trap - EXIT
+    if [[ -n ${scratch:-} ]]; then
+        rm -rf -- "$scratch" || code=1
+    fi
+    printf '\nCRM_DEPLOY %s %s %s\n' "$run" "$mode" "$code" >&3
+    exit "$code"
+}
+fail() {
+    printf '%s\n' "$*" >&2
+    exit 1
+}
+exec 3>&1
+trap finish EXIT
+
+state="$HOME/.mini-crm-deploy"
+root="$HOME/mini-crm-realty"
+domain="$(id -un).pythonanywhere.com"
+python="$root/venv/bin/python"
+[[ -d $state && ! -L $state && -O $state && $(stat -c %a "$state") == 700 ]] ||
+    fail "Deployment state must be an owner-only directory."
+
+log="$state/$run.$mode.log"
+(set -o noclobber; : > "$log") || fail "Run log already exists."
+exec >>"$log" 2>&1
+exec 9>"$state/lock"
+flock -n 9 || fail "Another deployment holds the lock."
+printf 'Mode=%s target=%s run=%s\n' "$mode" "$sha" "$run"
+
+cd "$root"
+[[ $(git rev-parse --show-toplevel) == "$root" ]] || fail "Wrong checkout."
+[[ $(git symbolic-ref -q HEAD) == refs/heads/production ]] || fail "Expected local branch production."
+[[ $(git remote get-url origin) == https://github.com/isty-maker/mini-crm-realty.git ]] ||
+    fail "Unexpected origin."
+status=$(git status --porcelain=v1 --untracked-files=all)
+[[ -z $status ]] || fail "Dirty checkout."
+for operation in MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD rebase-merge rebase-apply sequencer; do
+    [[ ! -e $(git rev-parse --git-path "$operation") ]] || fail "Git operation in progress."
+done
+
+head=$(git rev-parse HEAD)
+pending="$state/pending"
+if [[ $mode == ack ]]; then
+    [[ $head == "$sha" && -f $pending && $(cat "$pending") == "$run $sha ready" ]] ||
+        fail "Acknowledgement does not match the pending deployment."
+    printf '%s\n' "$sha" > "$state/last-good.next"
+    mv -T "$state/last-good.next" "$state/last-good"
+    rm -- "$pending"
+    exit 0
+fi
+[[ ! -e $pending ]] || fail "A previous apply requires verification or recovery. Inspect pending."
+[[ -f $state/last-good && $(cat "$state/last-good") == "$head" ]] ||
+    fail "HEAD differs from the operator-approved last-good revision."
+printf 'Previous revision=%s\n' "$head"
+
+[[ -f .env && -O .env && $(stat -Lc %a .env) == 600 ]] || fail "Expected a private .env."
+[[ -f db.sqlite3 && ! -L db.sqlite3 ]] || fail "Expected existing local SQLite database."
+[[ -x $python ]] || fail "Virtualenv Python is unavailable."
+"$python" -c 'import sys; assert sys.version_info[:2] == (3, 12) and sys.prefix != sys.base_prefix'
+printf 'Fetching main and validating ancestry\n'
+timeout 90 git fetch --no-tags origin refs/heads/main
+[[ $(git rev-parse FETCH_HEAD) == "$sha" && $(git cat-file -t "$sha") == commit ]] ||
+    fail "Target is no longer the exact tip of origin/main."
+git merge-base --is-ancestor bf6164eb52efacaa8eaaff6174c6e348778db049 "$sha" ||
+    fail "Target does not contain the production baseline bf6164e."
+git merge-base --is-ancestor "$head" "$sha" || fail "Deployment requires a fast-forward from production."
+protected=$(git ls-tree "$sha" -- .env db.sqlite3 media staticfiles venv)
+[[ -z $protected ]] ||
+    fail "Target tracks a protected production path."
+
+scratch=$(mktemp -d "$state/work.XXXXXXXX")
+mkdir "$scratch/tree"
+git archive "$sha" | tar -x -C "$scratch/tree"
+ln -s "$root/.env" "$scratch/tree/.env"
+cd "$scratch/tree"
+
+echo 'Checking installed dependencies against the target requirements'
+timeout 90 "$python" -m pip --disable-pip-version-check install --dry-run --no-index --report "$scratch/pip.json" -r requirements.txt
+"$python" -c 'import json, sys; sys.exit(bool(json.load(open(sys.argv[1]))["install"]))' "$scratch/pip.json" ||
+    fail "Requirements would change the production virtualenv."
+timeout 90 "$python" -m pip --disable-pip-version-check check
+
+echo 'Taking a consistent SQLite backup and verifying integrity'
+timeout 180 "$python" deploy/pa_server.py backup "$root/db.sqlite3" "$scratch/backup.sqlite3"
+echo 'Checking target configuration, migration history and static files on the snapshot'
+timeout 90 "$python" deploy/pa_server.py plan "$scratch/backup.sqlite3" "$scratch/plan" "$domain"
+timeout 120 "$python" deploy/pa_server.py static-dry "$scratch/backup.sqlite3" "$scratch/plan" "$domain"
+
+if [[ $mode == dry-run ]]; then
+    echo 'Dry-run complete. See the migration plan above.'
+    exit 0
+fi
+if [[ -s $scratch/plan ]]; then
+    [[ -f $state/allow-migrations && $(cat "$state/allow-migrations") == "$sha" ]] ||
+        fail "Pending migrations require SHA-specific operator approval and paused writes."
+fi
+
+remote_tip=$(timeout 60 git ls-remote --exit-code origin refs/heads/main)
+[[ $remote_tip == "$sha"$'\t'refs/heads/main ]] || fail "Main advanced during preflight."
+printf '%s %s applying\n' "$run" "$sha" > "$state/pending.next"
+mv -T "$state/pending.next" "$pending"
+# Keep the original backup even if checkout, migrate or collectstatic fail.
+mv -T "$scratch/backup.sqlite3" "$state/$run.sqlite3"
+echo "Backup retained at $state/$run.sqlite3"
+cd "$root"
+git -c core.hooksPath=/dev/null merge --ff-only --no-edit --no-overwrite-ignore "$sha"
+status=$(git status --porcelain=v1 --untracked-files=all)
+[[ $(git rev-parse HEAD) == "$sha" && -z $status ]] ||
+    fail "Unexpected checkout after fast-forward."
+
+echo 'Rechecking live migration plan and applying reviewed changes'
+timeout 240 "$python" deploy/pa_server.py apply "$root/db.sqlite3" "$scratch/plan" "$domain"
+echo 'Collecting local static files and checking Django'
+timeout 120 "$python" manage.py collectstatic --noinput
+timeout 60 "$python" manage.py check --deploy
+printf '%s %s ready\n' "$run" "$sha" > "$state/pending.next"
+mv -T "$state/pending.next" "$pending"

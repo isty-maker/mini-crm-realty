@@ -40,5 +40,10 @@ jobs:
           CODE_INDEX_VALIDATE: 0
         run: python scripts/update_code_index.py --no-validate
 
+      - name: Deployment tests
+        run: |
+          bash -n deploy/deploy
+          python -m unittest discover -s deploy -p 'test_*.py'
+
       - name: Tests
         run: python manage.py test -q

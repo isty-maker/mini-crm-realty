@@ -1,0 +1,50 @@
+name: Deploy to PythonAnywhere
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: >-
+      github.repository == 'isty-maker/mini-crm-realty' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'workflow_run' &&
+        vars.PA_AUTO_DEPLOY == 'true' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    concurrency:
+      group: pythonanywhere-production
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 27
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - name: Run PythonAnywhere deployment
+        env:
+          PA_API_TOKEN: ${{ secrets.PA_API_TOKEN }}
+          PA_USERNAME: ${{ vars.PA_USERNAME }}
+          PA_CONSOLE_ID: ${{ vars.PA_CONSOLE_ID }}
+          PA_TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          PA_MODE: ${{ github.event_name == 'workflow_dispatch' && 'dry-run' || 'apply' }}
+          PYTHONUNBUFFERED: '1'
+        run: python deploy/pa_client.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: pythonanywhere-deploy-${{ github.run_attempt }}
+          path: pa-deploy.log
+          if-no-files-found: ignore
+          retention-days: 14

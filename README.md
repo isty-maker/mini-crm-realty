@@ -54,6 +54,7 @@ pytest -q
 
 ## Деплой на PythonAnywhere
 Подробная инструкция доступна в [docs/deploy_pa_NEW.md](docs/deploy_pa_NEW.md).
+Для рабочего сайта см. [настройку автоматического деплоя](deploy/pythonanywhere-automation.md).
 
 ## Экспорт данных
 - Укажите публичный базовый URL для медиа в `.env`:
