@@ -83,7 +83,12 @@ class PythonAnywhere:
             f"{mode} {sha} {run_id}\n"
         )
         LOG.info("Sending %s; private server log is %s.%s.log", mode, run_id, mode)
-        self.console_output()
+        initial_output = self.console_output()
+        if not re.search(r"(?:^|\n)(?:\(venv\) )?[^\r\n]*[#$] ?$", initial_output):
+            raise DeployError(
+                "Dedicated console does not show an idle shell prompt. Open it in the browser, "
+                "wait for a free Bash prompt, inspect any previous run, then retry."
+            )
         self.api(f"{self.console}/send_input", "POST", {"input": command})
         marker = re.compile(rf"(?m)^CRM_DEPLOY {run_id} {mode} ([0-9]{{1,3}})\r?$")
         deadline = time.monotonic() + timeout
@@ -118,13 +123,11 @@ class PythonAnywhere:
     def deploy(self, mode, sha, run_id):
         configuration = self.api(self.webapp)
         root = f"/home/{self.username}/mini-crm-realty"
-        if not isinstance(configuration, dict) or any(
-            configuration.get(key) != expected
-            for key, expected in {
-                "source_directory": root,
-                "virtualenv_path": f"{root}/venv",
-                "python_version": "python312",
-            }.items()
+        if (
+            not isinstance(configuration, dict)
+            or configuration.get("source_directory") != root
+            or configuration.get("virtualenv_path") != f"{root}/venv"
+            or configuration.get("python_version") not in {"3.12", "python312"}
         ):
             raise DeployError("PythonAnywhere source directory, virtualenv or Python setting mismatch.")
         self.run(mode, sha, run_id, timeout=1140)

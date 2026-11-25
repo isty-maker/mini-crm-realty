@@ -21,7 +21,7 @@ class ClientTests(unittest.TestCase):
     def setUp(self):
         self.client = PythonAnywhere("example", "123", "mock-token")
         self.config = {
-            "python_version": "python312",
+            "python_version": "3.12",
             "source_directory": "/home/example/mini-crm-realty",
             "virtualenv_path": "/home/example/mini-crm-realty/venv",
         }
@@ -39,11 +39,11 @@ class ClientTests(unittest.TestCase):
                     form["input"],
                     f"env -u API_TOKEN /bin/bash /home/example/.mini-crm-deploy/deploy {mode} {SHA} {RUN}\n",
                 )
-                output.append(f"\r\nCRM_DEPLOY {RUN} {mode} 0\r\n")
+                output.append(f"\r\nCRM_DEPLOY {RUN} {mode} 0\r\n$ ")
             if path.endswith("/get_latest_output"):
                 return {"output": output[-1]}
 
-        output = ["prompt"]
+        output = ["$ "]
         with patch.object(self.client, "api", side_effect=api), patch.object(
             self.client, "verify_health", side_effect=lambda sha: events.append((sha, "health"))
         ):
@@ -70,7 +70,7 @@ class ClientTests(unittest.TestCase):
         response = Mock()
         response.__enter__ = Mock(return_value=response)
         response.__exit__ = Mock(return_value=False)
-        response.read.return_value = b'{"output":"prompt"}'
+        response.read.return_value = b'{"output":"$ "}'
         error = HTTPError("", 412, "Precondition Failed", {}, io.BytesIO(b""))
         with patch.object(self.client.opener, "open", side_effect=[response, error]) as request:
             with self.assertRaisesRegex(DeployError, "Console inactive"):
@@ -80,7 +80,7 @@ class ClientTests(unittest.TestCase):
 
     def test_http_success_and_stale_marker_do_not_confirm_deploy(self):
         with patch.object(self.client, "api", side_effect=[
-            self.config, {"output": "prompt"}, None, {"output": f"CRM_DEPLOY {RUN} ack 0\n"},
+            self.config, {"output": "$ "}, None, {"output": f"CRM_DEPLOY {RUN} ack 0\n"},
         ]) as api, patch("deploy.pa_client.time.monotonic", side_effect=[0, 0, 1141]), patch(
             "deploy.pa_client.time.sleep"
         ):
@@ -90,7 +90,7 @@ class ClientTests(unittest.TestCase):
 
     def test_server_failure_stops_before_reload(self):
         with patch.object(self.client, "api", side_effect=[
-            self.config, {"output": ""}, None, {"output": f"CRM_DEPLOY {RUN} apply 1\n"},
+            self.config, {"output": "$ "}, None, {"output": f"CRM_DEPLOY {RUN} apply 1\n"},
         ]) as api:
             with self.assertRaisesRegex(DeployError, "exited 1"):
                 self.client.deploy("apply", SHA, RUN)
@@ -128,6 +128,22 @@ class ClientTests(unittest.TestCase):
             request = opened.call_args.args[0]
             self.assertRegex(request.full_url, r"^https://example\.pythonanywhere\.com/healthz/")
             self.assertIsNone(request.get_header("Authorization"))
+
+    def test_accepts_documented_python312_format(self):
+        self.config["python_version"] = "python312"
+        with patch.object(self.client, "api", return_value=self.config):
+            with patch.object(self.client, "run") as run:
+                self.client.deploy("dry-run", SHA, RUN)
+        run.assert_called_once_with("dry-run", SHA, RUN, timeout=1140)
+
+    def test_console_output_without_idle_prompt_does_not_send_input(self):
+        with patch.object(self.client, "console_output", return_value="previous command running") as output, patch.object(
+            self.client, "api"
+        ) as api:
+            with self.assertRaisesRegex(DeployError, "idle shell prompt"):
+                self.client.run("apply", SHA, RUN, 1)
+        output.assert_called_once()
+        api.assert_not_called()
 
     def test_dry_run_never_reloads(self):
         with patch.object(self.client, "api", return_value=self.config) as api, patch.object(
