@@ -365,7 +365,12 @@ def _process_one_file(uploaded_file):
         raise ValueError(INVALID_IMAGE_MESSAGE)
 
 def healthz(request):
-    return HttpResponse("ok", content_type="text/plain")
+    response = HttpResponse("ok", content_type="text/plain")
+    response["Cache-Control"] = "no-store"
+    revision = getattr(settings, "APP_REVISION", "")
+    if revision:
+        response["X-App-Revision"] = revision
+    return response
 
 
 def healthz_mediainfo(request):
