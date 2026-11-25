@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install a reviewed copy outside the checkout. See pythonanywhere-automation.md.
+# Install as deploy-v2 outside the checkout. See pythonanywhere-automation.md.
 set -Eeuo pipefail
 umask 077
 export PATH=/usr/bin:/bin
@@ -7,10 +7,15 @@ export GIT_TERMINAL_PROMPT=0 PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1
 unset API_TOKEN BASH_ENV ENV CDPATH PYTHONPATH PYTHONHOME DJANGO_SETTINGS_MODULE
 ulimit -c 0
 
+if [[ $# == 1 && $1 == --protocol-version ]]; then
+    printf '2\n'
+    exit 0
+fi
+
 mode=${1:-}
 sha=${2:-}
 run=${3:-}
-[[ $# == 3 && $mode =~ ^(dry-run|apply|ack)$ && $sha =~ ^[0-9a-f]{40}$ && $run =~ ^[0-9a-f]{32}$ ]] || exit 64
+[[ $# == 3 && $mode =~ ^(dry-run|apply|auto-apply|ack)$ && $sha =~ ^[0-9a-f]{40}$ && $run =~ ^[0-9a-f]{32}$ ]] || exit 64
 
 finish() {
     local code=$?
@@ -69,7 +74,11 @@ fi
 printf 'Previous revision=%s\n' "$head"
 
 [[ -f .env && -O .env && $(stat -Lc %a .env) == 600 ]] || fail "Expected a private .env."
-[[ -f db.sqlite3 && ! -L db.sqlite3 ]] || fail "Expected existing local SQLite database."
+[[ -f db.sqlite3 && ! -L db.sqlite3 && -O db.sqlite3 && -r db.sqlite3 ]] ||
+    fail "Expected an owned, readable SQLite database."
+if [[ $mode != dry-run ]]; then
+    [[ -w db.sqlite3 && -w . ]] || fail "SQLite file and directory must be writable for apply."
+fi
 [[ -x $python ]] || fail "Virtualenv Python is unavailable."
 "$python" -c 'import sys; assert sys.version_info[:2] == (3, 12) and sys.prefix != sys.base_prefix'
 printf 'Fetching main and validating ancestry\n'
@@ -79,7 +88,7 @@ timeout 90 git fetch --no-tags origin refs/heads/main
 git merge-base --is-ancestor bf6164eb52efacaa8eaaff6174c6e348778db049 "$sha" ||
     fail "Target does not contain the production baseline bf6164e."
 git merge-base --is-ancestor "$head" "$sha" || fail "Deployment requires a fast-forward from production."
-protected=$(git ls-tree "$sha" -- .env db.sqlite3 media staticfiles venv)
+protected=$(git ls-tree "$sha" -- .env db.sqlite3 db.sqlite3-wal db.sqlite3-shm db.sqlite3-journal media staticfiles venv)
 [[ -z $protected ]] ||
     fail "Target tracks a protected production path."
 
@@ -95,20 +104,44 @@ timeout 90 "$python" -m pip --disable-pip-version-check install --dry-run --no-i
     fail "Requirements would change the production virtualenv."
 timeout 90 "$python" -m pip --disable-pip-version-check check
 
-echo 'Taking a consistent SQLite backup and verifying integrity'
-timeout 180 "$python" deploy/pa_server.py backup "$root/db.sqlite3" "$scratch/backup.sqlite3"
-echo 'Checking target configuration, migration history and static files on the snapshot'
-timeout 90 "$python" deploy/pa_server.py plan "$scratch/backup.sqlite3" "$scratch/plan" "$domain"
-timeout 120 "$python" deploy/pa_server.py static-dry "$scratch/backup.sqlite3" "$scratch/plan" "$domain"
+migration_approval() {
+    local file="$state/allow-migrations"
+    if [[ $mode != auto-apply && -f $file && ! -L $file && -O $file &&
+          $(stat -c %a "$file") == 600 && $(cat "$file") == "$sha" ]]; then
+        printf 'yes\n'
+    else
+        printf 'no\n'
+    fi
+}
+approval=$(migration_approval)
+plan="$scratch/plan.json"
+rehearsal="$scratch/rehearsal.sqlite3"
+echo 'Taking a private SQLite snapshot for rehearsal'
+timeout 180 "$python" deploy/pa_server.py backup "$root/db.sqlite3" "$rehearsal"
+echo 'Rehearsing migrations and checks on the snapshot'
+timeout 240 "$python" deploy/pa_server.py rehearse "$rehearsal" "$plan" "$domain" "$sha" "$approval"
+timeout 120 "$python" deploy/pa_server.py static-dry "$rehearsal" "$plan" "$domain" "$sha" "$approval"
+policy=$("$python" -c 'import json, sys; print(json.load(open(sys.argv[1]))["policy"])' "$plan")
 
 if [[ $mode == dry-run ]]; then
-    echo 'Dry-run complete. See the migration plan above.'
+    echo 'Dry-run complete. Any migrations ran only on the scratch snapshot.'
     exit 0
 fi
-if [[ -s $scratch/plan ]]; then
-    [[ -f $state/allow-migrations && $(cat "$state/allow-migrations") == "$sha" ]] ||
-        fail "Pending migrations require SHA-specific operator approval and paused writes."
-fi
+approval=$(migration_approval)
+case "$policy" in
+    none|automatic) ;;
+    manual|price-history)
+        [[ $approval == yes ]] || fail "Pending migrations require SHA-specific operator approval and paused writes."
+        ;;
+    *) fail "Unrecognized migration policy." ;;
+esac
+
+# Keep a fresh, untouched recovery snapshot, separate from the rehearsal DB.
+rm -- "$rehearsal"
+retained="$state/$run.sqlite3"
+[[ ! -e $retained && ! -L $retained ]] || fail "Retained backup already exists."
+timeout 180 "$python" deploy/pa_server.py backup "$root/db.sqlite3" "$scratch/retained.sqlite3"
+timeout 90 "$python" deploy/pa_server.py verify "$root/db.sqlite3" "$plan" "$domain" "$sha" "$approval"
 
 cd "$root"
 status=$(git status --porcelain=v1 --untracked-files=all)
@@ -116,18 +149,22 @@ status=$(git status --porcelain=v1 --untracked-files=all)
     fail "Checkout changed during preflight."
 remote_tip=$(timeout 60 git ls-remote --exit-code origin refs/heads/main)
 [[ $remote_tip == "$sha"$'\t'refs/heads/main ]] || fail "Main advanced during preflight."
+if [[ $policy == manual || $policy == price-history ]]; then
+    [[ $(migration_approval) == yes ]] || fail "Migration approval was revoked before apply."
+fi
+mv -T "$scratch/retained.sqlite3" "$retained"
+echo "Backup retained at $retained"
 printf '%s %s applying\n' "$run" "$sha" > "$state/pending.next"
 mv -T "$state/pending.next" "$pending"
-# Keep the original backup even if checkout, migrate or collectstatic fail.
-mv -T "$scratch/backup.sqlite3" "$state/$run.sqlite3"
-echo "Backup retained at $state/$run.sqlite3"
 git -c core.hooksPath=/dev/null merge --ff-only --no-edit --no-overwrite-ignore "$sha"
 status=$(git status --porcelain=v1 --untracked-files=all)
 [[ $(git rev-parse HEAD) == "$sha" && -z $status ]] ||
     fail "Unexpected checkout after fast-forward."
 
 echo 'Rechecking live migration plan and applying reviewed changes'
-timeout 240 "$python" deploy/pa_server.py apply "$root/db.sqlite3" "$scratch/plan" "$domain"
+migration_timeout=240
+[[ $policy != automatic ]] || migration_timeout=30
+timeout "$migration_timeout" "$python" deploy/pa_server.py apply "$root/db.sqlite3" "$plan" "$domain" "$sha" "$approval"
 echo 'Collecting local static files and checking Django'
 timeout 120 "$python" manage.py collectstatic --noinput
 timeout 60 "$python" manage.py check --deploy

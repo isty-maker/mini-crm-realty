@@ -15,6 +15,26 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 LOG = logging.getLogger(__name__)
 
 
+# Strip display-only sequences. Cursor movement, backspace and other controls
+# remain in the line and cannot turn arbitrary output into a prompt or marker.
+TERMINAL_FORMAT = re.compile(r"\x1b\[(?:[0-9;:]*m|\?2004[hl])")
+PROMPT_DIRECTORY = r"[~/][^\s#$\x00-\x1f\x7f]*"
+BASH_PROMPT = re.compile(
+    rf"(?:\([\w.-]+\) +)?"
+    rf"(?:[0-9]{{2}}:[0-9]{{2}} +{PROMPT_DIRECTORY}(?: +\([^()\x00-\x1f\x7f]+\))? *"
+    rf"|[\w.-]+@[\w.-]+:{PROMPT_DIRECTORY} *|bash-[0-9.]+)\$"
+)
+
+
+def terminal_output(output):
+    return TERMINAL_FORMAT.sub("", output).replace("\r\n", "\n").replace("\r", "\n")
+
+
+def idle_bash(output):
+    tail = terminal_output(output).removesuffix("\n").rsplit("\n", 1)[-1]
+    return BASH_PROMPT.fullmatch(tail.rstrip(" \t")) is not None
+
+
 class DeployError(Exception):
     pass
 
@@ -73,30 +93,33 @@ class PythonAnywhere:
         return payload["output"]
 
     def run(self, mode, sha, run_id, timeout):
-        if mode not in {"dry-run", "apply", "ack"} or not re.fullmatch(
+        if mode not in {"dry-run", "apply", "auto-apply", "ack"} or not re.fullmatch(
             r"[0-9a-f]{40}", sha
         ) or not re.fullmatch(r"[0-9a-f]{32}", run_id):
             raise DeployError("Invalid deployment command arguments.")
         # Protected launcher outside the checkout. All interpolated values are validated.
+        launcher = f"/home/{self.username}/.mini-crm-deploy/deploy-v2"
+        invoke = f"env -u API_TOKEN -u BASH_ENV /bin/bash {launcher}"
         command = (
-            f"env -u API_TOKEN /bin/bash /home/{self.username}/.mini-crm-deploy/deploy "
-            f"{mode} {sha} {run_id}\n"
+            f'if [ -x {launcher} ] && [ "$({invoke} --protocol-version)" = 2 ]; then '
+            f"{invoke} {mode} {sha} {run_id}; else printf '\\nCRM_DEPLOY %s %s 127\\n' {run_id} {mode}; fi\n"
         )
         LOG.info("Sending %s; private server log is %s.%s.log", mode, run_id, mode)
-        initial_output = self.console_output()
-        if not re.search(r"(?:^|\n)(?:\(venv\) )?[^\r\n]*[#$] ?$", initial_output):
+        if not idle_bash(self.console_output()):
             raise DeployError(
                 "Dedicated console does not show an idle shell prompt. Open it in the browser, "
                 "wait for a free Bash prompt, inspect any previous run, then retry."
             )
         self.api(f"{self.console}/send_input", "POST", {"input": command})
-        marker = re.compile(rf"(?m)^CRM_DEPLOY {run_id} {mode} ([0-9]{{1,3}})\r?$")
+        marker = re.compile(rf"(?m)^CRM_DEPLOY {run_id} {mode} ([0-9]{{1,3}})[ \t]*(?=\n)")
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            match = marker.search(self.console_output())
+            match = marker.search(terminal_output(self.console_output()))
             if match:
                 code = int(match[1])
                 LOG.info("Server confirmed %s exit %s", mode, code)
+                if code == 127:
+                    raise DeployError("Launcher v2 unavailable or required command missing. Check the installation guide.")
                 if code:
                     raise DeployError(f"Server stage {mode} exited {code}. Inspect its private log.")
                 return
@@ -130,8 +153,8 @@ class PythonAnywhere:
             or configuration.get("python_version") not in {"3.12", "python312"}
         ):
             raise DeployError("PythonAnywhere source directory, virtualenv or Python setting mismatch.")
-        self.run(mode, sha, run_id, timeout=1140)
-        if mode == "apply":
+        self.run(mode, sha, run_id, timeout=1530)
+        if mode in {"apply", "auto-apply"}:
             LOG.info("Requesting official web app reload.")
             self.api(f"{self.webapp}/reload", "POST", {})
             self.verify_health(sha)
@@ -148,7 +171,7 @@ def main():
     try:
         sha = os.environ.get("PA_TARGET_SHA", "")
         mode = os.environ.get("PA_MODE", "")
-        if mode not in {"dry-run", "apply"} or not re.fullmatch(r"[0-9a-f]{40}", sha):
+        if mode not in {"dry-run", "apply", "auto-apply"} or not re.fullmatch(r"[0-9a-f]{40}", sha):
             raise DeployError("Invalid mode or target SHA.")
         if subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip() != sha:
             raise DeployError("Runner checkout does not match target SHA.")

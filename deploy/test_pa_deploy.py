@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 from urllib.error import HTTPError
 
-from deploy.pa_client import DeployError, PythonAnywhere
+from deploy.pa_client import DeployError, PythonAnywhere, idle_bash
 from deploy.pa_server import backup
 
 
@@ -37,13 +37,17 @@ class ClientTests(unittest.TestCase):
                 mode = "ack" if " ack " in form["input"] else "apply"
                 self.assertEqual(
                     form["input"],
-                    f"env -u API_TOKEN /bin/bash /home/example/.mini-crm-deploy/deploy {mode} {SHA} {RUN}\n",
+                    'if [ -x /home/example/.mini-crm-deploy/deploy-v2 ] && '
+                    '[ "$(env -u API_TOKEN -u BASH_ENV /bin/bash /home/example/.mini-crm-deploy/deploy-v2 '
+                    '--protocol-version)" = 2 ]; then '
+                    'env -u API_TOKEN -u BASH_ENV /bin/bash /home/example/.mini-crm-deploy/deploy-v2 '
+                    f"{mode} {SHA} {RUN}; else printf '\\nCRM_DEPLOY %s %s 127\\n' {RUN} {mode}; fi\n",
                 )
-                output.append(f"\r\nCRM_DEPLOY {RUN} {mode} 0\r\n$ ")
+                output.append(f"\r\nCRM_DEPLOY {RUN} {mode} 0\r\n13:24 ~ $ ")
             if path.endswith("/get_latest_output"):
                 return {"output": output[-1]}
 
-        output = ["$ "]
+        output = ["13:24 ~ $ "]
         with patch.object(self.client, "api", side_effect=api), patch.object(
             self.client, "verify_health", side_effect=lambda sha: events.append((sha, "health"))
         ):
@@ -55,6 +59,52 @@ class ClientTests(unittest.TestCase):
              ("get_latest_output", "GET"), ("send_input", "POST"),
              ("get_latest_output", "GET")],
         )
+
+    def test_recognizes_colored_bash_prompt_with_terminal_line_endings(self):
+        for prompt in (
+            "\x1b[32m13:24 ~ $ \x1b[0;0m\r",
+            "previous output\r\n(venv) 13:24 ~/repo (main) $  \x1b[0m\r\n",
+            "\x1b[?2004huser@host:~$ \t",
+            "previous output\rbash-5.2$ ",
+            "13:24 ~/repo (main)$ ",
+        ):
+            with self.subTest(prompt=prompt):
+                self.assertTrue(idle_bash(prompt))
+
+    def test_rejects_busy_and_interactive_console_tails(self):
+        for output in (
+            "13:24 ~ $ echo waiting", "13:24 waiting $ ", "previous command $ ", "$ ", ">>> ",
+            "Password: ", "sqlite> ", "> ", "13:24 ~ $ \nworking...",
+            "13:24 ~\x1b[2K $ ", "13:24 ~ $ \n\n",
+        ):
+            with self.subTest(output=output):
+                self.assertFalse(idle_bash(output))
+
+    def test_waits_for_complete_marker_with_exact_nonce_and_stage(self):
+        marker = f"CRM_DEPLOY {RUN} apply 0"
+        output = [
+            "13:24 ~ $ ",
+            marker,  # truncated output, no line ending
+            "log: " + marker + "\n",
+            marker + "0 more\r",
+            marker.replace(RUN, "c" * 32) + "\r\n",
+            marker.replace("apply", "ack") + "\r",
+            "\x1b[32m" + marker + "\x1b[0;0m  \r13:24 ~ $ ",
+        ]
+        with patch.object(self.client, "console_output", side_effect=output) as read, patch.object(
+            self.client, "api"
+        ) as api, patch("deploy.pa_client.time.sleep"):
+            self.client.run("apply", SHA, RUN, 1)
+        self.assertEqual(read.call_count, len(output))
+        api.assert_called_once()
+
+    def test_missing_v2_launcher_never_reloads(self):
+        with patch.object(self.client, "api", side_effect=[
+            self.config, {"output": "13:24 ~ $ "}, None, {"output": f"CRM_DEPLOY {RUN} apply 127\r"},
+        ]) as api:
+            with self.assertRaisesRegex(DeployError, "Launcher v2 unavailable"):
+                self.client.deploy("apply", SHA, RUN)
+        self.assertEqual(api.call_count, 4)
 
     def test_inactive_preflight_sends_nothing(self):
         def failure(request, timeout):
@@ -70,7 +120,7 @@ class ClientTests(unittest.TestCase):
         response = Mock()
         response.__enter__ = Mock(return_value=response)
         response.__exit__ = Mock(return_value=False)
-        response.read.return_value = b'{"output":"$ "}'
+        response.read.return_value = b'{"output":"13:24 ~ $ "}'
         error = HTTPError("", 412, "Precondition Failed", {}, io.BytesIO(b""))
         with patch.object(self.client.opener, "open", side_effect=[response, error]) as request:
             with self.assertRaisesRegex(DeployError, "Console inactive"):
@@ -80,8 +130,8 @@ class ClientTests(unittest.TestCase):
 
     def test_http_success_and_stale_marker_do_not_confirm_deploy(self):
         with patch.object(self.client, "api", side_effect=[
-            self.config, {"output": "$ "}, None, {"output": f"CRM_DEPLOY {RUN} ack 0\n"},
-        ]) as api, patch("deploy.pa_client.time.monotonic", side_effect=[0, 0, 1141]), patch(
+            self.config, {"output": "13:24 ~ $ "}, None, {"output": f"CRM_DEPLOY {RUN} ack 0\n"},
+        ]) as api, patch("deploy.pa_client.time.monotonic", side_effect=[0, 0, 1531]), patch(
             "deploy.pa_client.time.sleep"
         ):
             with self.assertRaisesRegex(DeployError, "completion unconfirmed"):
@@ -90,7 +140,7 @@ class ClientTests(unittest.TestCase):
 
     def test_server_failure_stops_before_reload(self):
         with patch.object(self.client, "api", side_effect=[
-            self.config, {"output": "$ "}, None, {"output": f"CRM_DEPLOY {RUN} apply 1\n"},
+            self.config, {"output": "13:24 ~ $ "}, None, {"output": f"CRM_DEPLOY {RUN} apply 1\n"},
         ]) as api:
             with self.assertRaisesRegex(DeployError, "exited 1"):
                 self.client.deploy("apply", SHA, RUN)
@@ -104,7 +154,7 @@ class ClientTests(unittest.TestCase):
         ) as health:
             with self.assertRaisesRegex(DeployError, "reload failed"):
                 self.client.deploy("apply", SHA, RUN)
-        run.assert_called_once_with("apply", SHA, RUN, timeout=1140)
+        run.assert_called_once_with("apply", SHA, RUN, timeout=1530)
         health.assert_not_called()
 
     def test_health_failure_leaves_server_pending(self):
@@ -113,7 +163,7 @@ class ClientTests(unittest.TestCase):
         ) as run, patch.object(self.client, "verify_health", side_effect=DeployError("health")):
             with self.assertRaisesRegex(DeployError, "health"):
                 self.client.deploy("apply", SHA, RUN)
-        run.assert_called_once_with("apply", SHA, RUN, timeout=1140)
+        run.assert_called_once_with("apply", SHA, RUN, timeout=1530)
 
     def test_health_requires_worker_revision_and_sends_no_api_token(self):
         response = Mock(status=200, headers={"X-App-Revision": "old"})
@@ -134,7 +184,7 @@ class ClientTests(unittest.TestCase):
         with patch.object(self.client, "api", return_value=self.config):
             with patch.object(self.client, "run") as run:
                 self.client.deploy("dry-run", SHA, RUN)
-        run.assert_called_once_with("dry-run", SHA, RUN, timeout=1140)
+        run.assert_called_once_with("dry-run", SHA, RUN, timeout=1530)
 
     def test_console_output_without_idle_prompt_does_not_send_input(self):
         with patch.object(self.client, "console_output", return_value="previous command running") as output, patch.object(
@@ -151,7 +201,7 @@ class ClientTests(unittest.TestCase):
         ) as run:
             self.client.deploy("dry-run", SHA, RUN)
         api.assert_called_once_with(self.client.webapp)
-        run.assert_called_once_with("dry-run", SHA, RUN, timeout=1140)
+        run.assert_called_once_with("dry-run", SHA, RUN, timeout=1530)
 
     def test_rejects_mismatched_settings_and_shell_input(self):
         with patch.object(self.client, "api", return_value={}) as api:
