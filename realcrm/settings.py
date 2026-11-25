@@ -40,6 +40,14 @@ SECRET_KEY = staff_signing_key or "django-insecure-local-preview-only"
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 SESSION_COOKIE_SECURE = CRM_REQUIRE_STAFF_LOGIN and not DEBUG
 CSRF_COOKIE_SECURE = CRM_REQUIRE_STAFF_LOGIN and not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+CRM_STAFF_SESSION_DAYS = int(os.getenv("CRM_STAFF_SESSION_DAYS", "90"))
+if not 1 <= CRM_STAFF_SESSION_DAYS <= 180:
+    raise ImproperlyConfigured("CRM_STAFF_SESSION_DAYS must be between 1 and 180.")
+if os.getenv("CRM_TRUST_PROXY_HTTPS") == "1":
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"] + _env_list("ALLOWED_HOSTS")
 
@@ -54,6 +62,7 @@ FEED_PUBLIC_BASE_URL = os.getenv("FEED_PUBLIC_BASE_URL", "").rstrip("/")
 # Application definition
 
 INSTALLED_APPS = [
+    "crm_access",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
