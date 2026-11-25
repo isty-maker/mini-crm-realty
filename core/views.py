@@ -62,7 +62,7 @@ from .price_history import price_history_context, with_recent_prices
 from .property_detail import (
     PropertySectionForm, display_fields, editable_sections, media_url, property_subtitle, save_section, section_version,
 )
-from .property_writes import PROPERTY_FIELDS, can_use_staff_card, property_version, update_property, version_matches
+from .property_writes import PROPERTY_FIELDS, can_use_staff_card, property_version, same_form_text, update_property, version_matches
 from .subtypes import CATEGORY_TO_SUBTYPE_FIELD
 from .property_validation import validate_listing_value
 from .templatetags.price_display import price_display
@@ -1012,7 +1012,10 @@ def _listing_form(request, prop=None, *, data=None, initial=None):
 
 def _full_editor_changes(request, prop, form):
     submitted = set(request.POST) & set(form.fields)
-    fields = submitted & set(form.changed_data) & set(PROPERTY_FIELDS)
+    fields = {
+        name for name in submitted & set(form.changed_data) & set(PROPERTY_FIELDS)
+        if not same_form_text(getattr(prop, name), request.POST[name])
+    }
     if fields & {"category", "subtype"}:
         derived = CATEGORY_TO_SUBTYPE_FIELD.get(form.instance.category)
         if derived in form.fields and form.cleaned_data.get(derived):

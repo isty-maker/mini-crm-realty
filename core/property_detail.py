@@ -8,7 +8,7 @@ from django.forms.models import fields_for_model
 from .models import Property
 from .property_validation import NONNEGATIVE_LISTING_FIELDS, required_listing_fields, validate_listing_value
 
-from .property_writes import current_values, property_version, update_property, version_matches
+from .property_writes import current_values, property_version, same_form_text, update_property, version_matches
 from .templatetags.price_display import price_display
 
 
@@ -169,10 +169,8 @@ class PropertySectionForm(forms.Form):
         for name in super().changed_data:
             submitted = self.data.get(name)
             original = self.initial[name]
-            if isinstance(submitted, str) and isinstance(original, str):
-                if submitted.replace("\r\n", "\n") == original.replace("\r\n", "\n"):
-                    continue
-            changed.append(name)
+            if not same_form_text(original, submitted):
+                changed.append(name)
         return changed
 
     def clean(self):

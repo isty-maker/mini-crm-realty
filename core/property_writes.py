@@ -37,5 +37,12 @@ def update_property(prop, fields, changes):
         ) == 1
 
 
+def same_form_text(original, submitted):
+    """Browsers normalize line endings when they submit textareas."""
+    return isinstance(original, str) and isinstance(submitted, str) and (
+        original.replace("\r\n", "\n") == submitted.replace("\r\n", "\n")
+    )
+
+
 def can_use_staff_card(user):
     return user.is_authenticated and user.is_active and user.is_staff

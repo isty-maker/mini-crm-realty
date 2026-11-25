@@ -251,6 +251,16 @@ class PropertySectionTests(TestCase):
         self.assertTrue(self.prop.export_to_domklik)
         self.assertEqual(self.prop.price_history.count(), 1)
 
+    def test_full_editor_does_not_rewrite_unedited_textarea_line_endings(self):
+        Property.objects.filter(pk=self.prop.pk).update(description="Первая строка\nВторая строка")
+        opened = self.client.get(self.edit).context["edit_version"]
+        response = self.client.post(self.edit, {"edit_version": opened, "price": 120,
+                                                "description": "Первая строка\r\nВторая строка"})
+        self.assertEqual(response.status_code, 302)
+        self.prop.refresh_from_db()
+        self.assertEqual(self.prop.description, "Первая строка\nВторая строка")
+        self.assertEqual(self.prop.price, 120)
+
     def test_full_editor_change_invalidates_card_and_quick_versions(self):
         listing = self.client.get(reverse("panel_list")).context["rows"][0]
         opened = self.client.get(self.edit).context["edit_version"]
