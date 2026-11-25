@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load static price_display %}
+{% block title %}{{ address|default:"Объект" }} — Мини-CRM{% endblock %}
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'core/price_history.css' %}">
+  <link rel="stylesheet" href="{% static 'core/property_detail.css' %}">
+{% endblock %}
+{% block content %}
+<div class="property-detail">
+  <nav class="property-navigation" aria-label="Навигация по объекту">
+    <a class="property-back" href="{% url 'panel_list' %}">← К списку объектов</a>
+    <a class="btn property-edit" href="{% url 'panel_edit' prop.pk %}">Редактировать объявление</a>
+  </nav>
+
+  <header class="property-heading">
+    <div>
+      <h1>{{ address|default:"Адрес не указан" }}</h1>
+      {% if prop.is_archived %}<span class="property-archived">В архиве</span>{% endif %}
+    </div>
+    <div class="property-price">
+      {% if prop.price != None %}
+        <strong>{{ prop.price|price_display }}{% if prop.currency %} <small>{{ prop.get_currency_display }}</small>{% endif %}</strong>
+      {% else %}
+        <span>Цена не указана</span>
+      {% endif %}
+    </div>
+  </header>
+
+  <div class="property-columns">
+    <div class="property-column">
+      <section class="property-card" aria-labelledby="photos-title">
+        <h2 id="photos-title">Фотографии</h2>
+        {% if photo_urls %}
+          <div class="property-gallery">
+            {% for url in photo_urls %}
+              <a href="{{ url }}" target="_blank" rel="noopener noreferrer"
+                 aria-label="Открыть фото {{ forloop.counter }} в новой вкладке">
+                <img src="{{ url }}" alt="Фото объекта {{ forloop.counter }}"
+                     referrerpolicy="no-referrer" decoding="async"{% if not forloop.first %} loading="lazy"{% endif %}>
+              </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="property-empty">Фотографии не добавлены.</p>
+        {% endif %}
+      </section>
+
+      {% if layout_url %}
+        <section class="property-card" aria-labelledby="layout-title">
+          <h2 id="layout-title">Планировка</h2>
+          <a class="property-layout" href="{{ layout_url }}" target="_blank" rel="noopener noreferrer"
+             aria-label="Открыть планировку в новой вкладке">
+            <img src="{{ layout_url }}" alt="Планировка объекта" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+          </a>
+        </section>
+      {% endif %}
+    </div>
+
+    <div class="property-column">
+      <section class="property-card" aria-labelledby="facts-title">
+        <h2 id="facts-title">Характеристики</h2>
+        {% if facts %}
+          <dl class="property-facts">
+            {% for label, value in facts %}
+              <div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
+            {% endfor %}
+          </dl>
+        {% else %}
+          <p class="property-empty">Характеристики не заполнены.</p>
+        {% endif %}
+      </section>
+
+      <section class="property-card" aria-labelledby="feeds-title">
+        <h2 id="feeds-title">Выгрузка объявлений</h2>
+        <dl class="property-feeds">
+          <div>
+            <dt>ЦИАН</dt>
+            <dd>{% include "core/includes/property_feed_status.html" with enabled=prop.export_to_cian archived=prop.is_archived only %}</dd>
+          </div>
+          <div>
+            <dt>Домклик</dt>
+            <dd>{% include "core/includes/property_feed_status.html" with enabled=prop.export_to_domklik archived=prop.is_archived only %}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <div class="property-card property-history">
+        {% include "core/includes/price_history_details.html" %}
+      </div>
+
+      {% if description %}
+        <section class="property-card" aria-labelledby="description-title">
+          <h2 id="description-title">Описание</h2>
+          <div class="property-description">{{ description|linebreaksbr }}</div>
+        </section>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -12,6 +12,7 @@ urlpatterns = [
     path("panel/", core_views.panel_list, name="panel_list"),
     path("panel/new/", core_views.panel_new, name="panel_new"),
     path("panel/create/", core_views.panel_create, name="panel_create"),
+    path("panel/objects/<int:pk>/", core_views.panel_detail, name="panel_detail"),
     path("panel/edit/<int:pk>/", core_views.panel_edit, name="panel_edit"),
     path("panel/edit/<int:pk>/add-photo/", core_views.panel_add_photo, name="panel_add_photo"),
     path("panel/photo/<int:pk>/delete/", core_views.panel_photo_delete, name="panel_photo_delete"),

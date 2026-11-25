@@ -79,7 +79,7 @@
           {{ row.type|default:"" }}{% if row.external_id %}<br><span class="sr-only" aria-hidden="true">{{ row.external_id }}</span>{% endif %}
         </td>
         <td class="addr" title="{{ row.full_address|default:row.address }}">
-          <a class="addr-link" href="{% url 'panel_edit' row.id %}">{{ row.address|default:"—" }}</a>
+          <a class="addr-link" href="{% url 'panel_detail' row.id %}">{{ row.address|default:"—" }}</a>
           <div class="addr-sub">
             <span class="chip {{ row.export_to_cian|yesno:'on cian,off' }}" data-action="toggle-cian">CIAN</span>
             <span class="chip {{ row.export_to_domklik|yesno:'on dom,off' }}" data-action="toggle-dom">Dom</span>
@@ -91,7 +91,7 @@
         </td>
         <td class="col-floor">{{ row.floors }}</td>
         <td class="col-actions">
-          <a href="{% url 'panel_edit' row.id %}" class="btn btn-sm">Открыть</a>
+          <a href="{% url 'panel_detail' row.id %}" class="btn btn-sm">Открыть</a>
           {% if row.is_archived %}
             <button type="button" class="btn btn-sm act-restore">ВЕРН</button>
           {% else %}

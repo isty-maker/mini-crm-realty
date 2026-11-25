@@ -1,0 +1,7 @@
+{% if not enabled %}
+  <span class="property-badge">Выключена</span>
+{% elif archived %}
+  <span class="property-badge">Приостановлена · архив</span>
+{% else %}
+  <span class="property-badge property-badge-enabled">Включена</span>
+{% endif %}
