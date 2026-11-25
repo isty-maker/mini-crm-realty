@@ -1,5 +1,6 @@
 # core/views.py
 import json
+from copy import copy
 import logging
 import os
 import re
@@ -18,13 +19,19 @@ from django.db import connection, transaction
 from django.db.migrations.loader import MigrationLoader
 from django.db.models import Max, Q
 from django.http import (
+    Http404,
     HttpResponse,
+    HttpResponseBadRequest,
+    HttpResponseForbidden,
     HttpResponseNotAllowed,
     JsonResponse,
 )
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.crypto import constant_time_compare
+from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST, require_safe
 
@@ -52,7 +59,12 @@ from .cian import build_cian_feed, resolve_category
 from .forms import PropertyForm, fields_for_category, group_fields
 from .models import Photo, Property
 from .price_history import price_history_context, with_recent_prices
-from .property_detail import media_url, property_facts
+from .property_detail import (
+    PropertySectionForm, display_fields, editable_sections, media_url, property_subtitle, save_section, section_version,
+)
+from .property_writes import PROPERTY_FIELDS, can_use_staff_card, property_version, same_form_text, update_property, version_matches
+from .subtypes import CATEGORY_TO_SUBTYPE_FIELD
+from .property_validation import validate_listing_value
 from .templatetags.price_display import price_display
 from .utils.image_pipeline import InvalidImage, compress_to_jpeg
 
@@ -731,6 +743,10 @@ def panel_list(request):
                 "price_changes": prop.recent_price_changes,
                 "price_origin": next(iter(prop.price_origins), None),
                 "is_archived": bool(getattr(prop, "is_archived", False)),
+                "price_version": property_version(prop, "quick-price", ("price", "currency")),
+                "archive_version": property_version(prop, "archive", ("is_archived", "status")),
+                "cian_version": property_version(prop, "export_to_cian", ("export_to_cian",)),
+                "dom_version": property_version(prop, "export_to_domklik", ("export_to_domklik",)),
                 "export_to_cian": bool(getattr(prop, "export_to_cian", False)),
                 "export_to_domklik": bool(getattr(prop, "export_to_domklik", False)),
             }
@@ -760,21 +776,28 @@ def panel_update_price(request, pk):
     if raw:
         try:
             value = Property._meta.get_field("price").clean(Decimal(raw), prop)
+            validate_listing_value("price", value)
         except (InvalidOperation, ValidationError):
             return JsonResponse({"ok": False, "error": "invalid_price"}, status=400)
     else:
         value = None
 
-    with transaction.atomic():
-        prop.price = value
-        prop.save(update_fields=["price", "updated_at"])
-        prop = with_recent_prices(Property.objects.all()).get(pk=pk)
+    fields = ("price", "currency")
+    version = request.POST.get("version")
+    if version is not None and not version_matches(prop, "quick-price", fields, version):
+        return JsonResponse({"ok": False, "error": "conflict", "current": price_display(prop.price)}, status=409)
+    changes = {"price": value} if prop.price != value else {}
+    if not update_property(prop, fields, changes):
+        prop.refresh_from_db(fields=["price"])
+        return JsonResponse({"ok": False, "error": "conflict", "current": price_display(prop.price)}, status=409)
+    prop = with_recent_prices(Property.objects.all()).get(pk=pk)
 
     return JsonResponse({
         "ok": True,
         "price": format(prop.price, "f") if prop.price is not None else "",
         "price_display": price_display(prop.price),
         "price_formatted": price_display(prop.price),
+        "version": property_version(prop, "quick-price", fields),
         "history_html": render_to_string("core/includes/price_history_popup.html", {
             "row": {
                 "id": prop.pk,
@@ -789,28 +812,50 @@ def panel_update_price(request, pk):
 def panel_toggle_archive(request, pk):
     _ensure_migrated()
     prop = get_object_or_404(Property, pk=pk)
-    prop.is_archived = not prop.is_archived
-    prop.status = "archived" if prop.is_archived else "active"
-    prop.save(update_fields=["is_archived", "status", "updated_at"])
-    return JsonResponse({"ok": True, "is_archived": prop.is_archived})
+    fields = ("is_archived", "status")
+    version = request.POST.get("version")
+    archived = not prop.is_archived
+    changes = {"is_archived": archived, "status": "archived" if archived else "active"}
+    if ((version is not None and not version_matches(prop, "archive", fields, version))
+            or not update_property(prop, fields, changes)):
+        prop.refresh_from_db(fields=["is_archived"])
+        return JsonResponse({"ok": False, "error": "conflict", "is_archived": prop.is_archived}, status=409)
+    prop.is_archived, prop.status = archived, changes["status"]
+    return JsonResponse({"ok": True, "is_archived": archived, "version": property_version(prop, "archive", fields)})
+
+
+
+def _toggle_export(request, pk, field):
+    _ensure_migrated()
+    from_card = request.POST.get("from_card") == "1"
+    if from_card and not can_use_staff_card(request.user):
+        return HttpResponseForbidden("Требуется вход сотрудника.")
+    prop = get_object_or_404(Property, pk=pk)
+    fields = (field,)
+    version = request.POST.get("version")
+    current = getattr(prop, field)
+    if ((from_card or version is not None) and not version_matches(prop, field, fields, version or "")) or not (
+        update_property(prop, fields, {field: not current})
+    ):
+        if from_card:
+            prop.refresh_from_db()
+            return _render_property_detail(request, prop, export_conflict=True, status=409)
+        prop.refresh_from_db(fields=[field])
+        return JsonResponse({"ok": False, "error": "conflict", field: getattr(prop, field)}, status=409)
+    if from_card:
+        return redirect("panel_detail", pk=pk)
+    setattr(prop, field, not current)
+    return JsonResponse({"ok": True, field: not current, "version": property_version(prop, field, fields)})
 
 
 @require_POST
 def panel_toggle_export_cian(request, pk: int):
-    _ensure_migrated()
-    prop = get_object_or_404(Property, pk=pk)
-    prop.export_to_cian = not bool(prop.export_to_cian)
-    prop.save(update_fields=["export_to_cian", "updated_at"])
-    return JsonResponse({"ok": True, "export_to_cian": prop.export_to_cian})
+    return _toggle_export(request, pk, "export_to_cian")
 
 
 @require_POST
 def panel_toggle_export_dom(request, pk: int):
-    _ensure_migrated()
-    prop = get_object_or_404(Property, pk=pk)
-    prop.export_to_domklik = not bool(prop.export_to_domklik)
-    prop.save(update_fields=["export_to_domklik", "updated_at"])
-    return JsonResponse({"ok": True, "export_to_domklik": prop.export_to_domklik})
+    return _toggle_export(request, pk, "export_to_domklik")
 
 
 @require_POST
@@ -830,7 +875,7 @@ def panel_new(request):
     op = (request.GET.get("operation") or "").strip()
     subtype = (request.GET.get("subtype") or "").strip()
     if cat:
-        form = PropertyForm(
+        form = _listing_form(request,
             initial={"category": cat, "operation": op, "subtype": subtype}
         )
         return render(request, "core/panel_edit.html", _panel_form_context(form, None, []))
@@ -860,12 +905,12 @@ def panel_create(request):
             "operation": (request.GET.get("operation") or "").strip(),
             "subtype": (request.GET.get("subtype") or "").strip(),
         }
-        form = PropertyForm(initial=initial)
+        form = _listing_form(request, initial=initial)
         return render(request, "core/panel_edit.html", _panel_form_context(form, None, []))
 
     if request.method != "POST":
         return HttpResponseNotAllowed(["GET", "POST"])
-    form = PropertyForm(request.POST, request.FILES or None)
+    form = _listing_form(request, data=request.POST)
     if form.is_valid():
         prop = form.save()
         return redirect("panel_edit", pk=prop.pk)
@@ -877,49 +922,140 @@ def panel_create(request):
     )
 
 
-@require_safe
-def panel_detail(request, pk):
-    prop = get_object_or_404(Property, pk=pk)
-    photo_urls = [url for photo in prop.photos.all() if (url := media_url(photo.src))]
+@never_cache
+def _render_property_detail(request, prop, *, active="", form=None, conflict=False, export_conflict=False, status=200):
+    staff = can_use_staff_card(request.user)
+    if not staff:
+        active = ""
+    sections = editable_sections(prop)
+    section = sections.get(active)
+    if section and form is None and not conflict:
+        form = PropertySectionForm(prop, section)
+    panels = {
+        key: {"key": key, "title": item.title, "rows": display_fields(prop, item, staff=staff),
+              "form": form if key == active else None,
+              "version": section_version(prop, item) if key == active and form is not None else "",
+              "conflict": conflict and key == active}
+        for key, item in sections.items()
+    }
+    photo_count = prop.photos.exclude(
+        Q(image__isnull=True) | Q(image=""), Q(full_url__isnull=True) | Q(full_url="")
+    ).count()
     return render(request, "core/panel_detail.html", {
         "prop": prop,
         "address": prop.address.strip(),
-        "facts": property_facts(prop),
-        "photo_urls": photo_urls,
+        "panels": panels,
+        "active": active,
+        "photo_count": photo_count,
+        "subtitle": property_subtitle(prop),
+        "staff": staff,
+        "export_conflict": export_conflict,
+        "cian_version": property_version(prop, "export_to_cian", ("export_to_cian",)) if staff else "",
+        "dom_version": property_version(prop, "export_to_domklik", ("export_to_domklik",)) if staff else "",
         "layout_url": media_url(prop.layout_photo_url),
         "description": prop.description.strip(),
         **price_history_context(prop),
-    })
+    }, status=status)
 
 
+@require_safe
+def panel_detail(request, pk):
+    prop = get_object_or_404(Property, pk=pk)
+    return _render_property_detail(request, prop, active=request.GET.get("edit", ""))
+
+
+@require_POST
+def panel_detail_section(request, pk, section_key):
+    if not can_use_staff_card(request.user):
+        return HttpResponseForbidden("Требуется вход сотрудника.")
+    prop = get_object_or_404(Property, pk=pk)
+    section = editable_sections(prop).get(section_key)
+    if not section:
+        raise Http404
+    if len(request.POST.getlist("version")) != 1:
+        return HttpResponseBadRequest("Требуется версия раздела.")
+    version = request.POST["version"]
+    submitted = set(request.POST) - {"csrfmiddlewaretoken", "version"}
+    optional = {name for name in section.fields if Property._meta.get_field(name).get_internal_type() == "BooleanField"}
+    if submitted - set(section.fields) or set(section.fields) - submitted - optional or any(
+        len(request.POST.getlist(name)) != 1 for name in submitted
+    ):
+        return HttpResponseBadRequest("Неверный набор полей раздела.")
+    form = PropertySectionForm(prop, section, request.POST)
+    if not constant_time_compare(version, section_version(prop, section)):
+        return _render_property_detail(request, prop, active=section_key, form=form, conflict=True, status=409)
+    if not form.is_valid():
+        return _render_property_detail(request, prop, active=section_key, form=form, status=422)
+    changes = form.changed_values()
+    if not save_section(prop, section, version, changes):
+        prop = get_object_or_404(Property, pk=pk)
+        return _render_property_detail(request, prop, active=section_key, form=form, conflict=True, status=409)
+    if changes:
+        messages.success(request, "Изменения сохранены.")
+    return redirect(reverse("panel_detail", args=[pk]) + f"#section-{section_key}")
+
+
+@require_safe
+def panel_property_gallery(request, pk):
+    prop = get_object_or_404(Property, pk=pk)
+    photo_urls = [url for photo in prop.photos.all() if (url := media_url(photo.src))]
+    return render(request, "core/panel_property_gallery.html", {"prop": prop, "photo_urls": photo_urls})
+
+
+def _listing_form(request, prop=None, *, data=None, initial=None):
+    return PropertyForm(data, request.FILES or None, instance=copy(prop) if prop else None, initial=initial)
+
+
+def _full_editor_changes(request, prop, form):
+    submitted = set(request.POST) & set(form.fields)
+    fields = {
+        name for name in submitted & set(form.changed_data) & set(PROPERTY_FIELDS)
+        if not same_form_text(getattr(prop, name), request.POST[name])
+    }
+    if fields & {"category", "subtype"}:
+        derived = CATEGORY_TO_SUBTYPE_FIELD.get(form.instance.category)
+        if derived in form.fields and form.cleaned_data.get(derived):
+            fields.add(derived)
+    return {name: getattr(form.instance, name) for name in fields
+            if getattr(form.instance, name) != getattr(prop, name)}
+
+
+@never_cache
 def panel_edit(request, pk):
     _ensure_migrated()
     prop = get_object_or_404(Property, pk=pk)
+    form = _listing_form(request, prop)
+    status = 200
+    differences = []
     if request.method == "POST":
-        form = PropertyForm(request.POST, request.FILES or None, instance=prop)
-        if form.is_valid():
-            form.save()
-            return redirect("panel_edit", pk=prop.pk)
-        return render(
-            request,
-            "core/panel_edit.html",
-            _panel_form_context(
-                form,
-                prop,
-                list(prop.photos.order_by("-is_default", "sort", "id")),
-            ),
-            status=200,
-        )
-    form = PropertyForm(instance=prop)
-    return render(
-        request,
-        "core/panel_edit.html",
-        _panel_form_context(
-            form,
-            prop,
-            list(prop.photos.order_by("-is_default", "sort", "id")),
-        ),
-    )
+        data = request.POST.copy()
+        for name, field in form.fields.items():
+            if name not in data:
+                value = field.prepare_value(form.initial.get(name))
+                data[name] = "" if value is None else value
+        form = _listing_form(request, prop, data=data)
+        version = request.POST.get("edit_version")
+        if (version is not None or getattr(settings, "CRM_REQUIRE_STAFF_LOGIN", False)) and not version_matches(
+            prop, "full-editor", PROPERTY_FIELDS, version or "",
+        ):
+            status = 409
+        elif form.is_valid():
+            changes = _full_editor_changes(request, prop, form)
+            if update_property(prop, PROPERTY_FIELDS, changes):
+                return redirect("panel_edit", pk=prop.pk)
+            prop.refresh_from_db()
+            status = 409
+        if status == 409:
+            current = _listing_form(request, prop)
+            differences = [(current[name].label, current[name].value())
+                           for name in form.changed_data if name in request.POST and name in current.fields]
+    context = _panel_form_context(form, prop, list(prop.photos.all()))
+    context.update({
+        "edit_version": property_version(prop, "full-editor", PROPERTY_FIELDS),
+        "edit_conflict": status == 409,
+        "current_differences": differences,
+    })
+    return render(request, "core/panel_edit.html", context, status=status)
 
 
 def panel_add_photo(request, pk):

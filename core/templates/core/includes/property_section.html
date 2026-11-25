@@ -1,0 +1,22 @@
+<section class="property-card" id="section-{{ panel.key }}" aria-labelledby="title-{{ panel.key }}">
+  <div class="property-section-heading">
+    <h2 id="title-{{ panel.key }}">{{ panel.title }}</h2>
+    {% if staff and not panel.form %}
+      <a class="property-text-action" href="?edit={{ panel.key }}#section-{{ panel.key }}"
+         aria-label="Изменить: {{ panel.title }}">Изменить</a>
+    {% endif %}
+  </div>
+  {% if panel.conflict %}
+    <p class="property-conflict" role="alert">Раздел уже изменился. Проверьте текущие значения и откройте редактирование снова.</p>
+  {% endif %}
+  {% if panel.rows and not panel.form or panel.rows and panel.conflict %}
+    <dl class="property-facts">
+      {% for label, value in panel.rows %}
+        <div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
+      {% endfor %}
+    </dl>
+  {% elif not panel.form %}
+    <p class="property-empty">{% if panel.key == "metrics" %}Характеристики не заполнены.{% else %}Сведения не заполнены.{% endif %}</p>
+  {% endif %}
+  {% if panel.form %}{% include "core/includes/property_section_form.html" %}{% endif %}
+</section>

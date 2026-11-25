@@ -10,92 +10,103 @@
 <div class="property-detail">
   <nav class="property-navigation" aria-label="Навигация по объекту">
     <a class="property-back" href="{% url 'panel_list' %}">← К списку объектов</a>
-    <a class="btn property-edit" href="{% url 'panel_edit' prop.pk %}">Редактировать объявление</a>
   </nav>
 
   <header class="property-heading">
-    <div>
-      <h1>{{ address|default:"Адрес не указан" }}</h1>
-      {% if prop.is_archived %}<span class="property-archived">В архиве</span>{% endif %}
+    <h1>{{ address|default:"Адрес не указан" }}</h1>
+    {% if subtitle %}<p class="property-subtitle">{{ subtitle }}</p>{% endif %}
+    {% if staff and active != "address" %}<a class="property-text-action" href="?edit=address#section-address">Изменить адрес</a>{% endif %}
+    <div class="property-heading-meta">
+      <div class="property-price">
+        {% if prop.price != None %}
+          <strong>{{ prop.price|price_display }}{% if prop.currency %} <small>{{ prop.get_currency_display }}</small>{% endif %}</strong>
+        {% else %}
+          <span>Цена не указана</span>
+        {% endif %}
+        {% if staff and not panels.deal.form %}
+          <a class="property-text-action" href="?edit=deal#section-deal">Изменить цену</a>
+        {% endif %}
+      </div>
+      {% if prop.is_archived %}
+        <span class="property-badge">В архиве</span>
+      {% elif prop.status %}
+        <span class="property-badge">{% if prop.status == "draft" %}Черновик{% else %}{{ prop.get_status_display }}{% endif %}</span>
+      {% endif %}
     </div>
-    <div class="property-price">
-      {% if prop.price != None %}
-        <strong>{{ prop.price|price_display }}{% if prop.currency %} <small>{{ prop.get_currency_display }}</small>{% endif %}</strong>
+    <div class="property-platforms" aria-label="Настройки выгрузки">
+      {% url 'panel_toggle_export_cian' prop.pk as cian_action %}
+      {% url 'panel_toggle_export_dom' prop.pk as dom_action %}
+      {% include "core/includes/property_platform_chip.html" with action=cian_action enabled=prop.export_to_cian version=cian_version label="ЦИАН" color="cian" staff=staff csrf_token=csrf_token only %}
+      {% include "core/includes/property_platform_chip.html" with action=dom_action enabled=prop.export_to_domklik version=dom_version label="Домклик" color="dom" staff=staff csrf_token=csrf_token only %}
+      <span class="chip off">Авито · Не подключено</span>
+    </div>
+    <small>Чипы показывают настройки выгрузки. Публикация площадкой не подтверждена.</small>
+    {% if export_conflict %}<p role="alert">Настройка уже изменилась. Показано текущее состояние.</p>{% endif %}
+    <div class="property-actions">
+      {% if photo_count %}
+        <a class="btn btn-sm property-media" href="{% url 'panel_property_gallery' prop.pk %}">Фото ({{ photo_count }})</a>
+      {% endif %}
+      {% if layout_url %}
+        <a class="btn btn-sm property-media" href="{{ layout_url }}" target="_blank" rel="noopener noreferrer"
+           aria-label="Открыть планировку в новой вкладке">Планировка</a>
       {% else %}
-        <span>Цена не указана</span>
+        <span>Планировка · Не указана</span>
       {% endif %}
     </div>
   </header>
 
+  {% if active == "deal" %}{% include "core/includes/property_section.html" with panel=panels.deal %}{% endif %}
+  {% if active == "address" %}{% include "core/includes/property_section.html" with panel=panels.address %}{% endif %}
+
   <div class="property-columns">
     <div class="property-column">
-      <section class="property-card" aria-labelledby="photos-title">
-        <h2 id="photos-title">Фотографии</h2>
-        {% if photo_urls %}
-          <div class="property-gallery">
-            {% for url in photo_urls %}
-              <a href="{{ url }}" target="_blank" rel="noopener noreferrer"
-                 aria-label="Открыть фото {{ forloop.counter }} в новой вкладке">
-                <img src="{{ url }}" alt="Фото объекта {{ forloop.counter }}"
-                     referrerpolicy="no-referrer" decoding="async"{% if not forloop.first %} loading="lazy"{% endif %}>
-              </a>
-            {% endfor %}
-          </div>
-        {% else %}
-          <p class="property-empty">Фотографии не добавлены.</p>
-        {% endif %}
-      </section>
-
-      {% if layout_url %}
-        <section class="property-card" aria-labelledby="layout-title">
-          <h2 id="layout-title">Планировка</h2>
-          <a class="property-layout" href="{{ layout_url }}" target="_blank" rel="noopener noreferrer"
-             aria-label="Открыть планировку в новой вкладке">
-            <img src="{{ layout_url }}" alt="Планировка объекта" loading="lazy" decoding="async" referrerpolicy="no-referrer">
-          </a>
+      {% if panels.metrics %}{% include "core/includes/property_section.html" with panel=panels.metrics %}{% endif %}
+      {% if panels.land %}{% include "core/includes/property_section.html" with panel=panels.land %}{% endif %}
+      {% include "core/includes/property_section.html" with panel=panels.terms %}
+    </div>
+    <div class="property-column">
+      {% if staff and prop.cadastral_number or staff and prop.flat_number %}
+        <section class="property-card">
+          <h2>Сведения об объекте</h2>
+          <dl class="property-facts">
+            {% if prop.cadastral_number %}<div><dt>Кадастровый номер</dt><dd>{{ prop.cadastral_number }}</dd></div>{% endif %}
+            {% if prop.flat_number %}<div><dt>Номер квартиры</dt><dd>{{ prop.flat_number }}</dd></div>{% endif %}
+          </dl>
         </section>
       {% endif %}
-    </div>
-
-    <div class="property-column">
-      <section class="property-card" aria-labelledby="facts-title">
-        <h2 id="facts-title">Характеристики</h2>
-        {% if facts %}
-          <dl class="property-facts">
-            {% for label, value in facts %}
-              <div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
-            {% endfor %}
-          </dl>
-        {% else %}
-          <p class="property-empty">Характеристики не заполнены.</p>
-        {% endif %}
-      </section>
-
-      <section class="property-card" aria-labelledby="feeds-title">
-        <h2 id="feeds-title">Выгрузка объявлений</h2>
+      <details class="property-card">
+        <summary>Выгрузка объявлений</summary>
         <dl class="property-feeds">
-          <div>
-            <dt>ЦИАН</dt>
-            <dd>{% include "core/includes/property_feed_status.html" with enabled=prop.export_to_cian archived=prop.is_archived only %}</dd>
-          </div>
-          <div>
-            <dt>Домклик</dt>
-            <dd>{% include "core/includes/property_feed_status.html" with enabled=prop.export_to_domklik archived=prop.is_archived only %}</dd>
-          </div>
+          <div><dt>ЦИАН</dt><dd>{% include "core/includes/property_feed_status.html" with enabled=prop.export_to_cian archived=prop.is_archived only %}</dd></div>
+          <div><dt>Домклик</dt><dd>{% include "core/includes/property_feed_status.html" with enabled=prop.export_to_domklik archived=prop.is_archived only %}</dd></div>
         </dl>
-      </section>
+      </details>
+    </div>
+  </div>
+
+  <div class="property-column property-bottom">
+      <details class="property-card" id="section-description"{% if active == "description" %} open{% endif %}>
+        <summary>Описание объявления</summary>
+        {% if panels.description.conflict %}
+          <p class="property-conflict" role="alert">Описание уже изменилось. Проверьте текущий текст и откройте редактирование снова.</p>
+        {% endif %}
+        {% if panels.description.conflict %}<p>Текущий текст: {{ description|default:"—" }}</p>{% endif %}
+        {% if panels.description.form %}
+          {% include "core/includes/property_section_form.html" with panel=panels.description %}
+        {% else %}
+          {% if description %}
+            <div class="property-description">{{ description|linebreaksbr }}</div>
+          {% else %}
+            <p class="property-empty">Описание не заполнено.</p>
+          {% endif %}
+          {% if staff %}<a class="property-text-action" href="?edit=description#section-description">Изменить описание</a>{% endif %}
+        {% endif %}
+      </details>
 
       <div class="property-card property-history">
         {% include "core/includes/price_history_details.html" %}
       </div>
-
-      {% if description %}
-        <section class="property-card" aria-labelledby="description-title">
-          <h2 id="description-title">Описание</h2>
-          <div class="property-description">{{ description|linebreaksbr }}</div>
-        </section>
-      {% endif %}
-    </div>
+      <a class="property-text-action" href="{% url 'panel_edit' prop.pk %}">Редактировать объявление</a>
   </div>
 </div>
 {% endblock %}

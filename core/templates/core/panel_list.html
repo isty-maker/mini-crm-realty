@@ -68,7 +68,9 @@
     {% for row in rows %}
       <tr
         data-id="{{ row.id }}"
+        data-price-version="{{ row.price_version }}"
         data-price-url="{% url 'panel_update_price' row.id %}"
+        data-archive-version="{{ row.archive_version }}"
         data-archive-url="{% url 'panel_toggle_archive' row.id %}"
         data-delete-url="{% url 'panel_delete' row.id %}"
         data-toggle-cian-url="{% url 'panel_toggle_export_cian' row.id %}"
@@ -81,8 +83,8 @@
         <td class="addr" title="{{ row.full_address|default:row.address }}">
           <a class="addr-link" href="{% url 'panel_detail' row.id %}">{{ row.address|default:"—" }}</a>
           <div class="addr-sub">
-            <span class="chip {{ row.export_to_cian|yesno:'on cian,off' }}" data-action="toggle-cian">CIAN</span>
-            <span class="chip {{ row.export_to_domklik|yesno:'on dom,off' }}" data-action="toggle-dom">Dom</span>
+            <span class="chip {{ row.export_to_cian|yesno:'on cian,off' }}" data-action="toggle-cian" data-version="{{ row.cian_version }}">CIAN</span>
+            <span class="chip {{ row.export_to_domklik|yesno:'on dom,off' }}" data-action="toggle-dom" data-version="{{ row.dom_version }}">Dom</span>
           </div>
         </td>
         <td class="price-cell" data-price-raw="{{ row.price_raw }}">
@@ -142,9 +144,14 @@
           },
           body: new URLSearchParams(data || {}),
         }).then((response) => {
-          if (!response.ok) {
-            throw new Error('Network response was not ok');
+          if (response.status === 409) {
+            return response.json().then(data => {
+              const error = new Error('Conflict');
+              error.conflict = data;
+              throw error;
+            });
           }
+          if (!response.ok) throw new Error('Network response was not ok');
           return response.json();
         });
       };
@@ -230,14 +237,21 @@
           if (okBtn.disabled || !input.reportValidity()) return;
           okBtn.disabled = true;
           cancelBtn.disabled = true;
-          post(url, { price: input.value || '' })
+          post(url, { price: input.value || '', version: row.dataset.priceVersion })
             .then((data) => {
               if (!data || !data.ok) {
                 throw new Error('Invalid response');
               }
+              row.dataset.priceVersion = data.version;
               updateCell(data.price || '', data.price_display || data.price_formatted || formatSpaces(data.price), data.history_html);
             })
-            .catch(() => {
+            .catch(error => {
+              if (error.conflict) {
+                cancelBtn.disabled = false;
+                alert('Цена уже изменена. Текущая цена: ' + error.conflict.current
+                      + '. Скопируйте введённое значение и обновите список.');
+                return;
+              }
               rollback();
               alert('Не удалось сохранить цену');
             });
@@ -285,16 +299,23 @@
           if (!url) {
             return;
           }
-          post(url)
+          post(url, { version: row.dataset.archiveVersion })
             .then((data) => {
               if (!data || !data.ok) {
                 throw new Error('Invalid response');
               }
+              row.dataset.archiveVersion = data.version;
               const archived = !!data.is_archived;
               row.classList.toggle('is-archived', archived);
               updateArchiveButton(archiveBtn, archived);
             })
-            .catch(() => alert('Не удалось изменить статус объекта'));
+            .catch(error => {
+              if (error.conflict) {
+                alert('Архивный статус изменился. Сейчас объект ' + (error.conflict.is_archived ? 'в архиве' : 'в списке') + '. Обновите список.');
+                return;
+              }
+              alert('Не удалось изменить статус объекта');
+            });
           return;
         }
 
@@ -333,11 +354,12 @@
           if (!url) {
             return;
           }
-          post(url)
+          post(url, { version: chip.dataset.version })
             .then((data) => {
               if (!data || !data.ok) {
                 throw new Error('Invalid response');
               }
+              chip.dataset.version = data.version;
               if (Object.prototype.hasOwnProperty.call(data, 'export_to_cian')) {
                 const cianChip = row.querySelector('.chip[data-action="toggle-cian"]');
                 if (cianChip) {
@@ -353,7 +375,14 @@
                 }
               }
             })
-            .catch(() => alert('Не удалось изменить настройки экспорта'));
+            .catch(error => {
+              if (error.conflict) {
+                const enabled = error.conflict[action === 'toggle-cian' ? 'export_to_cian' : 'export_to_domklik'];
+                alert('Настройка изменилась. Выгрузка сейчас ' + (enabled ? 'включена' : 'выключена') + '. Обновите список.');
+                return;
+              }
+              alert('Не удалось изменить настройки экспорта');
+            });
         }
       });
     })();
