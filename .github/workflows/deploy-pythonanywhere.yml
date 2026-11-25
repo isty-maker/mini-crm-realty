@@ -39,7 +39,7 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 27
+    timeout-minutes: 31
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -88,7 +88,7 @@ jobs:
           PA_USERNAME: ${{ vars.PA_USERNAME }}
           PA_CONSOLE_ID: ${{ vars.PA_CONSOLE_ID }}
           PA_TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
-          PA_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'apply' }}
+          PA_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'auto-apply' }}
           PYTHONUNBUFFERED: '1'
         run: python deploy/pa_client.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
