@@ -1,6 +1,6 @@
 from django.contrib.auth.views import LogoutView
 from django.urls import reverse_lazy
-from django.urls import path
+from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
 from core import views as core_views
@@ -8,6 +8,7 @@ from core.admin import workspace_admin
 from crm_access.views import staff_invitation
 
 urlpatterns = [
+    path("api/v1/", include("crm_api.urls")),
     path("crm/workspace-admin/", workspace_admin.urls),
     path("crm/login/", staff_invitation, name="crm_staff_login"),
     path("crm/logout/", LogoutView.as_view(next_page=reverse_lazy("crm_staff_login")), name="crm_staff_logout"),

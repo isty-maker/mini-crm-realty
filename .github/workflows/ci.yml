@@ -62,4 +62,7 @@ jobs:
           USE_SQUASHED_MIGRATIONS: 'true'
         run: |
           python manage.py makemigrations --check --dry-run --noinput
-          python manage.py test core.tests.test_private_workspace core.tests.test_staff_access -q
+          python manage.py test core.tests.test_staff_access core.tests.test_private_workspace crm_api.tests -q
+
+      - name: Synthetic passport rehearsal CLI
+        run: python scripts/rehearse_crm_passport.py --help

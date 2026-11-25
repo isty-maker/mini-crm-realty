@@ -1,0 +1,54 @@
+{
+  "create": {
+    "address": "Синтетический адрес корпуса A",
+    "cadastral_number": "00:00:0000000:7",
+    "flat_number": "Тест-7",
+    "category": "flat",
+    "operation": "sale",
+    "flat_type": "apartment",
+    "currency": "rur",
+    "total_area": "60.25"
+  },
+  "update": {
+    "listing": {
+      "price": "6350000.25",
+      "living_area": "40.10",
+      "kitchen_area": "11.20",
+      "flat_rooms_count": 3,
+      "floor_number": 5,
+      "building_floors": 9,
+      "room_type": "separate",
+      "repair_type": "cosmetic",
+      "layout_photo_url": "https://example.invalid/synthetic-public-plan.png",
+      "furnishing_details": "Синтетический перечень мебели",
+      "sale_type": "alternative"
+    },
+    "workspace": {
+      "status": {"work_status": "active", "status_reason": "Синтетическая проверка"},
+      "terms": {"occupancy": "owners", "furnishing": "part", "release_date": "2026-12-10"},
+      "legal": {"ownership": "shared", "owner_count": 2, "legal_comments": "SYNTHETIC-PRIVATE"}
+    }
+  },
+  "refresh_example": {"listing": {"flat_number": "Тест-7А", "kitchen_area": "11.25"}},
+  "bases": [
+    {"kind": "purchase", "document_date": "2020-05-12", "source": "Синтетический паспорт"},
+    {"kind": "gift", "document_date": "2021-05-13", "source": "Синтетический паспорт"}
+  ],
+  "owners": [
+    {"name": "Синтетический собственник А", "share_numerator": 1, "share_denominator": 2},
+    {"name": "Синтетический собственник Б", "share_numerator": 1, "share_denominator": 2}
+  ],
+  "files": [
+    {"file_id": "synthetic-egrn", "name": "Учебная выписка", "url": "https://example.invalid/drive/synthetic-egrn"}
+  ],
+  "documents": [
+    {"type": "egrn", "applicability": "required", "availability": "present", "verification": "checked",
+     "document_date": "2026-11-12", "checked_on": "2026-11-13", "source": "Синтетический паспорт", "file": "synthetic-egrn"},
+    {"type": "bti", "applicability": "required", "availability": "missing", "verification": "unknown"},
+    {"type": "spouse", "applicability": "unknown", "availability": "unknown", "verification": "unknown"},
+    {"type": "guardianship", "applicability": "not_needed", "availability": "unknown", "verification": "unknown"},
+    {"type": "power-of-attorney", "applicability": "required", "availability": "present", "verification": "issues",
+     "document_date": "2026-09-01", "checked_on": "2026-11-14", "comment": "Нужна дополнительная проверка"}
+  ],
+  "notes": [{"text": "Учебная заметка о сроках освобождения"}]
+}
