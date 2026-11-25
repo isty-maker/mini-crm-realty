@@ -66,13 +66,14 @@ class ClientTests(unittest.TestCase):
             "previous output\r\n(venv) 13:24 ~/repo (main) $  \x1b[0m\r\n",
             "\x1b[?2004huser@host:~$ \t",
             "previous output\rbash-5.2$ ",
+            "13:24 ~/repo (main)$ ",
         ):
             with self.subTest(prompt=prompt):
                 self.assertTrue(idle_bash(prompt))
 
     def test_rejects_busy_and_interactive_console_tails(self):
         for output in (
-            "13:24 ~ $ echo waiting", "previous command $ ", "$ ", ">>> ",
+            "13:24 ~ $ echo waiting", "13:24 waiting $ ", "previous command $ ", "$ ", ">>> ",
             "Password: ", "sqlite> ", "> ", "13:24 ~ $ \nworking...",
             "13:24 ~\x1b[2K $ ", "13:24 ~ $ \n\n",
         ):

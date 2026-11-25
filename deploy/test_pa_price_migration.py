@@ -81,7 +81,14 @@ for index, price in enumerate((100, None, 0), start=1):
                 self.assertEqual(rehearsed.execute(
                     "SELECT new_price FROM core_pricehistory ORDER BY property_id"
                 ).fetchall(), [(100,), (None,), (0,)])
-            run(*stage("verify", database))
+            check = stage("verify", database)
+            run(*check)
+            wrong_sha = run(*check[:-2], "0" * 40, "no", success=False)
+            self.assertIn("different target SHA", wrong_sha.stderr)
+            writer.execute("CREATE TABLE schema_drift_fixture (id INTEGER)")
+            drift = run(*check, success=False)
+            self.assertIn("changed since rehearsal", drift.stderr)
+            writer.execute("DROP TABLE schema_drift_fixture")
             rejected = run(*stage("apply", database), success=False)
             self.assertIn("requires explicit SHA approval", rejected.stderr)
             self.assertIsNone(writer.execute(

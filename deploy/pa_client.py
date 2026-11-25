@@ -18,10 +18,11 @@ LOG = logging.getLogger(__name__)
 # Strip display-only sequences. Cursor movement, backspace and other controls
 # remain in the line and cannot turn arbitrary output into a prompt or marker.
 TERMINAL_FORMAT = re.compile(r"\x1b\[(?:[0-9;:]*m|\?2004[hl])")
+PROMPT_DIRECTORY = r"[~/][^\s#$\x00-\x1f\x7f]*"
 BASH_PROMPT = re.compile(
-    r"(?:\([\w.-]+\) +)?"
-    r"(?:[0-9]{2}:[0-9]{2} +[^\s#$\x00-\x1f\x7f]+(?: +\([^()\x00-\x1f\x7f]+\))? +"
-    r"|[\w.-]+@[\w.-]+:[^\s#$\x00-\x1f\x7f]+ ?|bash-[0-9.]+)\$"
+    rf"(?:\([\w.-]+\) +)?"
+    rf"(?:[0-9]{{2}}:[0-9]{{2}} +{PROMPT_DIRECTORY}(?: +\([^()\x00-\x1f\x7f]+\))? *"
+    rf"|[\w.-]+@[\w.-]+:{PROMPT_DIRECTORY} *|bash-[0-9.]+)\$"
 )
 
 

@@ -74,7 +74,11 @@ fi
 printf 'Previous revision=%s\n' "$head"
 
 [[ -f .env && -O .env && $(stat -Lc %a .env) == 600 ]] || fail "Expected a private .env."
-[[ -f db.sqlite3 && ! -L db.sqlite3 ]] || fail "Expected existing local SQLite database."
+[[ -f db.sqlite3 && ! -L db.sqlite3 && -O db.sqlite3 && -r db.sqlite3 ]] ||
+    fail "Expected an owned, readable SQLite database."
+if [[ $mode != dry-run ]]; then
+    [[ -w db.sqlite3 && -w . ]] || fail "SQLite file and directory must be writable for apply."
+fi
 [[ -x $python ]] || fail "Virtualenv Python is unavailable."
 "$python" -c 'import sys; assert sys.version_info[:2] == (3, 12) and sys.prefix != sys.base_prefix'
 printf 'Fetching main and validating ancestry\n'
@@ -84,7 +88,7 @@ timeout 90 git fetch --no-tags origin refs/heads/main
 git merge-base --is-ancestor bf6164eb52efacaa8eaaff6174c6e348778db049 "$sha" ||
     fail "Target does not contain the production baseline bf6164e."
 git merge-base --is-ancestor "$head" "$sha" || fail "Deployment requires a fast-forward from production."
-protected=$(git ls-tree "$sha" -- .env db.sqlite3 media staticfiles venv)
+protected=$(git ls-tree "$sha" -- .env db.sqlite3 db.sqlite3-wal db.sqlite3-shm db.sqlite3-journal media staticfiles venv)
 [[ -z $protected ]] ||
     fail "Target tracks a protected production path."
 
@@ -145,6 +149,9 @@ status=$(git status --porcelain=v1 --untracked-files=all)
     fail "Checkout changed during preflight."
 remote_tip=$(timeout 60 git ls-remote --exit-code origin refs/heads/main)
 [[ $remote_tip == "$sha"$'\t'refs/heads/main ]] || fail "Main advanced during preflight."
+if [[ $policy == manual || $policy == price-history ]]; then
+    [[ $(migration_approval) == yes ]] || fail "Migration approval was revoked before apply."
+fi
 mv -T "$scratch/retained.sqlite3" "$retained"
 echo "Backup retained at $retained"
 printf '%s %s applying\n' "$run" "$sha" > "$state/pending.next"
