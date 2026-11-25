@@ -1,0 +1,59 @@
+.price-history-trigger {
+  border: 1px solid #bbc4d1;
+  border-radius: .3rem;
+  background: transparent;
+  color: inherit;
+  padding: 0 .35rem;
+  margin-inline-start: .2rem;
+  cursor: pointer;
+}
+.price-history-trigger:focus-visible, .price-history-details summary:focus-visible {
+  outline: 2px solid #356cb4;
+  outline-offset: 2px;
+}
+.price-history-latest {
+  display: block;
+  font-weight: normal;
+  white-space: nowrap;
+}
+.price-history-popup {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  box-sizing: border-box;
+  width: min(19rem, calc(100vw - 16px));
+  max-height: min(19rem, calc(100vh - 16px));
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #bbc4d1;
+  border-radius: .4rem;
+  background: Canvas;
+  color: CanvasText;
+  padding: .65rem;
+  box-shadow: 0 .25rem 1rem #0002;
+  cursor: default;
+  font-size: .85rem;
+  font-weight: normal;
+}
+.price-history-entries {
+  list-style: none;
+  margin: .45rem 0;
+  padding: 0;
+}
+.price-history-entries li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: .25rem .65rem;
+  padding-block: .2rem;
+}
+.price-history-origin {
+  border-top: 1px solid #bbc4d1;
+  padding-top: .4rem;
+  margin-bottom: 0;
+}
+.price-history-details { margin-top: .45rem; max-width: 32rem; }
+.price-history-details summary { cursor: pointer; }
+.price-history-chart { margin: .5rem 0; max-width: 28rem; }
+.price-history-chart svg { display: block; width: 100%; color: #295ea1; }
+.price-history-chart figcaption { font-size: .85rem; }

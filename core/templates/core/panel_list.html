@@ -1,7 +1,10 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Объекты — Мини-CRM{% endblock %}
 {% block extra_head %}
   {{ block.super }}
+  <link rel="stylesheet" href="{% static 'core/price_history.css' %}">
+  <script defer src="{% static 'core/price_history.js' %}"></script>
   <style>
     .panel-table .addr-link {
       text-decoration: underline;
@@ -82,8 +85,9 @@
             <span class="chip {{ row.export_to_domklik|yesno:'on dom,off' }}" data-action="toggle-dom">Dom</span>
           </div>
         </td>
-        <td class="price-cell" data-price-raw="{{ row.price_raw|default:'' }}">
+        <td class="price-cell" data-price-raw="{{ row.price_raw }}">
           <span class="price-text">{{ row.price_display|default:"—" }}</span>
+          {% include "core/includes/price_history_popup.html" %}
         </td>
         <td class="col-floor">{{ row.floors }}</td>
         <td class="col-actions">
@@ -183,6 +187,8 @@
         const input = document.createElement('input');
         input.type = 'number';
         input.min = '0';
+        input.step = '0.01';
+        input.setAttribute('aria-label', 'Цена');
         input.value = originalRaw;
         input.style.width = '120px';
 
@@ -209,23 +215,27 @@
           cell.classList.remove('editing');
         };
 
-        const updateCell = (raw, display) => {
+        const updateCell = (raw, display, history) => {
           const span = document.createElement('span');
           span.className = 'price-text';
           span.textContent = display || '—';
           cell.dataset.priceRaw = raw || '';
           cell.innerHTML = '';
           cell.append(span);
+          cell.insertAdjacentHTML('beforeend', history);
           cell.classList.remove('editing');
         };
 
         okBtn.addEventListener('click', () => {
+          if (okBtn.disabled || !input.reportValidity()) return;
+          okBtn.disabled = true;
+          cancelBtn.disabled = true;
           post(url, { price: input.value || '' })
             .then((data) => {
               if (!data || !data.ok) {
                 throw new Error('Invalid response');
               }
-              updateCell(data.price || '', data.price_display || data.price_formatted || formatSpaces(data.price));
+              updateCell(data.price || '', data.price_display || data.price_formatted || formatSpaces(data.price), data.history_html);
             })
             .catch(() => {
               rollback();
@@ -239,7 +249,7 @@
             event.preventDefault();
             okBtn.click();
           }
-          if (event.key === 'Escape') {
+          if (event.key === 'Escape' && !okBtn.disabled) {
             event.preventDefault();
             rollback();
           }
@@ -248,7 +258,7 @@
 
       table.querySelectorAll('td.price-cell').forEach((cell) => {
         cell.addEventListener('click', (event) => {
-          if (event.target.closest('button')) {
+          if (event.target.closest('button, .price-history-popup')) {
             return;
           }
           startPriceEdit(cell);
