@@ -17,7 +17,7 @@ def staff_invitation(request):
         if not request.is_secure() or not settings.CRM_REQUIRE_STAFF_LOGIN:
             error, status = "Вход по приглашению требует защищённого подключения и включённого входа CRM.", 403
         else:
-            user, status = consume(request.POST.get("invitation", ""))
+            user, status = consume(request.POST.get("invitation", ""), request.META.get("REMOTE_ADDR", ""))
             if user:
                 login(request, user, backend="django.contrib.auth.backends.ModelBackend")
                 request.session.set_expiry(settings.CRM_STAFF_SESSION_DAYS * 86400)

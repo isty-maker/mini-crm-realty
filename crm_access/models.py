@@ -13,3 +13,9 @@ class StaffInvitation(models.Model):
 class InvitationThrottle(models.Model):
     window = models.PositiveBigIntegerField(primary_key=True)
     attempts = models.PositiveIntegerField(default=0)
+
+
+class InvitationClientThrottle(models.Model):
+    key = models.CharField(max_length=85, primary_key=True)
+    window = models.PositiveBigIntegerField(db_index=True)
+    attempts = models.PositiveIntegerField(default=0)

@@ -38,8 +38,10 @@ SECRET_KEY = staff_signing_key or "django-insecure-local-preview-only"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
-SESSION_COOKIE_SECURE = CRM_REQUIRE_STAFF_LOGIN and not DEBUG
-CSRF_COOKIE_SECURE = CRM_REQUIRE_STAFF_LOGIN and not DEBUG
+if CRM_REQUIRE_STAFF_LOGIN and DEBUG:
+    raise ImproperlyConfigured("Disable DEBUG before enabling CRM staff login.")
+SESSION_COOKIE_SECURE = CRM_REQUIRE_STAFF_LOGIN
+CSRF_COOKIE_SECURE = CRM_REQUIRE_STAFF_LOGIN
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
